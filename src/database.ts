@@ -192,6 +192,16 @@ export class DatabaseManager {
     return stmt.all(projectId) as Session[];
   }
 
+  getRecentSessions(projectId: string, limit: number = 5): Session[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM sessions 
+      WHERE project_id = ?
+      ORDER BY started_at DESC
+      LIMIT ?
+    `);
+    return stmt.all(projectId, limit) as Session[];
+  }
+
   endSession(sessionId: string): void {
     const stmt = this.db.prepare(`
       UPDATE sessions 
@@ -199,6 +209,16 @@ export class DatabaseManager {
       WHERE id = ?
     `);
     stmt.run(new Date().toISOString(), sessionId);
+  }
+
+  reactivateSession(sessionId: string): boolean {
+    const stmt = this.db.prepare(`
+      UPDATE sessions 
+      SET status = 'active', ended_at = NULL 
+      WHERE id = ?
+    `);
+    const result = stmt.run(sessionId);
+    return result.changes > 0;
   }
 
   // Context operations

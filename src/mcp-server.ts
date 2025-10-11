@@ -85,7 +85,7 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: 'devmind-mcp',
-        version: '1.2.8',
+        version: '1.2.9',
       },
       {
         capabilities: {
@@ -1173,7 +1173,7 @@ Provide practical, actionable solutions that can be immediately applied.`;
       // 首先获取或创建项目
       const project = await this.sessionManager.getOrCreateProject(projectPath);
       
-      // 查找活跃会话
+      // 1. 优先查找活跃会话
       const activeSessions = this.db.getActiveSessions(project.id);
       
       // 如果有活跃的MCP自动会话，直接使用
@@ -1187,8 +1187,32 @@ Provide practical, actionable solutions that can be immediately applied.`;
         return activeSessions[0].id;
       }
       
+      // 2. 如果没有活跃会话，尝试重新激活最近的会话
+      const recentSessions = this.db.getRecentSessions(project.id, 3);
+      if (recentSessions.length > 0) {
+        // 寻找最近的、有意义的会话（有上下文记录的）
+        for (const session of recentSessions) {
+          const contexts = this.db.getContextsBySession(session.id, 1);
+          if (contexts.length > 0) {
+            // 重新激活这个会话
+            console.log(`[DevMind] Reactivating recent session: ${session.id} (${session.name})`);
+            if (this.db.reactivateSession(session.id)) {
+              return session.id;
+            }
+          }
+        }
+        
+        // 如果没有找到有内容的会话，重新激活最近的一个
+        const latestSession = recentSessions[0];
+        console.log(`[DevMind] Reactivating latest session: ${latestSession.id} (${latestSession.name})`);
+        if (this.db.reactivateSession(latestSession.id)) {
+          return latestSession.id;
+        }
+      }
+      
       return null;
     } catch (error) {
+      console.error('[DevMind] Error in findOrCreateActiveSession:', error);
       return null;
     }
   }
