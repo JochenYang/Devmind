@@ -33,6 +33,7 @@ export class AiMemoryMcpServer {
   private contentExtractor: ContentExtractor;
   private vectorSearch: VectorSearchEngine | null = null;
   private config: AiMemoryConfig;
+  private autoMonitoringInitialized: boolean = false;
 
   constructor(config: AiMemoryConfig = {}) {
     this.config = {
@@ -84,7 +85,7 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: 'devmind-mcp',
-        version: '1.2.6',
+        version: '1.2.8',
       },
       {
         capabilities: {
@@ -96,9 +97,6 @@ export class AiMemoryMcpServer {
     );
 
     this.setupHandlers();
-    
-    // 延迟启动自动监控，不阻塞MCP握手
-    this.scheduleAutoMonitoring();
   }
 
   private initializeDatabase(): void {
@@ -330,6 +328,9 @@ export class AiMemoryMcpServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
+      
+      // 懒加载自动监听初始化 - 在第一次工具调用时触发
+      await this.ensureAutoMonitoring();
 
       switch (name) {
         case 'create_session':
@@ -1074,7 +1075,21 @@ Provide practical, actionable solutions that can be immediately applied.`;
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
   }
+  
 
+  /**
+   * 懒加载自动监控初始化 - 只在第一次需要时初始化
+   */
+  private async ensureAutoMonitoring(): Promise<void> {
+    if (!this.autoMonitoringInitialized) {
+      this.autoMonitoringInitialized = true;
+      // 延迟启动，不阻塞当前工具调用
+      setTimeout(async () => {
+        await this.startAutoMonitoring();
+      }, 100); // 100ms后启动，快速响应
+    }
+  }
+  
   private scheduleAutoMonitoring(): void {
     // 延迟启动自动监控，确保不阻塞MCP服务器启动
     setTimeout(async () => {
@@ -1490,7 +1505,10 @@ Happy coding! 🚀`;
   }
 
   async close(): Promise<void> {
-    this.db.close();
-    await this.server.close();
+    if (this.db) {
+      this.db.close();
+    }
+    // MCP Server close method doesn't exist, so we skip it
+    // await this.server.close();
   }
 }
