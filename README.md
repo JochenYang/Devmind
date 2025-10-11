@@ -82,10 +82,10 @@ DevMind MCP provides persistent memory capabilities for AI assistants through Mo
 ### 1. Installation
 
 ```bash
-# 从NPM安装（推荐）
+# Install from NPM (Recommended)
 npm install -g devmind-mcp
 
-# 或者克隆仓库
+# Or clone the repository
 git clone https://github.com/JochenYang/Devmind.git
 cd Devmind
 npm install

@@ -1142,6 +1142,9 @@ Provide practical, actionable solutions that can be immediately applied.`;
       }
       
       if (sessionId) {
+        // 为新项目创建初始欢迎记忆内容
+        await this.createInitialProjectContext(sessionId, projectPath);
+        
         // 启动文件监控
         this.startFileWatcher(projectPath, sessionId);
       }
@@ -1234,6 +1237,59 @@ Provide practical, actionable solutions that can be immediately applied.`;
       });
     } catch (error) {
       // 静默失败
+    }
+  }
+  
+  private async createInitialProjectContext(sessionId: string, projectPath: string): Promise<void> {
+    try {
+      // 检查是否已有上下文记录
+      const existingContexts = this.db.getContextsBySession(sessionId, 1);
+      if (existingContexts.length > 0) {
+        return; // 已有记录，无需创建初始内容
+      }
+      
+      // 获取项目信息
+      const projectName = require('path').basename(projectPath);
+      const project = await this.sessionManager.getOrCreateProject(projectPath);
+      
+      const welcomeContent = `# DevMind Memory Initialized
+
+Welcome to **${projectName}** development session!
+
+## Project Details
+- **Path**: ${projectPath}
+- **Language**: ${project?.language || 'Auto-detected'}
+- **Framework**: ${project?.framework || 'N/A'}
+- **Session Started**: ${new Date().toLocaleString()}
+
+## What's Being Monitored
+✅ File changes (*.js, *.ts, *.py, *.go, *.rs, *.java, *.kt, etc.)
+✅ Configuration files (package.json, *.md)
+✅ Auto-recording enabled for development activities
+
+## Available Tools
+- **semantic_search**: Find related contexts and solutions
+- **record_context**: Manually save important insights
+- **list_contexts**: View all recorded memories
+- **extract_file_context**: Analyze specific files
+
+💡 **Tip**: I'll automatically track your file changes. Use manual recording for decisions, solutions, and important insights!
+
+Happy coding! 🚀`;
+      
+      await this.handleRecordContext({
+        session_id: sessionId,
+        type: ContextType.DOCUMENTATION,
+        content: welcomeContent,
+        tags: ['initialization', 'welcome', 'project-info', 'auto-generated'],
+        metadata: {
+          created_by: 'devmind-auto',
+          is_initial: true,
+          project_name: projectName
+        }
+      });
+    } catch (error) {
+      // 静默失败，不影响项目监控启动
     }
   }
 
