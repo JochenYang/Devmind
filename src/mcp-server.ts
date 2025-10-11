@@ -14,6 +14,7 @@ import { DatabaseManager } from './database.js';
 import { SessionManager } from './session-manager.js';
 import { ContentExtractor } from './content-extractor.js';
 import { VectorSearchEngine } from './vector-search.js';
+import { AutoRecordFilter } from './auto-record-filter.js';
 import { 
   AiMemoryConfig, 
   ContextSearchParams, 
@@ -34,6 +35,8 @@ export class AiMemoryMcpServer {
   private vectorSearch: VectorSearchEngine | null = null;
   private config: AiMemoryConfig;
   private autoMonitoringInitialized: boolean = false;
+  private autoRecordFilter: AutoRecordFilter;
+  private fileWatcher: any = null;
   
   // 真实日期记录函数
   private getCurrentRealDate(): string {
@@ -93,7 +96,15 @@ export class AiMemoryMcpServer {
     this.db = new DatabaseManager(this.config.database_path!);
     this.sessionManager = new SessionManager(this.db, this.config);
     this.contentExtractor = new ContentExtractor();
-    
+
+    // 初始化自动记录过滤器
+    this.autoRecordFilter = new AutoRecordFilter({
+      minChangeInterval: 30000,  // 30秒
+      minContentLength: 50,
+      maxContentLength: 50000,  // 50KB
+      supportedExtensions: this.config.included_extensions
+    });
+
     // 初始化向量搜索引擎
     if (this.config.vector_search?.enabled) {
       this.vectorSearch = new VectorSearchEngine({
@@ -351,9 +362,6 @@ export class AiMemoryMcpServer {
 
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
-      
-      // 懒加载自动监听初始化 - 在第一次工具调用时触发
-      await this.ensureAutoMonitoring();
 
       switch (name) {
         case 'create_session':
@@ -1097,28 +1105,18 @@ Provide practical, actionable solutions that can be immediately applied.`;
   async start(): Promise<void> {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-  }
-  
 
-  /**
-   * 懒加载自动监控初始化 - 只在第一次需要时初始化
-   */
-  private async ensureAutoMonitoring(): Promise<void> {
-    if (!this.autoMonitoringInitialized) {
-      this.autoMonitoringInitialized = true;
-      // 延迟启动，不阻塞当前工具调用
-      setTimeout(async () => {
-        await this.startAutoMonitoring();
-      }, 100); // 100ms后启动，快速响应
+    // ✅ 立即启动自动监控，不等待工具调用
+    try {
+      await this.startAutoMonitoring();
+      console.error('[DevMind] Auto-monitoring initialized successfully');
+    } catch (error) {
+      console.error('[DevMind] Failed to initialize auto-monitoring:', error);
+      // 不抛出错误，确保MCP服务器正常启动
     }
   }
   
-  private scheduleAutoMonitoring(): void {
-    // 延迟启动自动监控，确保不阻塞MCP服务器启动
-    setTimeout(async () => {
-      await this.startAutoMonitoring();
-    }, 1000); // 1秒后启动
-  }
+
 
   private async startAutoMonitoring(): Promise<void> {
     // 改进的工作目录检测 - 优先使用环境变量
@@ -1217,17 +1215,17 @@ Provide practical, actionable solutions that can be immediately applied.`;
   }
   
   private startFileWatcher(projectPath: string, sessionId: string): void {
-    // 简化的文件监控器
+    // 智能文件监控器
     const patterns = [
       '**/*.{js,ts,jsx,tsx,py,go,rs,java,kt}',
       '**/package.json',
       '**/*.md'
     ];
-    
+
     try {
       const { watch } = require('chokidar');
-      
-      const watcher = watch(patterns, {
+
+      this.fileWatcher = watch(patterns, {
         cwd: projectPath,
         ignored: [
           '**/node_modules/**',
@@ -1236,46 +1234,140 @@ Provide practical, actionable solutions that can be immediately applied.`;
           '**/.git/**',
           '**/*.log'
         ],
-        persistent: false, // 不阻止进程退出
-        ignoreInitial: true
+        persistent: true, // 持续监控，不阻止进程退出
+        ignoreInitial: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 2000, // 文件写入稳定后2秒再触发
+          pollInterval: 100
+        }
       });
-      
-      watcher
+
+      this.fileWatcher
         .on('change', (filePath: string) => {
           this.handleAutoFileChange(sessionId, 'change', filePath, projectPath);
         })
         .on('add', (filePath: string) => {
           this.handleAutoFileChange(sessionId, 'add', filePath, projectPath);
         });
-        
+
     } catch (error) {
       // chokidar不可用，静默失败
+      console.error('[DevMind] File watcher initialization failed:', error);
     }
   }
   
   private async handleAutoFileChange(sessionId: string, action: string, filePath: string, projectPath: string): Promise<void> {
     try {
       const fullPath = join(projectPath, filePath);
-      let content = '';
-      
-      if (existsSync(fullPath)) {
-        const fileContent = readFileSync(fullPath, 'utf8');
-        // 限制内容长度
-        content = fileContent.length > 2000 
-          ? fileContent.substring(0, 2000) + '\n... (truncated)'
-          : fileContent;
+
+      if (!existsSync(fullPath)) {
+        return; // 文件不存在，跳过
       }
-      
+
+      const fileContent = readFileSync(fullPath, 'utf8');
+
+      // ✅ 智能过滤检查
+      if (!this.autoRecordFilter.shouldRecord(filePath, fileContent)) {
+        return; // 未通过智能过滤，跳过记录
+      }
+
+      // 使用 ContentExtractor 分析内容
+      const extractedContext = this.contentExtractor.extractCodeContext(
+        fileContent,
+        filePath
+      );
+
+      // 智能判断上下文类型
+      const contextType = this.determineContextType(filePath, action, extractedContext);
+
+      // 提取语义化标签
+      const semanticTags = this.extractSemanticTags(filePath, extractedContext);
+
+      // 生成智能摘要
+      const summary = this.generateSmartSummary(filePath, action, fileContent);
+
+      // 记录上下文
       await this.handleRecordContext({
         session_id: sessionId,
-        type: ContextType.CODE,
-        content: `[AUTO-${action.toUpperCase()}] ${filePath}\n\n${content}`,
+        type: contextType,
+        content: `${summary}\n\n\`\`\`${extractedContext.language}\n${fileContent}\n\`\`\``,
         file_path: filePath,
-        tags: ['auto', action, filePath.split('.').pop() || 'unknown']
+        language: extractedContext.language,
+        tags: [...semanticTags, 'auto', action],
+        metadata: {
+          auto_recorded: true,
+          action: action,
+          file_size: fileContent.length,
+          quality_score: extractedContext.quality_score,
+          timestamp: new Date().toISOString()
+        }
       });
     } catch (error) {
-      // 静默失败
+      // 静默失败，但记录错误
+      console.error('[DevMind] Auto-record failed for', filePath, ':', error);
     }
+  }
+
+  /**
+   * 智能判断上下文类型
+   */
+  private determineContextType(filePath: string, action: string, extractedContext: any): ContextType {
+    // 配置文件
+    if (filePath.includes('package.json') || filePath.includes('tsconfig') ||
+        filePath.includes('config') || filePath.endsWith('.env.example')) {
+      return ContextType.CONFIGURATION;
+    }
+
+    // 文档文件
+    if (filePath.endsWith('.md') || filePath.includes('README') || filePath.includes('doc')) {
+      return ContextType.DOCUMENTATION;
+    }
+
+    // 测试文件
+    if (filePath.includes('.test.') || filePath.includes('.spec.') || filePath.includes('/__tests__/')) {
+      return ContextType.TEST;
+    }
+
+    // 默认为代码类型
+    return ContextType.CODE;
+  }
+
+  /**
+   * 提取语义化标签
+   */
+  private extractSemanticTags(filePath: string, extractedContext: any): string[] {
+    const tags: string[] = [];
+
+    // 文件扩展名
+    const ext = filePath.split('.').pop() || 'unknown';
+    tags.push(ext);
+
+    // 文件路径特征
+    if (filePath.includes('/api/')) tags.push('api');
+    if (filePath.includes('/components/')) tags.push('component');
+    if (filePath.includes('/utils/') || filePath.includes('/helpers/')) tags.push('utility');
+    if (filePath.includes('/models/') || filePath.includes('/schema/')) tags.push('data-model');
+    if (filePath.includes('/services/')) tags.push('service');
+    if (filePath.includes('/hooks/')) tags.push('hooks');
+
+    // 从 extractedContext 提取的标签
+    if (extractedContext.tags && Array.isArray(extractedContext.tags)) {
+      tags.push(...extractedContext.tags);
+    }
+
+    return [...new Set(tags)]; // 去重
+  }
+
+  /**
+   * 生成智能摘要
+   */
+  private generateSmartSummary(filePath: string, action: string, content: string): string {
+    const fileName = filePath.split('/').pop() || filePath;
+    const actionText = action === 'change' ? '修改' : '新增';
+    const lines = content.split('\n').length;
+    const chars = content.length;
+
+    return `[自动记录] ${actionText}文件: ${fileName} (${lines}行, ${chars}字符)`;
   }
   
   private async createInitialProjectContext(sessionId: string, projectPath: string): Promise<void> {
@@ -1528,9 +1620,26 @@ Happy coding! 🚀`;
   }
 
   async close(): Promise<void> {
+    // 关闭文件监控器
+    if (this.fileWatcher) {
+      try {
+        await this.fileWatcher.close();
+        console.error('[DevMind] File watcher closed successfully');
+      } catch (error) {
+        console.error('[DevMind] Error closing file watcher:', error);
+      }
+    }
+
+    // 清理自动记录过滤器缓存
+    if (this.autoRecordFilter) {
+      this.autoRecordFilter.reset();
+    }
+
+    // 关闭数据库连接
     if (this.db) {
       this.db.close();
     }
+
     // MCP Server close method doesn't exist, so we skip it
     // await this.server.close();
   }
