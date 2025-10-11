@@ -1,0 +1,42 @@
+# Development files
+src/
+.project-docs/
+test-demo.js
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Build tools
+tsconfig.json
+.gitignore
+.git/
+
+# Development dependencies
+node_modules/
+.vscode/
+.idea/
+
+# Documentation (except main README)
+docs/
+
+# Example configurations
+.devmind.example.json
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Exclude test files from dist
+dist/test-*.js
+dist/test-*.d.ts
+dist/test-*.js.map
+dist/test-*.d.ts.map
+
+# Only include essential files for distribution
+!dist/
+!LICENSE
+!README.md
+!package.json

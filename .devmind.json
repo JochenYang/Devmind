@@ -1,0 +1,33 @@
+{
+  "database_path": "C:\\Users\\Administrator\\.devmind\\memory.db",
+  "max_contexts_per_session": 1000,
+  "quality_threshold": 0.3,
+  "ignored_patterns": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**",
+    "*.log",
+    "*.tmp"
+  ],
+  "included_extensions": [
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".py",
+    ".go",
+    ".rs",
+    ".java",
+    ".kt",
+    ".php",
+    ".rb",
+    ".c",
+    ".cpp",
+    ".cs",
+    ".swift",
+    ".dart",
+    ".md",
+    ".txt"
+  ]
+}

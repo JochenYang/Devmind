@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "devmind": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "devmind-mcp@latest"
+      ]
+    }
+  }
+}
