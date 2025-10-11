@@ -34,6 +34,29 @@ export class AiMemoryMcpServer {
   private vectorSearch: VectorSearchEngine | null = null;
   private config: AiMemoryConfig;
   private autoMonitoringInitialized: boolean = false;
+  
+  // 真实日期记录函数
+  private getCurrentRealDate(): string {
+    return new Date().toISOString();
+  }
+  
+  private formatDateForUser(date?: Date): string {
+    const targetDate = date || new Date();
+    return targetDate.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit', 
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'Asia/Shanghai'
+    });
+  }
+  
+  private formatDateForRecord(date?: Date): string {
+    const targetDate = date || new Date();
+    return targetDate.toISOString().split('T')[0]; // YYYY-MM-DD 格式
+  }
 
   constructor(config: AiMemoryConfig = {}) {
     this.config = {
@@ -85,7 +108,7 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: 'devmind-mcp',
-        version: '1.2.9',
+        version: '1.3.0',
       },
       {
         capabilities: {
@@ -1140,15 +1163,16 @@ Provide practical, actionable solutions that can be immediately applied.`;
   
   private async setupProjectMonitoring(projectPath: string): Promise<void> {
     try {
-      // 检查是否已有活跃会话
-      let sessionId = await this.findOrCreateActiveSession(projectPath);
+      // 获取项目主会话
+      let sessionId = await this.getProjectSession(projectPath);
       
       if (!sessionId) {
-        // 创建新会话
+        // 只有在项目第一次使用时才创建主会话
+        const projectName = require('path').basename(projectPath);
         const sessionResult = await this.handleCreateSession({
           project_path: projectPath,
-          tool_used: 'mcp-auto',
-          name: `DevMind Auto - ${new Date().toLocaleDateString()}`
+          tool_used: 'devmind-auto',
+          name: `${projectName} - DevMind`
         });
         
         if (!sessionResult.isError && sessionResult._meta?.session_id) {
@@ -1168,51 +1192,26 @@ Provide practical, actionable solutions that can be immediately applied.`;
     }
   }
   
-  private async findOrCreateActiveSession(projectPath: string): Promise<string | null> {
+  private async getProjectSession(projectPath: string): Promise<string | null> {
     try {
-      // 首先获取或创建项目
+      // 获取或创建项目
       const project = await this.sessionManager.getOrCreateProject(projectPath);
       
-      // 1. 优先查找活跃会话
-      const activeSessions = this.db.getActiveSessions(project.id);
+      // 查找项目主会话（最早的会话）
+      let mainSession = this.db.getProjectMainSession(project.id);
       
-      // 如果有活跃的MCP自动会话，直接使用
-      const autoSession = activeSessions.find(s => s.tool_used === 'mcp-auto');
-      if (autoSession) {
-        return autoSession.id;
-      }
-      
-      // 如果没有自动会话，但有其他活跃会话，也可以使用
-      if (activeSessions.length > 0) {
-        return activeSessions[0].id;
-      }
-      
-      // 2. 如果没有活跃会话，尝试重新激活最近的会话
-      const recentSessions = this.db.getRecentSessions(project.id, 3);
-      if (recentSessions.length > 0) {
-        // 寻找最近的、有意义的会话（有上下文记录的）
-        for (const session of recentSessions) {
-          const contexts = this.db.getContextsBySession(session.id, 1);
-          if (contexts.length > 0) {
-            // 重新激活这个会话
-            console.log(`[DevMind] Reactivating recent session: ${session.id} (${session.name})`);
-            if (this.db.reactivateSession(session.id)) {
-              return session.id;
-            }
-          }
+      if (mainSession) {
+        // 确保主会话是活跃的
+        if (mainSession.status !== 'active') {
+          this.db.reactivateSession(mainSession.id);
         }
-        
-        // 如果没有找到有内容的会话，重新激活最近的一个
-        const latestSession = recentSessions[0];
-        console.log(`[DevMind] Reactivating latest session: ${latestSession.id} (${latestSession.name})`);
-        if (this.db.reactivateSession(latestSession.id)) {
-          return latestSession.id;
-        }
+        return mainSession.id;
       }
       
+      // 如果没有主会话，返回null让系统创建一个
       return null;
     } catch (error) {
-      console.error('[DevMind] Error in findOrCreateActiveSession:', error);
+      console.error('[DevMind] Error in getProjectSession:', error);
       return null;
     }
   }
@@ -1299,7 +1298,7 @@ Welcome to **${projectName}** development session!
 - **Path**: ${projectPath}
 - **Language**: ${project?.language || 'Auto-detected'}
 - **Framework**: ${project?.framework || 'N/A'}
-- **Session Started**: ${new Date().toLocaleString()}
+- **Session Started**: ${this.formatDateForUser()}
 
 ## What's Being Monitored
 ✅ File changes (*.js, *.ts, *.py, *.go, *.rs, *.java, *.kt, etc.)

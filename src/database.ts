@@ -192,15 +192,6 @@ export class DatabaseManager {
     return stmt.all(projectId) as Session[];
   }
 
-  getRecentSessions(projectId: string, limit: number = 5): Session[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM sessions 
-      WHERE project_id = ?
-      ORDER BY started_at DESC
-      LIMIT ?
-    `);
-    return stmt.all(projectId, limit) as Session[];
-  }
 
   endSession(sessionId: string): void {
     const stmt = this.db.prepare(`
@@ -219,6 +210,17 @@ export class DatabaseManager {
     `);
     const result = stmt.run(sessionId);
     return result.changes > 0;
+  }
+
+  getProjectMainSession(projectId: string): Session | null {
+    // 查找项目的最早会话作为主会话
+    const stmt = this.db.prepare(`
+      SELECT * FROM sessions 
+      WHERE project_id = ?
+      ORDER BY started_at ASC
+      LIMIT 1
+    `);
+    return stmt.get(projectId) as Session | null;
   }
 
   // Context operations
