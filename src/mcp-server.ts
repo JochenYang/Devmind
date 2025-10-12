@@ -120,7 +120,7 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: 'devmind-mcp',
-        version: '1.3.0',
+        version: '1.5.0',
       },
       {
         capabilities: {
@@ -387,6 +387,81 @@ export class AiMemoryMcpServer {
             required: ['project_path'],
           },
         },
+        {
+          name: 'generate_project_doc',
+          description: 'Generate comprehensive project documentation similar to Claude Code /init. Automatically uses or creates the project\'s main session if session_id is not provided.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_path: { type: 'string', description: 'Path to project root directory' },
+              session_id: { type: 'string', description: 'Optional: Session ID to store the documentation (auto-creates if not provided)' },
+              format: { type: 'string', enum: ['markdown', 'json'], description: 'Output format (default: markdown)' },
+              auto_update: { type: 'boolean', description: 'Enable automatic incremental updates (default: false)' },
+            },
+            required: ['project_path'],  // 只有 project_path 是必需的
+          },
+        },
+        {
+          name: 'query_project_memory',
+          description: 'Query project memory with advanced capabilities',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_path: { type: 'string', description: 'Path to project' },
+              query_type: {
+                type: 'string',
+                enum: ['time_point', 'diff', 'evolution', 'question', 'related', 'summary'],
+                description: 'Type of query to perform'
+              },
+              options: {
+                type: 'object',
+                description: 'Query-specific options',
+                properties: {
+                  timePoint: { type: 'string', description: 'Time point for TIME_POINT query' },
+                  fromTime: { type: 'string', description: 'Start time for DIFF query' },
+                  toTime: { type: 'string', description: 'End time for DIFF query' },
+                  question: { type: 'string', description: 'Question for QUESTION query' },
+                  contextId: { type: 'string', description: 'Context ID for RELATED query' },
+                  limit: { type: 'number', description: 'Result limit' },
+                }
+              },
+            },
+            required: ['project_path', 'query_type'],
+          },
+        },
+        {
+          name: 'get_project_context',
+          description: 'Get intelligent project context awareness and suggestions',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_path: { type: 'string', description: 'Path to project' },
+              include_suggestions: { type: 'boolean', description: 'Include smart suggestions (default: true)' },
+              assess_maturity: { type: 'boolean', description: 'Include maturity assessment (default: false)' },
+            },
+            required: ['project_path'],
+          },
+        },
+        {
+          name: 'optimize_project_memory',
+          description: 'Optimize project memory storage and performance',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_id: { type: 'string', description: 'Project ID to optimize' },
+              strategies: {
+                type: 'array',
+                items: {
+                  type: 'string',
+                  enum: ['clustering', 'compression', 'deduplication', 'summarization', 'ranking', 'archiving']
+                },
+                description: 'Optimization strategies to apply (default: all)'
+              },
+              dry_run: { type: 'boolean', description: 'Preview optimization without applying (default: false)' },
+            },
+            required: ['project_id'],
+          },
+        },
       ],
     }));
 
@@ -452,6 +527,30 @@ export class AiMemoryMcpServer {
             project_path: string;
             include_dependencies?: boolean;
             include_metrics?: boolean;
+          });
+        case 'generate_project_doc':
+          return await this.handleGenerateProjectDoc(args as {
+            project_path: string;
+            session_id: string;
+            format?: 'markdown' | 'json';
+          });
+        case 'query_project_memory':
+          return await this.handleQueryProjectMemory(args as {
+            project_path: string;
+            query_type: string;
+            options?: any;
+          });
+        case 'get_project_context':
+          return await this.handleGetProjectContext(args as {
+            project_path: string;
+            include_suggestions?: boolean;
+            assess_maturity?: boolean;
+          });
+        case 'optimize_project_memory':
+          return await this.handleOptimizeProjectMemory(args as {
+            project_id: string;
+            strategies?: string[];
+            dry_run?: boolean;
           });
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
@@ -1213,8 +1312,8 @@ Provide practical, actionable solutions that can be immediately applied.`;
         const projectName = require('path').basename(projectPath);
         const sessionResult = await this.handleCreateSession({
           project_path: projectPath,
-          tool_used: 'devmind-auto',
-          name: `${projectName} - DevMind`
+          tool_used: 'devmind',
+          name: `${projectName} - Main Session`
         });
         
         if (!sessionResult.isError && sessionResult._meta?.session_id) {
@@ -1843,6 +1942,350 @@ ${structure.gitInfo?.currentBranch ? `- Branch: ${structure.gitInfo.currentBranc
         content: [{
           type: 'text',
           text: `Failed to analyze project: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async handleGenerateProjectDoc(args: {
+    project_path: string;
+    session_id?: string;  // 改为可选
+    format?: 'markdown' | 'json';
+    auto_update?: boolean;  // 是否自动更新（增量）
+  }) {
+    try {
+      // 获取或创建项目
+      const project = await this.sessionManager.getOrCreateProject(args.project_path);
+
+      // 获取或创建项目的主session
+      let sessionId = args.session_id;
+
+      if (!sessionId) {
+        // 如果没有提供session_id，自动获取或创建项目的主session
+        // 查找项目主会话
+        let mainSession = this.db.getProjectMainSession(project.id);
+
+        if (!mainSession) {
+          // 为项目创建唯一的主会话
+          const projectName = require('path').basename(args.project_path);
+          const sessionResult = await this.handleCreateSession({
+            project_path: args.project_path,
+            tool_used: 'devmind',
+            name: `${projectName} - Main Session`
+          });
+
+          if (!sessionResult.isError && sessionResult._meta?.session_id) {
+            sessionId = sessionResult._meta.session_id;
+          }
+        } else {
+          sessionId = mainSession.id;
+          // 确保主会话是活跃的
+          if (mainSession.status !== 'active') {
+            this.db.reactivateSession(mainSession.id);
+          }
+        }
+      }
+
+      if (!sessionId) {
+        throw new Error('Failed to get or create session for project documentation');
+      }
+
+      // 检查是否已存在项目文档（用于增量更新）
+      const existingDocs = this.db.searchContexts('project-init', project.id, 1);
+      const hasExistingDoc = existingDocs.length > 0;
+
+      // 导入生成器
+      const { ProjectInitDocGenerator } = await import('./project-indexer/core/ProjectInitDocGenerator.js');
+
+      // 创建生成器实例
+      const generator = new ProjectInitDocGenerator();
+
+      // 生成项目文档
+      const doc = await generator.generateInitDoc(args.project_path);
+
+      // 将文档保存到数据库（包括JSON和Markdown两种格式）
+      const contextId = await generator.saveToDatabase(doc, sessionId, this.db);
+
+      // 格式化输出给用户
+      const content = args.format === 'json'
+        ? JSON.stringify(doc, null, 2)
+        : generator.formatAsMarkdown(doc);
+
+      return {
+        content: [{
+          type: 'text',
+          text: `✅ Successfully generated and saved project documentation!\n\n` +
+                `**Project**: ${doc.projectName}\n` +
+                `**Type**: ${doc.overview.type}\n` +
+                `**Language**: ${doc.overview.language}\n` +
+                `**Health Score**: ${doc.healthCheck.score}/100\n` +
+                `**Total Files**: ${doc.structure.totalFiles}\n\n` +
+                `📝 Documentation has been saved to database:\n` +
+                `- JSON format context ID: ${contextId}\n` +
+                `- Markdown format also saved\n` +
+                `- Session ID: ${sessionId} ${!args.session_id ? '(auto-selected main session)' : ''}\n` +
+                `- Status: ${hasExistingDoc ? 'Updated existing documentation' : 'Created new documentation'}\n\n` +
+                `You can now query this documentation using semantic_search or retrieve it from the database.`
+        }],
+        isError: false,
+        _meta: {
+          doc_summary: {
+            projectName: doc.projectName,
+            overview: doc.overview,
+            healthScore: doc.healthCheck.score,
+            totalFiles: doc.structure.totalFiles
+          },
+          context_id: contextId,
+          format: args.format || 'markdown',
+          saved_to_db: true
+        }
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to generate project documentation: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async handleQueryProjectMemory(args: {
+    project_path: string;
+    query_type: string;
+    options?: any;
+  }) {
+    try {
+      // 导入查询引擎
+      const { ProjectMemoryQueryEngine, QueryType } = await import('./project-indexer/core/ProjectMemoryQueryEngine.js');
+
+      // 创建查询引擎实例
+      const queryEngine = new ProjectMemoryQueryEngine(this.db, this.vectorSearch!);
+
+      // 构建查询选项
+      const queryOptions = {
+        type: args.query_type as any, // Will be validated by QueryEngine
+        ...args.options
+      };
+
+      // 执行查询
+      const result = await queryEngine.query(args.project_path, queryOptions);
+
+      // 格式化结果
+      const formattedResults = result.results.map(r =>
+        `**${r.title}** (Relevance: ${(r.relevance * 100).toFixed(0)}%)\n${r.content}`
+      ).join('\n\n---\n\n');
+
+      return {
+        content: [{
+          type: 'text',
+          text: `Query Results (${result.type}):\n\n` +
+                `Found ${result.metadata.totalFound} items, showing ${result.metadata.returnedCount}\n` +
+                `Confidence: ${(result.metadata.confidence * 100).toFixed(0)}%\n\n` +
+                formattedResults
+        }],
+        isError: false,
+        _meta: {
+          query_result: result,
+          processing_time: result.metadata.processingTime
+        }
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to query project memory: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async handleGetProjectContext(args: {
+    project_path: string;
+    include_suggestions?: boolean;
+    assess_maturity?: boolean;
+  }) {
+    try {
+      // 导入上下文提供器
+      const { ProjectContextProvider } = await import('./project-indexer/core/ProjectContextProvider.js');
+
+      // 创建提供器实例
+      const provider = new ProjectContextProvider(this.db);
+
+      // 获取项目上下文
+      const context = await provider.getProjectContext(args.project_path);
+
+      // 获取智能建议（如果需要）
+      const suggestions = args.include_suggestions !== false
+        ? await provider.getSmartSuggestions(args.project_path)
+        : [];
+
+      // 评估成熟度（如果需要）
+      const maturity = args.assess_maturity
+        ? await provider.assessMaturity(args.project_path)
+        : null;
+
+      // 格式化输出
+      let output = `# Project Context: ${context.projectName}\n\n`;
+      output += `## Current Phase: ${context.currentPhase} (${(context.phaseConfidence * 100).toFixed(0)}% confidence)\n\n`;
+
+      output += `## Tech Stack\n`;
+      output += `- Primary: ${context.techStack.primary}\n`;
+      output += `- Frameworks: ${context.techStack.frameworks.join(', ') || 'None'}\n`;
+      output += `- Databases: ${context.techStack.databases?.join(', ') || 'None'}\n\n`;
+
+      output += `## Project Health: ${context.health.score}/100\n`;
+      if (context.health.strengths.length > 0) {
+        output += `### Strengths\n${context.health.strengths.map(s => `- ✅ ${s}`).join('\n')}\n\n`;
+      }
+      if (context.health.issues.length > 0) {
+        output += `### Issues\n${context.health.issues.map(i => `- ⚠️ ${i}`).join('\n')}\n\n`;
+      }
+
+      if (suggestions.length > 0) {
+        output += `## Smart Suggestions\n`;
+        suggestions.slice(0, 5).forEach(s => {
+          output += `\n### ${s.priority.toUpperCase()}: ${s.title}\n`;
+          output += `${s.description}\n`;
+          output += `- Effort: ${s.effort}, Impact: ${s.impact}\n`;
+          if (s.actionItems.length > 0) {
+            output += `- Actions: ${s.actionItems.join(', ')}\n`;
+          }
+        });
+      }
+
+      if (maturity) {
+        output += `\n## Maturity Assessment: ${maturity.level.toUpperCase()} (${maturity.score.toFixed(0)}/100)\n`;
+        output += `- Code: ${maturity.dimensions.code.toFixed(0)}/100\n`;
+        output += `- Testing: ${maturity.dimensions.testing.toFixed(0)}/100\n`;
+        output += `- Documentation: ${maturity.dimensions.documentation.toFixed(0)}/100\n`;
+        output += `- Architecture: ${maturity.dimensions.architecture.toFixed(0)}/100\n`;
+        output += `- Operations: ${maturity.dimensions.operations.toFixed(0)}/100\n`;
+      }
+
+      return {
+        content: [{ type: 'text', text: output }],
+        isError: false,
+        _meta: {
+          context,
+          suggestions: suggestions.slice(0, 5),
+          maturity
+        }
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to get project context: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async handleOptimizeProjectMemory(args: {
+    project_id: string;
+    strategies?: string[];
+    dry_run?: boolean;
+  }) {
+    try {
+      // 导入优化器
+      const { ProjectMemoryOptimizer, OptimizationStrategy } = await import('./project-indexer/core/ProjectMemoryOptimizer.js');
+
+      // 创建优化器实例
+      const optimizer = new ProjectMemoryOptimizer(this.db, this.vectorSearch!);
+
+      // 确定要使用的策略
+      const strategies = args.strategies?.map(s => s as any) || [
+        OptimizationStrategy.DEDUPLICATION,
+        OptimizationStrategy.CLUSTERING,
+        OptimizationStrategy.COMPRESSION,
+        OptimizationStrategy.SUMMARIZATION
+      ];
+
+      if (args.dry_run) {
+        // 预览模式 - 只获取优化建议
+        const insights = await optimizer.getOptimizationInsights(args.project_id);
+
+        let output = `# Optimization Preview for Project ${args.project_id}\n\n`;
+
+        output += `## Storage Analysis\n`;
+        output += `- Total Size: ${(insights.storageAnalysis.totalSize / 1024).toFixed(2)} KB\n`;
+        output += `- Average Context Size: ${(insights.storageAnalysis.avgContextSize / 1024).toFixed(2)} KB\n`;
+        output += `- Largest Contexts: ${insights.storageAnalysis.largestContexts.slice(0, 3).map(c =>
+          `${c.id.substring(0, 8)} (${(c.size / 1024).toFixed(2)} KB)`).join(', ')}\n\n`;
+
+        output += `## Redundancy Analysis\n`;
+        output += `- Estimated Duplicates: ${insights.redundancyAnalysis.estimatedDuplicates}\n`;
+        output += `- Potential Savings: ${(insights.redundancyAnalysis.potentialSavings / 1024).toFixed(2)} KB\n\n`;
+
+        output += `## Recommendations\n`;
+        insights.recommendations.forEach(r => {
+          output += `- **${r.priority.toUpperCase()}**: ${r.action}\n`;
+          output += `  Impact: ${r.impact}, Effort: ${r.effort}\n`;
+        });
+
+        return {
+          content: [{ type: 'text', text: output }],
+          isError: false,
+          _meta: { insights, dry_run: true }
+        };
+      } else {
+        // 执行优化
+        const report = await optimizer.optimizeProject(args.project_id, strategies);
+
+        let output = `# Optimization Report\n\n`;
+        output += `Project: ${report.projectId}\n`;
+        output += `Strategies Applied: ${report.strategies.join(', ')}\n`;
+        output += `Processing Time: ${report.performance.timeTaken}ms\n\n`;
+
+        if (report.results.deduplication) {
+          const dedup = report.results.deduplication;
+          output += `## Deduplication\n`;
+          output += `- Scanned: ${dedup.totalScanned} contexts\n`;
+          output += `- Duplicates Found: ${dedup.duplicatesFound}\n`;
+          output += `- Duplicates Removed: ${dedup.duplicatesRemoved}\n`;
+          output += `- Space Reclaimed: ${(dedup.spaceReclaimed / 1024).toFixed(2)} KB\n\n`;
+        }
+
+        if (report.results.clustering) {
+          const cluster = report.results.clustering;
+          output += `## Clustering\n`;
+          output += `- Clusters Created: ${cluster.clustersCreated}\n`;
+          output += `- Average Cluster Size: ${cluster.averageClusterSize.toFixed(1)}\n`;
+          output += `- Outliers: ${cluster.outliers}\n\n`;
+        }
+
+        if (report.results.compression) {
+          const comp = report.results.compression;
+          output += `## Compression\n`;
+          output += `- Original Size: ${(comp.original.size / 1024).toFixed(2)} KB\n`;
+          output += `- Compressed Size: ${(comp.compressed.size / 1024).toFixed(2)} KB\n`;
+          output += `- Compression Ratio: ${(comp.ratio * 100).toFixed(1)}%\n`;
+          output += `- Space Saved: ${(comp.savedBytes / 1024).toFixed(2)} KB\n\n`;
+        }
+
+        if (report.recommendations.length > 0) {
+          output += `## Recommendations\n`;
+          report.recommendations.forEach(r => {
+            output += `- ${r}\n`;
+          });
+        }
+
+        return {
+          content: [{ type: 'text', text: output }],
+          isError: false,
+          _meta: { report }
+        };
+      }
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to optimize project memory: ${error instanceof Error ? error.message : 'Unknown error'}`
         }],
         isError: true
       };

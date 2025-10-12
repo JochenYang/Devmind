@@ -15,14 +15,14 @@
 
 ---
 
-## ⚡ Why DevMind MCP?
+## Why DevMind MCP?
 
-🤖 **Auto-Memory** - Monitors file changes & Git operations automatically
-🧠 **Smart Search** - Vector-based semantic search that understands code meaning
-🔒 **100% Private** - All data stored locally in SQLite, no cloud transmission
-⚡ **Real-time** - Instant context retrieval during AI conversations
-🔄 **Cross-tool** - Works seamlessly with Claude Desktop, Cursor, and more
-📂 **Smart Indexing** - Intelligent project-wide indexing with automatic analysis
+**Auto-Memory** - Monitors file changes & Git operations automatically
+**Smart Search** - Vector-based semantic search that understands code meaning
+**100% Private** - All data stored locally in SQLite, no cloud transmission
+**Real-time** - Instant context retrieval during AI conversations
+**Cross-tool** - Works seamlessly with Claude Desktop, Cursor, and more
+**Project Intelligence** - Comprehensive project documentation & intelligent indexing
 
 ---
 
@@ -52,17 +52,20 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 
 #### Core Capabilities
 
-- **🤖 Automatic Memory** - Background daemon monitors file changes, Git operations, and error logs
-- **🧠 Semantic Search** - AI-powered vector embedding search for finding related contexts
-- **📝 Persistent Storage** - SQLite-based local storage with complete privacy
-- **🔍 Hybrid Search** - Combines keyword and semantic search for best results
-- **⚡ Real-time Response** - Records during development, retrieves instantly
-- **🛠️ Cross-tool Support** - Compatible with multiple MCP clients and development environments
-- **📂 Smart Project Indexing** - Intelligent project-wide analysis with automatic feature extraction
+- **Automatic Memory** - Background monitoring of file changes, Git operations, and error logs
+- **Semantic Search** - AI-powered vector embedding search for finding related contexts
+- **Persistent Storage** - SQLite-based local storage with complete privacy
+- **Hybrid Search** - Combines keyword and semantic search for best results
+- **Real-time Response** - Records during development, retrieves instantly
+- **Cross-tool Support** - Compatible with multiple MCP clients and development environments
+- **Project Documentation** - Comprehensive project analysis and documentation generation
+- **Unified Sessions** - One main session per project for consistent context
 
 #### Technical Features
 
 - Full MCP protocol compliance
+- Unified session management (one main session per project)
+- Automatic session reactivation
 - Customizable storage paths and behavior
 - Efficient handling of thousands of contexts
 - Automatic cleanup and memory optimization
@@ -131,7 +134,7 @@ Edit your MCP client configuration file:
 }
 ```
 
-> 💡 **Using Global Install?** Replace with: `{"command": "devmind-mcp"}`
+**Using Global Install?** Replace with: `{"command": "devmind-mcp"}`
 
 #### 2️⃣ Restart Your MCP Client
 
@@ -158,7 +161,7 @@ In your AI assistant, try:
 
 > "Use semantic_search to find information about authentication"
 
-✅ **Done!** DevMind is now enhancing your AI with persistent memory.
+**Done!** DevMind is now enhancing your AI with persistent memory.
 
 ### Next Steps
 
@@ -183,6 +186,8 @@ DevMind provides these tools for your AI assistant:
 | `end_session`         | End development session         | Finishing work          |
 | `delete_session` ⚠️   | Delete session and all contexts | Clean up old sessions   |
 
+**Note**: DevMind automatically manages one main session per project. Sessions are created automatically when needed and reactivated across conversations.
+
 #### Context Operations
 
 | Tool                   | Purpose                     | Example Use            |
@@ -200,6 +205,14 @@ DevMind provides these tools for your AI assistant:
 | `semantic_search`      | AI-powered semantic search | Find related implementations |
 | `get_related_contexts` | Find related contexts      | Explore connections          |
 | `generate_embeddings`  | Generate vector embeddings | Index new content            |
+
+#### Project Intelligence
+
+| Tool                    | Purpose                           | Example Use                     |
+|-------------------------|-----------------------------------|---------------------------------|
+| `index_project`         | Analyze entire project            | Generate comprehensive insights |
+| `analyze_project`       | Get project structure and metrics | Understand project architecture |
+| `generate_project_doc`  | Generate project documentation    | Create initial project docs     |
 
 ### CLI Commands
 
@@ -464,19 +477,23 @@ Create `.devmind.json` in your project root:
 | `auto_cleanup`      | boolean | `true`                 | Enable automatic cleanup of old contexts |
 | `vector_dimensions` | number  | `1536`                 | Vector embedding dimensions              |
 
-### Smart Recording Rules
+### Recommended System Prompt
 
-To enable intelligent auto-recording, add these rules to your MCP client's system prompt:
+Add this concise rule to your MCP client's system prompt:
 
 ```
-Use DevMind MCP for intelligent development memory:
+DevMind Memory Rules:
 
-• Before answering technical questions: use semantic_search
-• When user says "remember this": use record_context
-• For bug fixes/solutions: record_context with type="solution"
-• For decisions/configs: record_context with type="documentation"
-• DevMind auto-captures file changes, focus manual recording on insights
-• Always add relevant tags and appropriate type
+1. ALWAYS search first: Use semantic_search before answering technical questions
+2. Auto-tracking active: File changes and Git operations are recorded automatically
+3. One project = One session: Each project maintains a single persistent session
+4. Manual recording triggers:
+   - User says "remember this" → record_context
+   - Bug fixes/solutions → record_context type="solution"
+   - Architecture decisions → record_context type="documentation"
+   - Important discoveries → record_context with relevant tags
+5. Use generate_project_doc for initial project understanding
+6. Reference found context IDs when citing past information
 ```
 
 #### Auto-Recording Triggers

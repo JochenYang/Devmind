@@ -162,6 +162,25 @@ export class DatabaseManager {
     stmt.run(new Date().toISOString(), projectId);
   }
 
+  getContextsByProject(projectId: string): Context[] {
+    const stmt = this.db.prepare(`
+      SELECT c.* FROM contexts c
+      JOIN sessions s ON c.session_id = s.id
+      WHERE s.project_id = ?
+      ORDER BY c.created_at DESC
+    `);
+    return stmt.all(projectId) as Context[];
+  }
+
+  getSessionsByProject(projectId: string): Session[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM sessions
+      WHERE project_id = ?
+      ORDER BY started_at DESC
+    `);
+    return stmt.all(projectId) as Session[];
+  }
+
   // Session operations
   createSession(session: Omit<Session, 'id' | 'started_at'>): string {
     const id = this.generateId();
@@ -193,6 +212,7 @@ export class DatabaseManager {
     const sessions = stmt.all(projectId) as Session[];
     return sessions.map(s => this.enrichSessionWithLocalTime(s));
   }
+
 
 
   endSession(sessionId: string): void {
