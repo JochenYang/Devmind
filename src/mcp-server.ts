@@ -15,6 +15,7 @@ import { SessionManager } from './session-manager.js';
 import { ContentExtractor } from './content-extractor.js';
 import { VectorSearchEngine } from './vector-search.js';
 import { AutoRecordFilter } from './auto-record-filter.js';
+import { createProjectIndexer } from './project-indexer/index.js';
 import { 
   AiMemoryConfig, 
   ContextSearchParams, 
@@ -194,7 +195,7 @@ export class AiMemoryMcpServer {
       tools: [
         {
           name: 'create_session',
-          description: 'Create a new development session for a project',
+          description: 'Create a new development session for a project (or reuse existing active session)',
           inputSchema: {
             type: 'object',
             properties: {
@@ -202,6 +203,7 @@ export class AiMemoryMcpServer {
               tool_used: { type: 'string', description: 'Tool being used (vscode, cli, etc.)' },
               name: { type: 'string', description: 'Optional session name' },
               metadata: { type: 'object', description: 'Optional metadata' },
+              force: { type: 'boolean', description: 'Force create new session even if active session exists (default: false)' },
             },
             required: ['project_path', 'tool_used'],
           },
@@ -357,6 +359,34 @@ export class AiMemoryMcpServer {
             },
           },
         },
+        {
+          name: 'index_project',
+          description: 'Intelligently index entire project with automatic analysis and memory generation',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_path: { type: 'string', description: 'Path to project root directory' },
+              session_id: { type: 'string', description: 'Session ID to store indexed contexts' },
+              max_files: { type: 'number', description: 'Maximum number of files to index (default: 100)' },
+              include_tests: { type: 'boolean', description: 'Include test files in indexing (default: false)' },
+              priority_files: { type: 'array', items: { type: 'string' }, description: 'List of high-priority file patterns' },
+            },
+            required: ['project_path', 'session_id'],
+          },
+        },
+        {
+          name: 'analyze_project',
+          description: 'Analyze project structure and generate comprehensive project report',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_path: { type: 'string', description: 'Path to project root directory' },
+              include_dependencies: { type: 'boolean', description: 'Include dependency analysis (default: true)' },
+              include_metrics: { type: 'boolean', description: 'Include code metrics (default: true)' },
+            },
+            required: ['project_path'],
+          },
+        },
       ],
     }));
 
@@ -409,6 +439,20 @@ export class AiMemoryMcpServer {
           });
         case 'delete_session':
           return await this.handleDeleteSession(args as { session_id: string });
+        case 'index_project':
+          return await this.handleIndexProject(args as {
+            project_path: string;
+            session_id: string;
+            max_files?: number;
+            include_tests?: boolean;
+            priority_files?: string[];
+          });
+        case 'analyze_project':
+          return await this.handleAnalyzeProject(args as {
+            project_path: string;
+            include_dependencies?: boolean;
+            include_metrics?: boolean;
+          });
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
       }
@@ -1614,6 +1658,192 @@ Happy coding! 🚀`;
     } catch (error) {
       return {
         content: [{ type: 'text', text: `Failed to delete session: ${error}` }],
+        isError: true
+      };
+    }
+  }
+
+  private async handleIndexProject(args: {
+    project_path: string;
+    session_id: string;
+    max_files?: number;
+    include_tests?: boolean;
+    priority_files?: string[];
+  }) {
+    try {
+      // 创建项目索引器实例并传入自定义配置
+      const indexer = createProjectIndexer({
+        indexingConfig: {
+          maxFiles: args.max_files || 100,
+          maxFileSize: 100 * 1024,
+          maxTotalSize: 5 * 1024 * 1024,
+          maxDepth: 3,
+          excludePatterns: args.include_tests
+            ? ['**/node_modules/**', '**/dist/**', '**/build/**', '**/*.log', '**/.git/**']
+            : ['**/node_modules/**', '**/dist/**', '**/build/**', '**/*.log', '**/.git/**', '**/*.test.*', '**/*.spec.*'],
+          includePatterns: args.priority_files || ['**/README*', '**/package.json', '**/src/**'],
+          sensitivePatterns: ['**/*.key', '**/*.pem', '.env*', '*password*', '*secret*'],
+          enableDocumentSummary: true,
+          enableCodeExtraction: true,
+          enableSecurityScan: true,
+          asyncProcessing: true,
+          cacheEnabled: true,
+          progressReporting: true
+        },
+        onProgressUpdate: (progress) => {
+          console.error(`[DevMind] Indexing progress: ${progress.phase} - ${progress.current}/${progress.total}`);
+        }
+      });
+
+      // 执行索引 (使用IndexingTrigger.MANUAL_TRIGGER)
+      const { IndexingTrigger } = await import('./project-indexer/types/IndexingTypes.js');
+      const result = await indexer.indexProject(args.project_path, IndexingTrigger.MANUAL_TRIGGER);
+
+      // 生成索引报告
+      const report = indexer.generateIndexingReport(result);
+
+      // 记录索引结果为context
+      await this.handleRecordContext({
+        session_id: args.session_id,
+        type: ContextType.DOCUMENTATION,
+        content: report,
+        tags: ['project-index', 'auto-generated', result.metadata?.projectType || 'unknown'],
+        metadata: {
+          indexed: true,
+          indexingResult: {
+            status: result.status,
+            indexedFiles: result.indexedFiles,
+            generatedMemories: result.generatedMemories,
+            totalSize: result.totalSize,
+            processingTime: result.processingTime
+          },
+          indexedAt: new Date().toISOString()
+        }
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: `Successfully indexed project at ${args.project_path}\n\n` +
+                `**Status**: ${result.status}\n` +
+                `**Indexed Files**: ${result.indexedFiles}\n` +
+                `**Generated Memories**: ${result.generatedMemories}\n` +
+                `**Total Content Size**: ${result.totalSize} bytes\n` +
+                `**Processing Time**: ${result.processingTime}ms\n` +
+                `**Project Type**: ${result.metadata?.projectType || 'N/A'}\n` +
+                `**Language**: ${result.metadata?.technicalStack || 'N/A'}\n\n` +
+                (result.warnings.length > 0 ? `**Warnings**: ${result.warnings.length}\n` : '') +
+                (result.errors.length > 0 ? `**Errors**: ${result.errors.length}\n` : '') +
+                `\nFull report recorded to session ${args.session_id}`
+        }],
+        isError: false,
+        _meta: {
+          project_path: args.project_path,
+          session_id: args.session_id,
+          indexing_result: result
+        }
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to index project: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  private async handleAnalyzeProject(args: {
+    project_path: string;
+    include_dependencies?: boolean;
+    include_metrics?: boolean;
+  }) {
+    try {
+      // 使用FileScanner扫描文件
+      const { FileScanner } = await import('./project-indexer/tools/FileScanner.js');
+      const { ProjectAnalyzer } = await import('./project-indexer/tools/ProjectAnalyzer.js');
+      const { DEFAULT_INDEXING_CONFIG } = await import('./project-indexer/types/IndexingTypes.js');
+
+      const scanner = new FileScanner(DEFAULT_INDEXING_CONFIG);
+      const analyzer = new ProjectAnalyzer();
+
+      // 扫描项目文件
+      const files = await scanner.scan(args.project_path, DEFAULT_INDEXING_CONFIG);
+
+      if (files.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: `No files found in project: ${args.project_path}\nProject may be empty or all files are filtered out.`
+          }],
+          isError: false
+        };
+      }
+
+      // 分析项目
+      const { structure, features } = await analyzer.analyzeProject(args.project_path, files);
+
+      const report = `# Project Analysis Report
+
+## Project Overview
+- **Path**: ${args.project_path}
+- **Name**: ${structure.name}
+- **Type**: ${features.projectType}
+- **Language**: ${structure.language}
+- **Framework**: ${structure.framework || 'N/A'}
+
+## File Statistics
+- **Total Files**: ${structure.totalFiles}
+- **Directories**: ${structure.directories.length}
+- **Build Tools**: ${structure.buildTools.join(', ') || 'None'}
+
+## Technical Stack
+- **Language**: ${features.technicalStack.language}
+- **Framework**: ${features.technicalStack.framework || 'N/A'}
+- **Runtime**: ${features.technicalStack.runtime || 'N/A'}
+- **Database**: ${features.technicalStack.database?.join(', ') || 'N/A'}
+- **Cloud Services**: ${features.technicalStack.cloudServices?.join(', ') || 'N/A'}
+- **Dev Tools**: ${features.technicalStack.devTools.join(', ') || 'N/A'}
+
+## Project Complexity
+- **Level**: ${features.complexity.level}
+- **Score**: ${features.complexity.score}/100
+- **File Count**: ${features.complexity.factors.fileCount}
+- **Estimated Code Lines**: ${features.complexity.factors.codeLines}
+- **Dependency Count**: ${features.complexity.factors.dependencyCount}
+- **Module Count**: ${features.complexity.factors.moduleCount}
+
+## Architecture Patterns
+${features.architecture.map(arch => `- ${arch}`).join('\n')}
+
+${args.include_dependencies && structure.dependencies.length > 0 ? `
+## Dependencies (Top 20)
+${structure.dependencies.slice(0, 20).map(dep => `- ${dep}`).join('\n')}
+${structure.dependencies.length > 20 ? `\n...and ${structure.dependencies.length - 20} more` : ''}
+` : ''}
+
+## Git Information
+${structure.gitInfo?.isRepo ? '- Git repository detected' : '- Not a Git repository'}
+${structure.gitInfo?.remoteUrl ? `- Remote: ${structure.gitInfo.remoteUrl}` : ''}
+${structure.gitInfo?.currentBranch ? `- Branch: ${structure.gitInfo.currentBranch}` : ''}
+`;
+
+      return {
+        content: [{ type: 'text', text: report }],
+        isError: false,
+        _meta: {
+          structure,
+          features,
+          analysis_time: features.metadata.analysisTime
+        }
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to analyze project: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
         isError: true
       };
     }

@@ -42,28 +42,70 @@ export class SessionManager {
   }
 
   /**
-   * 创建新的开发会话
+   * 创建新的开发会话或复用现有活跃会话
+   * @param params 会话创建参数
+   * @param params.force 是否强制创建新会话（默认false，会复用现有活跃会话）
    */
-  async createSession(params: SessionCreateParams): Promise<string> {
+  async createSession(params: SessionCreateParams & { force?: boolean }): Promise<string> {
     const project = await this.getOrCreateProject(params.project_path);
-    
-    // 结束当前项目的活跃会话（如果存在）
+
+    // 检查是否已有活跃会话
     const activeSessions = this.db.getActiveSessions(project.id);
-    activeSessions.forEach(session => {
-      this.db.endSession(session.id);
-    });
+
+    // 如果不是强制创建，且存在活跃会话，则复用现有会话
+    if (!params.force && activeSessions.length > 0) {
+      const existingSession = activeSessions[0];
+      this.activeSessions.set(project.path, existingSession.id);
+
+      console.error(`[DevMind] Reusing existing active session: ${existingSession.id} (${existingSession.tool_used} -> ${params.tool_used})`);
+
+      // 可选：更新会话的tool_used记录（记录跨工具使用）
+      const currentMetadata = existingSession.metadata ? JSON.parse(existingSession.metadata) : {};
+      if (!currentMetadata.tools_used) {
+        currentMetadata.tools_used = [existingSession.tool_used];
+      }
+      if (!currentMetadata.tools_used.includes(params.tool_used)) {
+        currentMetadata.tools_used.push(params.tool_used);
+        currentMetadata.last_tool = params.tool_used;
+        currentMetadata.last_access = new Date().toISOString();
+
+        // 更新元数据
+        this.db.updateSession(existingSession.id, {
+          metadata: JSON.stringify(currentMetadata)
+        });
+      }
+
+      return existingSession.id;
+    }
+
+    // 只有在强制创建或没有活跃会话时，才结束旧会话并创建新会话
+    if (params.force && activeSessions.length > 0) {
+      console.error(`[DevMind] Force creating new session, ending ${activeSessions.length} active session(s)`);
+      activeSessions.forEach(session => {
+        this.db.endSession(session.id);
+      });
+    }
 
     // 创建新会话
     const sessionName = params.name || this.generateSessionName(params.tool_used);
+    const initialMetadata = {
+      ...(params.metadata || {}),
+      tools_used: [params.tool_used],
+      created_by: params.tool_used,
+      created_at: new Date().toISOString()
+    };
+
     const sessionId = this.db.createSession({
       project_id: project.id,
       name: sessionName,
       tool_used: params.tool_used,
       status: 'active',
-      metadata: JSON.stringify(params.metadata || {})
+      metadata: JSON.stringify(initialMetadata)
     });
 
     this.activeSessions.set(project.path, sessionId);
+    console.error(`[DevMind] Created new session: ${sessionId} (${params.tool_used})`);
+
     return sessionId;
   }
 

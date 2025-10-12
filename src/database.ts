@@ -178,28 +178,61 @@ export class DatabaseManager {
     return id;
   }
 
-  getSession(sessionId: string): Session | null {
+  getSession(sessionId: string): (Session & { started_at_local?: string; ended_at_local?: string }) | null {
     const stmt = this.db.prepare('SELECT * FROM sessions WHERE id = ?');
-    return stmt.get(sessionId) as Session | null;
+    const session = stmt.get(sessionId) as Session | null;
+    return session ? this.enrichSessionWithLocalTime(session) : null;
   }
 
-  getActiveSessions(projectId: string): Session[] {
+  getActiveSessions(projectId: string): Array<Session & { started_at_local?: string; ended_at_local?: string }> {
     const stmt = this.db.prepare(`
-      SELECT * FROM sessions 
+      SELECT * FROM sessions
       WHERE project_id = ? AND status = 'active'
       ORDER BY started_at DESC
     `);
-    return stmt.all(projectId) as Session[];
+    const sessions = stmt.all(projectId) as Session[];
+    return sessions.map(s => this.enrichSessionWithLocalTime(s));
   }
 
 
   endSession(sessionId: string): void {
     const stmt = this.db.prepare(`
-      UPDATE sessions 
-      SET status = 'completed', ended_at = ? 
+      UPDATE sessions
+      SET status = 'completed', ended_at = ?
       WHERE id = ?
     `);
     stmt.run(new Date().toISOString(), sessionId);
+  }
+
+  updateSession(sessionId: string, updates: Partial<Pick<Session, 'name' | 'tool_used' | 'metadata'>>): boolean {
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.name !== undefined) {
+      fields.push('name = ?');
+      values.push(updates.name);
+    }
+    if (updates.tool_used !== undefined) {
+      fields.push('tool_used = ?');
+      values.push(updates.tool_used);
+    }
+    if (updates.metadata !== undefined) {
+      fields.push('metadata = ?');
+      values.push(typeof updates.metadata === 'string' ? updates.metadata : JSON.stringify(updates.metadata));
+    }
+
+    if (fields.length === 0) {
+      return false; // 没有更新内容
+    }
+
+    values.push(sessionId);
+    const stmt = this.db.prepare(`
+      UPDATE sessions
+      SET ${fields.join(', ')}
+      WHERE id = ?
+    `);
+    const result = stmt.run(...values);
+    return result.changes > 0;
   }
 
   reactivateSession(sessionId: string): boolean {
@@ -212,15 +245,16 @@ export class DatabaseManager {
     return result.changes > 0;
   }
 
-  getProjectMainSession(projectId: string): Session | null {
+  getProjectMainSession(projectId: string): (Session & { started_at_local?: string; ended_at_local?: string }) | null {
     // 查找项目的最早会话作为主会话
     const stmt = this.db.prepare(`
-      SELECT * FROM sessions 
+      SELECT * FROM sessions
       WHERE project_id = ?
       ORDER BY started_at ASC
       LIMIT 1
     `);
-    return stmt.get(projectId) as Session | null;
+    const session = stmt.get(projectId) as Session | null;
+    return session ? this.enrichSessionWithLocalTime(session) : null;
   }
 
   // Context operations
@@ -247,22 +281,24 @@ export class DatabaseManager {
     return id;
   }
 
-  getContextsBySession(sessionId: string, limit?: number): Context[] {
+  getContextsBySession(sessionId: string, limit?: number): Array<Context & { created_at_local?: string }> {
     const sql = `
-      SELECT * FROM contexts 
-      WHERE session_id = ? 
+      SELECT * FROM contexts
+      WHERE session_id = ?
       ORDER BY created_at DESC
       ${limit ? 'LIMIT ?' : ''}
     `;
-    
+
     const stmt = this.db.prepare(sql);
     const params = limit ? [sessionId, limit] : [sessionId];
-    return stmt.all(...params) as Context[];
+    const contexts = stmt.all(...params) as Context[];
+    return contexts.map(c => this.enrichContextWithLocalTime(c));
   }
 
-  getContextById(contextId: string): Context | null {
+  getContextById(contextId: string): (Context & { created_at_local?: string }) | null {
     const stmt = this.db.prepare('SELECT * FROM contexts WHERE id = ?');
-    return stmt.get(contextId) as Context | null;
+    const context = stmt.get(contextId) as Context | null;
+    return context ? this.enrichContextWithLocalTime(context) : null;
   }
 
   deleteContext(contextId: string): boolean {
@@ -445,6 +481,47 @@ export class DatabaseManager {
   // Utility methods
   private generateId(): string {
     return crypto.randomUUID();
+  }
+
+  /**
+   * 将UTC时间转换为本地可读时间
+   * @param utcTime ISO格式的UTC时间字符串
+   * @returns 本地时间字符串，格式：YYYY-MM-DD HH:mm:ss
+   */
+  private formatLocalTime(utcTime: string): string {
+    try {
+      const date = new Date(utcTime);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    } catch {
+      return utcTime; // 如果转换失败，返回原始值
+    }
+  }
+
+  /**
+   * 为Session对象添加格式化的本地时间字段
+   */
+  private enrichSessionWithLocalTime(session: Session): Session & { started_at_local?: string; ended_at_local?: string } {
+    return {
+      ...session,
+      started_at_local: this.formatLocalTime(session.started_at),
+      ended_at_local: session.ended_at ? this.formatLocalTime(session.ended_at) : undefined
+    };
+  }
+
+  /**
+   * 为Context对象添加格式化的本地时间字段
+   */
+  private enrichContextWithLocalTime(context: Context): Context & { created_at_local?: string } {
+    return {
+      ...context,
+      created_at_local: this.formatLocalTime(context.created_at)
+    };
   }
 
   // Database maintenance

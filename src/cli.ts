@@ -5,9 +5,17 @@ import { DatabaseManager } from './database.js';
 import { SessionManager } from './session-manager.js';
 import { ContentExtractor } from './content-extractor.js';
 import { AiMemoryConfig } from './types.js';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+
+// 动态获取版本号
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packagePath = join(__dirname, '..', 'package.json');
+const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
+const VERSION = packageJson.version;
 
 const program = new Command();
 
@@ -35,7 +43,7 @@ const defaultConfig: AiMemoryConfig = {
 program
   .name('devmind-mcp')
   .description('DevMind MCP - AI开发者的智能大脑，提供跨工具的项目上下文记忆系统')
-  .version('1.0.5');
+  .version(VERSION);
 
 
 // 初始化命令
