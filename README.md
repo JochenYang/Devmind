@@ -117,9 +117,9 @@ Edit your MCP client configuration file:
 
 **Configuration File Locations:**
 
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+- **Windows**: `C:\Users\<YourUsername>\.claude.json` or `%USERPROFILE%\.claude.json`
+- **macOS**: `~/.claude.json`
+- **Linux**: `~/.claude.json`
 
 **Add this configuration:**
 
@@ -208,14 +208,14 @@ DevMind provides **18 powerful tools** for your AI assistant:
 
 #### Project Intelligence
 
-| Tool                    | Purpose                           | Example Use                     |
-|-------------------------|-----------------------------------|---------------------------------|
-| `index_project`         | Analyze entire project            | Generate comprehensive insights |
-| `analyze_project`       | Get project structure and metrics | Understand project architecture |
-| `generate_project_doc`  | Generate project documentation    | Create initial project docs     |
-| `query_project_memory`  | Query project memory with advanced capabilities | Time-based queries, evolution tracking |
-| `get_project_context`   | Get intelligent project awareness | Smart suggestions and maturity assessment |
-| `optimize_project_memory` | Optimize memory storage and performance | Cleanup, compression, deduplication |
+| Tool                      | Purpose                                         | Example Use                               |
+|---------------------------|-------------------------------------------------|-------------------------------------------|
+| `index_project`           | Analyze entire project                          | Generate comprehensive insights           |
+| `analyze_project`         | Get project structure and metrics               | Understand project architecture           |
+| `generate_project_doc`    | Generate project documentation                  | Create initial project docs               |
+| `query_project_memory`    | Query project memory with advanced capabilities | Time-based queries, evolution tracking    |
+| `get_project_context`     | Get intelligent project awareness               | Smart suggestions and maturity assessment |
+| `optimize_project_memory` | Optimize memory storage and performance         | Cleanup, compression, deduplication       |
 
 ### CLI Commands
 

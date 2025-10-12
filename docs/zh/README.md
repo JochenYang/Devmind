@@ -117,9 +117,9 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 
 **配置文件位置:**
 
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+- **Windows**: `C:\Users\<用户名>\.claude.json` 或 `%USERPROFILE%\.claude.json`
+- **macOS**: `~/.claude.json`
+- **Linux**: `~/.claude.json`
 
 **添加以下配置:**
 
@@ -208,14 +208,14 @@ DevMind为您的AI助手提供 **18个强大工具**:
 
 #### 项目智能
 
-| 工具                    | 用途                       | 使用示例                 |
-|-------------------------|----------------------------|--------------------------|
-| `index_project`         | 分析整个项目               | 生成全面项目洞察         |
-| `analyze_project`       | 获取项目结构和指标         | 理解项目架构             |
-| `generate_project_doc`  | 生成项目文档               | 创建初始项目文档         |
-| `query_project_memory`  | 查询项目记忆(高级功能)     | 时间查询、演进跟踪       |
-| `get_project_context`   | 获取智能项目感知           | 智能建议和成熟度评估     |
-| `optimize_project_memory` | 优化记忆存储和性能       | 清理、压缩、去重         |
+| 工具                      | 用途                   | 使用示例             |
+|---------------------------|------------------------|----------------------|
+| `index_project`           | 分析整个项目           | 生成全面项目洞察     |
+| `analyze_project`         | 获取项目结构和指标     | 理解项目架构         |
+| `generate_project_doc`    | 生成项目文档           | 创建初始项目文档     |
+| `query_project_memory`    | 查询项目记忆(高级功能) | 时间查询、演进跟踪    |
+| `get_project_context`     | 获取智能项目感知       | 智能建议和成熟度评估 |
+| `optimize_project_memory` | 优化记忆存储和性能     | 清理、压缩、去重       |
 
 ### CLI命令
 
