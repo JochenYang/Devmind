@@ -175,7 +175,7 @@ devmind start
 
 ### MCP工具速查
 
-DevMind为您的AI助手提供以下工具:
+DevMind为您的AI助手提供 **18个强大工具**:
 
 #### 会话管理
 
@@ -208,11 +208,14 @@ DevMind为您的AI助手提供以下工具:
 
 #### 项目智能
 
-| 工具                   | 用途               | 使用示例         |
-|------------------------|--------------------|------------------|
-| `index_project`        | 分析整个项目       | 生成全面项目洞察 |
-| `analyze_project`      | 获取项目结构和指标 | 理解项目架构     |
-| `generate_project_doc` | 生成项目文档       | 创建初始项目文档 |
+| 工具                    | 用途                       | 使用示例                 |
+|-------------------------|----------------------------|--------------------------|
+| `index_project`         | 分析整个项目               | 生成全面项目洞察         |
+| `analyze_project`       | 获取项目结构和指标         | 理解项目架构             |
+| `generate_project_doc`  | 生成项目文档               | 创建初始项目文档         |
+| `query_project_memory`  | 查询项目记忆(高级功能)     | 时间查询、演进跟踪       |
+| `get_project_context`   | 获取智能项目感知           | 智能建议和成熟度评估     |
+| `optimize_project_memory` | 优化记忆存储和性能       | 清理、压缩、去重         |
 
 ### CLI命令
 
@@ -485,14 +488,14 @@ devmind validate /path/to/project
 DevMind记忆规则:
 
 1. 始终先搜索: 回答技术问题前使用semantic_search
-2. 自动跟踪启用: 文件变化和Git操作自动记录
-3. 一个项目=一个会话: 每个项目维护单一持久会话
-4. 手动记录触发:
+2. 项目初始化: 首次接触项目时，询问用户是否需要generate_project_doc
+3. 自动跟踪启用: 文件变化和Git操作自动记录
+4. 一个项目=一个会话: 每个项目维护单一持久会话
+5. 手动记录触发:
    - 用户说"记住这个" → record_context
    - Bug修复/解决方案 → record_context type="solution"
    - 架构决策 → record_context type="documentation"
    - 重要发现 → record_context 带相关标签
-5. 使用generate_project_doc了解项目初始情况
 6. 引用过去信息时提供上下文ID
 ```
 
@@ -542,7 +545,7 @@ DevMind记忆规则:
 }
 ```
 
-> ⚠️ **重要提示**: 配置更改后需要重启MCP客户端。
+**重要提示**: 配置更改后需要重启MCP客户端。
 
 ---
 

@@ -175,7 +175,7 @@ In your AI assistant, try:
 
 ### MCP Tools Quick Reference
 
-DevMind provides these tools for your AI assistant:
+DevMind provides **18 powerful tools** for your AI assistant:
 
 #### Session Management
 
@@ -213,6 +213,9 @@ DevMind provides these tools for your AI assistant:
 | `index_project`         | Analyze entire project            | Generate comprehensive insights |
 | `analyze_project`       | Get project structure and metrics | Understand project architecture |
 | `generate_project_doc`  | Generate project documentation    | Create initial project docs     |
+| `query_project_memory`  | Query project memory with advanced capabilities | Time-based queries, evolution tracking |
+| `get_project_context`   | Get intelligent project awareness | Smart suggestions and maturity assessment |
+| `optimize_project_memory` | Optimize memory storage and performance | Cleanup, compression, deduplication |
 
 ### CLI Commands
 
@@ -485,14 +488,14 @@ Add this concise rule to your MCP client's system prompt:
 DevMind Memory Rules:
 
 1. ALWAYS search first: Use semantic_search before answering technical questions
-2. Auto-tracking active: File changes and Git operations are recorded automatically
-3. One project = One session: Each project maintains a single persistent session
-4. Manual recording triggers:
+2. Project initialization: First time working on a project, ask if user wants to generate_project_doc
+3. Auto-tracking active: File changes and Git operations are recorded automatically
+4. One project = One session: Each project maintains a single persistent session
+5. Manual recording triggers:
    - User says "remember this" → record_context
    - Bug fixes/solutions → record_context type="solution"
    - Architecture decisions → record_context type="documentation"
    - Important discoveries → record_context with relevant tags
-5. Use generate_project_doc for initial project understanding
 6. Reference found context IDs when citing past information
 ```
 
