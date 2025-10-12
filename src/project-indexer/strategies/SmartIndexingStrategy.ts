@@ -13,7 +13,7 @@ import {
   IndexingDepth,
   DEFAULT_INDEXING_CONFIG,
   DEFAULT_COMPRESSION_CONFIG
-} from '../types/IndexingTypes';
+} from '../types/IndexingTypes.js';
 
 /**
  * 智能索引策略类

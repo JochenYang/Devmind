@@ -11,8 +11,8 @@ import {
   FilePriority, 
   IndexingConfig, 
   DEFAULT_INDEXING_CONFIG 
-} from '../types/IndexingTypes';
-import { SecurityStrategy } from '../strategies/SecurityStrategy';
+} from '../types/IndexingTypes.js';
+import { SecurityStrategy } from '../strategies/SecurityStrategy.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

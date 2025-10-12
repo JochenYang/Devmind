@@ -5,28 +5,28 @@
  */
 
 // 核心类型定义
-export * from './types/IndexingTypes';
+export * from './types/IndexingTypes.js';
 
 // 核心引擎
-import { ProjectIndexer as _ProjectIndexer } from './core/ProjectIndexer';
-export { ProjectIndexer } from './core/ProjectIndexer';
+import { ProjectIndexer as _ProjectIndexer } from './core/ProjectIndexer.js';
+export { ProjectIndexer } from './core/ProjectIndexer.js';
 
 // 策略模块
-export { SecurityStrategy } from './strategies/SecurityStrategy';
-export { SmartIndexingStrategy } from './strategies/SmartIndexingStrategy';
+export { SecurityStrategy } from './strategies/SecurityStrategy.js';
+export { SmartIndexingStrategy } from './strategies/SmartIndexingStrategy.js';
 
 // 工具模块
-export { FileScanner } from './tools/FileScanner';
-export { ContentExtractor } from './tools/ContentExtractor';
-export { MemoryGenerator } from './tools/MemoryGenerator';
-export { ProjectAnalyzer } from './tools/ProjectAnalyzer';
-export { ProgressReporter } from './tools/ProgressReporter';
+export { FileScanner } from './tools/FileScanner.js';
+export { ContentExtractor } from './tools/ContentExtractor.js';
+export { MemoryGenerator } from './tools/MemoryGenerator.js';
+export { ProjectAnalyzer } from './tools/ProjectAnalyzer.js';
+export { ProgressReporter } from './tools/ProgressReporter.js';
 
 // 默认配置
 export {
   DEFAULT_INDEXING_CONFIG,
   DEFAULT_COMPRESSION_CONFIG
-} from './types/IndexingTypes';
+} from './types/IndexingTypes.js';
 
 /**
  * 快速创建项目索引器实例

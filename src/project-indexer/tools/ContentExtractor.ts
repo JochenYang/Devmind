@@ -11,8 +11,8 @@ import {
   ContentCompressionConfig, 
   DEFAULT_COMPRESSION_CONFIG,
   ProjectFileType 
-} from '../types/IndexingTypes';
-import { SecurityStrategy } from '../strategies/SecurityStrategy';
+} from '../types/IndexingTypes.js';
+import { SecurityStrategy } from '../strategies/SecurityStrategy.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

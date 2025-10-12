@@ -13,7 +13,7 @@ import {
   ProjectMemoryType, 
   FilePriority,
   ProjectFileType 
-} from '../types/IndexingTypes';
+} from '../types/IndexingTypes.js';
 
 /**
  * 记忆生成器实现类

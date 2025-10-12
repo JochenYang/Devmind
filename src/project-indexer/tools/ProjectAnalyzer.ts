@@ -11,7 +11,7 @@ import {
   TechnicalStack,
   GitInfo,
   ProjectFile
-} from '../types/IndexingTypes';
+} from '../types/IndexingTypes.js';
 import * as fs from 'fs';
 import * as path from 'path';
 

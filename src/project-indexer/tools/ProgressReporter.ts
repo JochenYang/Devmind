@@ -11,7 +11,7 @@ import {
   IndexingError,
   IndexingStage,
   IndexingStatus
-} from '../types/IndexingTypes';
+} from '../types/IndexingTypes.js';
 
 /**
  * 进度报告器实现类

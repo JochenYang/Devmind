@@ -9,7 +9,7 @@ import {
   ProjectFile, 
   IndexingConfig, 
   DEFAULT_INDEXING_CONFIG 
-} from '../types/IndexingTypes';
+} from '../types/IndexingTypes.js';
 import * as path from 'path';
 
 /**

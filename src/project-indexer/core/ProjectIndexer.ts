@@ -16,15 +16,15 @@ import {
   MemoryGenerationResult,
   DEFAULT_INDEXING_CONFIG,
   DEFAULT_COMPRESSION_CONFIG
-} from '../types/IndexingTypes';
+} from '../types/IndexingTypes.js';
 
-import { SecurityStrategy } from '../strategies/SecurityStrategy';
-import { SmartIndexingStrategy } from '../strategies/SmartIndexingStrategy';
-import { FileScanner } from '../tools/FileScanner';
-import { ContentExtractor } from '../tools/ContentExtractor';
-import { MemoryGenerator } from '../tools/MemoryGenerator';
-import { ProjectAnalyzer } from '../tools/ProjectAnalyzer';
-import { ProgressReporter } from '../tools/ProgressReporter';
+import { SecurityStrategy } from '../strategies/SecurityStrategy.js';
+import { SmartIndexingStrategy } from '../strategies/SmartIndexingStrategy.js';
+import { FileScanner } from '../tools/FileScanner.js';
+import { ContentExtractor } from '../tools/ContentExtractor.js';
+import { MemoryGenerator } from '../tools/MemoryGenerator.js';
+import { ProjectAnalyzer } from '../tools/ProjectAnalyzer.js';
+import { ProgressReporter } from '../tools/ProgressReporter.js';
 
 /**
  * 主项目索引器类
