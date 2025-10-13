@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2025-10-13
+
+### Added
+- **Automatic Line Range Detection**: Daemon now detects exact line changes via Git diff
+  - Git diff parser extracts modified line ranges automatically
+  - Supports new files, modified files, and deleted files
+  - Merges adjacent line changes for cleaner ranges
+  - No limit on number of ranges - records all changes accurately
+  - Large change detection with informative logging (50+ lines)
+
+### Changed
+- Enhanced daemon file monitoring with precise change tracking
+- Automatic context recording now includes `line_ranges` parameter
+- Graceful fallback when Git is unavailable or repo is not initialized
+
+### Technical Details
+- New module: `src/utils/git-diff-parser.ts`
+- Parses unified diff format to extract line numbers
+- Integrates with daemon's `handleFileChange` method
+- Console logging shows range count for tracked changes
+
 ## [1.7.0] - 2025-10-13
 
 ### Added
@@ -106,6 +127,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.8.0]: https://github.com/JochenYang/Devmind/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/JochenYang/Devmind/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/JochenYang/Devmind/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/JochenYang/Devmind/compare/v1.5.2...v1.6.0

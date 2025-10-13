@@ -8,12 +8,14 @@ import { join, dirname } from 'path';
 import { AiMemoryMcpServer } from './mcp-server.js';
 import { ContextType } from './types.js';
 import { ContentExtractor } from './content-extractor.js';
+import { createGitDiffParser, GitDiffParser } from './utils/git-diff-parser.js';
 
 const execAsync = promisify(exec);
 
 export class DevMindDaemon {
   private server: AiMemoryMcpServer;
   private contentExtractor: ContentExtractor;
+  private gitDiffParser: GitDiffParser | null = null;
   private sessionId: string | null = null;
   private projectPath: string;
   private watchers: any[] = [];
@@ -22,6 +24,17 @@ export class DevMindDaemon {
   constructor(projectPath: string) {
     this.projectPath = projectPath;
     this.contentExtractor = new ContentExtractor();
+    
+    // 初始化 Git Diff 解析器
+    try {
+      this.gitDiffParser = createGitDiffParser(projectPath, {
+        enable_line_range_detection: true,
+        merge_adjacent_lines: true
+      });
+    } catch (error) {
+      console.log('⚠️  Git diff parser initialization failed, line range detection disabled');
+      this.gitDiffParser = null;
+    }
     
     // 初始化MCP服务器
     this.server = new AiMemoryMcpServer({
@@ -128,6 +141,24 @@ export class DevMindDaemon {
       const fullPath = join(this.projectPath, filePath);
       let content = '';
       let contextType = ContextType.CODE;
+      let lineRanges: Array<[number, number]> | undefined;
+
+      // Git diff 分析获取行范围
+      if (this.gitDiffParser && action !== 'delete') {
+        try {
+          const diffResult = await this.gitDiffParser.analyzeFileChange(filePath);
+          if (diffResult && diffResult.line_ranges.length > 0) {
+            lineRanges = diffResult.line_ranges;
+            
+            // 如果变更过多，记录日志
+            if (diffResult.total_changes > 50) {
+              console.log(`📊 Large file change detected: ${filePath} (${diffResult.total_changes} lines, ${lineRanges.length} ranges)`);
+            }
+          }
+        } catch (diffError) {
+          console.error(`Git diff analysis failed for ${filePath}:`, diffError);
+        }
+      }
 
       if (action !== 'delete' && existsSync(fullPath)) {
         try {
@@ -151,11 +182,12 @@ export class DevMindDaemon {
         content = `文件已删除: ${filePath}`;
       }
 
-      // 记录上下文
+      // 记录上下文（包含行范围）
       await this.recordContext({
         type: contextType,
         content: `[${action.toUpperCase()}] ${filePath}\n\n${content}`,
         file_path: filePath,
+        line_ranges: lineRanges,
         tags: [action, 'file-change', this.getFileExtension(filePath)]
       });
 
@@ -198,6 +230,7 @@ export class DevMindDaemon {
     type: ContextType;
     content: string;
     file_path?: string;
+    line_ranges?: Array<[number, number]>;
     tags?: string[];
   }): Promise<void> {
     if (!this.sessionId) return;
@@ -208,10 +241,14 @@ export class DevMindDaemon {
         type: params.type,
         content: params.content,
         file_path: params.file_path,
+        line_ranges: params.line_ranges,
         tags: params.tags || []
       });
 
-      console.log(`📝 记录上下文: ${params.file_path || 'N/A'}`);
+      const rangeInfo = params.line_ranges && params.line_ranges.length > 0
+        ? ` (${params.line_ranges.length} ranges)`
+        : '';
+      console.log(`📝 记录上下文: ${params.file_path || 'N/A'}${rangeInfo}`);
     } catch (error) {
       console.error('记录上下文失败:', error);
     }

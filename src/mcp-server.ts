@@ -121,7 +121,7 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: 'devmind-mcp',
-        version: '1.7.0',
+        version: '1.8.0',
       },
       {
         capabilities: {
