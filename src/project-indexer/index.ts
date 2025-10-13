@@ -1,26 +1,23 @@
 /**
- * DevMind MCP 智能项目索引功能 - 主入口文件
+ * DevMind MCP 项目索引器模块 - 主入口文件
  * 
- * 导出所有项目索引相关的类型、接口和实现
+ * 导出项目分析和记忆优化相关的核心功能
  */
 
 // 核心类型定义
 export * from './types/IndexingTypes.js';
 
-// 核心引擎
-import { ProjectIndexer as _ProjectIndexer } from './core/ProjectIndexer.js';
-export { ProjectIndexer } from './core/ProjectIndexer.js';
+// 核心优化器
+export { ProjectMemoryOptimizer, OptimizationStrategy } from './core/ProjectMemoryOptimizer.js';
 
 // 策略模块
 export { SecurityStrategy } from './strategies/SecurityStrategy.js';
 export { SmartIndexingStrategy } from './strategies/SmartIndexingStrategy.js';
 
-// 工具模块
+// 工具模块 - 仍在使用的核心工具
 export { FileScanner } from './tools/FileScanner.js';
 export { ContentExtractor } from './tools/ContentExtractor.js';
-export { MemoryGenerator } from './tools/MemoryGenerator.js';
 export { ProjectAnalyzer } from './tools/ProjectAnalyzer.js';
-export { ProgressReporter } from './tools/ProgressReporter.js';
 
 // 默认配置
 export {
@@ -29,35 +26,17 @@ export {
 } from './types/IndexingTypes.js';
 
 /**
- * 快速创建项目索引器实例
- * @param config 可选的配置参数
- * @returns 配置好的项目索引器实例
+ * 项目索引器模块版本信息
  */
-export function createProjectIndexer(config?: {
-  indexingConfig?: any;
-  compressionConfig?: any;
-  onProgressUpdate?: (progress: any) => void;
-}) {
-  return new _ProjectIndexer(
-    config?.indexingConfig,
-    config?.compressionConfig,
-    config?.onProgressUpdate
-  );
-}
+export const PROJECT_INDEXER_VERSION = '2.0.0';
 
 /**
- * 项目索引器版本信息
- */
-export const PROJECT_INDEXER_VERSION = '1.0.0';
-
-/**
- * 项目索引器功能说明
+ * 项目索引器可用功能
  */
 export const PROJECT_INDEXER_FEATURES = {
-  smartIndexing: '基于项目特征的智能索引',
-  securityFiltering: '敏感文件检测和过滤',
-  contentExtraction: '智能内容提取和压缩',
-  memoryGeneration: '结构化项目记忆生成',
-  progressTracking: '详细的进度追踪和报告',
-  projectAnalysis: '全面的项目特征分析'
+  projectAnalysis: '全面的项目特征分析',
+  fileScanning: '智能文件扫描和过滤',
+  contentExtraction: '智能内容提取和处理',
+  memoryOptimization: '项目记忆优化和管理',
+  securityFiltering: '敏感文件检测和保护'
 } as const;

@@ -366,22 +366,61 @@ export interface ISecurityStrategy {
  * 默认索引配置
  */
 export const DEFAULT_INDEXING_CONFIG: IndexingConfig = {
-  maxFiles: 50,
+  maxFiles: 200,  // 增加文件数限制，以包含更多源代码
   maxFileSize: 100 * 1024, // 100KB
-  maxTotalSize: 5 * 1024 * 1024, // 5MB
-  maxDepth: 3,
+  maxTotalSize: 10 * 1024 * 1024, // 10MB - 增加总大小限制
+  maxDepth: 10,  // 增加深度限制，允许扫描深层次目录
   
+  // 排除模式：排除依赖、构建产物和配置文件
   excludePatterns: [
-    '**/node_modules/**', '**/dist/**', '**/build/**',
-    '**/*.log', '**/.git/**', '**/coverage/**',
-    '**/.next/**', '**/.nuxt/**', '**/vendor/**'
+    // 依赖目录
+    'node_modules/**',
+    '**/node_modules/**',
+    'vendor/**',
+    '**/vendor/**',
+    'venv/**',
+    '**/venv/**',
+    '.env/**',
+    '**/.env/**',
+    
+    // 构建和输出目录
+    'dist/**',
+    '**/dist/**',
+    'build/**',
+    '**/build/**',
+    'out/**',
+    '**/out/**',
+    'target/**',
+    '**/target/**',
+    '.next/**',
+    '**/.next/**',
+    '.nuxt/**',
+    '**/.nuxt/**',
+    
+    // 缓存和临时文件
+    '.cache/**',
+    '**/.cache/**',
+    '__pycache__/**',
+    '**/__pycache__/**',
+    '.pytest_cache/**',
+    '**/.pytest_cache/**',
+    'coverage/**',
+    '**/coverage/**',
+    '*.log',
+    '**/*.log',
+    
+    // IDE 配置
+    '.vscode/**',
+    '.idea/**',
+    '.DS_Store',
+    
+    // 版本控制
+    '.git/**',
+    '**/.git/**'
   ],
   
-  includePatterns: [
-    '**/README*', '**/package.json', '**/src/**',
-    '**/docs/**', '**/*.md', '**/config/**',
-    '**/tsconfig.json', '**/webpack.config.js'
-  ],
+  // 为空，扫描所有文件（除了被 excludePatterns 排除的）
+  includePatterns: [],
   
   sensitivePatterns: [
     '**/*.key', '**/*.pem', '**/*.p12',

@@ -24,3 +24,16 @@ export function normalizeProjectPath(projectPath: string): string {
   return normalizedPath;
 }
 
+/**
+ * 将路径转换为 Unix 风格（正斜杠），用于 glob 模式匹配
+ * 
+ * 许多文件扫描库（如 glob）需要使用正斜杠路径
+ * Windows 反斜杠路径会导致匹配失败
+ * 
+ * @param path - 原始路径
+ * @returns Unix 风格路径
+ */
+export function toUnixPath(path: string): string {
+  return path.replace(/\\/g, '/');
+}
+

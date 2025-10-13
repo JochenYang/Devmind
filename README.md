@@ -58,7 +58,8 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 - **Hybrid Search** - Combines keyword and semantic search for best results
 - **Real-time Response** - Records during development, retrieves instantly
 - **Cross-tool Support** - Compatible with multiple MCP clients and development environments
-- **Project Documentation** - Comprehensive project analysis and documentation generation
+- **Professional Documentation** - AI-powered project analysis and DEVMIND.md generation
+- **Multi-language Support** - Automatic language detection for Chinese/English documentation
 - **Unified Sessions** - One main session per project for consistent context
 
 #### Technical Features
@@ -88,7 +89,64 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 - **MCP Server** - Protocol handling, request routing, session management
 - **Context Engine** - Content analysis, vector embeddings, relevance scoring
 - **Storage Layer** - SQLite database with optimized schema and vector indexing
-- **Project Indexer** - Intelligent project analysis, file scanning, and memory generation
+- **Project Analyzer** - Intelligent project analysis and memory optimization
+
+## Project Structure
+
+```
+Devmind/
+├── src/
+│   ├── mcp-server.ts              # MCP protocol server - Core server implementation
+│   ├── database.ts                # SQLite database layer - Persistent storage
+│   ├── vector-search.ts           # Vector search engine - Semantic search
+│   ├── types.ts                   # TypeScript type definitions
+│   ├── index.ts                   # Main entry point
+│   │
+│   ├── 🧠 Session & Content Management
+│   ├── session-manager.ts         # Session manager - Cross-conversation context
+│   ├── content-extractor.ts       # Content extractor - Code analysis
+│   ├── content-quality-assessor.ts # Quality assessor - Content scoring
+│   ├── auto-record-filter.ts      # Auto-record filter - Intelligent deduplication
+│   │
+│   ├── 🛠️ System Tools
+│   ├── daemon.ts                  # Daemon process - Background monitoring
+│   ├── cli.ts                     # CLI tool entry
+│   ├── smart-confirmation-system.ts # Smart confirmation system
+│   ├── performance-optimizer.ts   # Performance optimizer
+│   │
+│   ├── 🔧 Utilities
+│   ├── utils/
+│   │   ├── file-path-detector.ts  # File path detection utilities
+│   │   ├── git-diff-parser.ts     # Git diff parsing
+│   │   └── path-normalizer.ts     # Path normalization
+│   │
+│   └── 📂 project-indexer/        # Smart project analysis module
+│       ├── index.ts               # Indexer entry point
+│       ├── core/
+│       │   └── ProjectMemoryOptimizer.ts # Memory optimization engine
+│       ├── strategies/
+│       │   ├── SmartIndexingStrategy.ts  # Smart indexing strategy
+│       │   └── SecurityStrategy.ts       # Security scanning strategy
+│       ├── tools/
+│       │   ├── FileScanner.ts     # Intelligent file scanner
+│       │   ├── ContentExtractor.ts # Content extraction tool
+│       │   └── ProjectAnalyzer.ts  # Project structure analyzer
+│       └── types/
+│           └── IndexingTypes.ts   # Indexing type definitions
+│
+├── dist/                          # Compiled JavaScript output
+├── docs/                          # Project documentation
+│   └── zh/                        # Chinese documentation
+├── scripts/                       # Utility scripts
+│   ├── cleanup-test-data.js       # Database cleanup
+│   ├── fix-duplicate-projects.js  # Fix project duplicates
+│   └── reset-database.js          # Database reset
+└── Configuration Files
+    ├── package.json               # Node.js package configuration
+    ├── tsconfig.json              # TypeScript configuration
+    ├── .devmind.json              # DevMind configuration
+    └── mcp-config-example.json    # MCP configuration example
+```
 
 ---
 
@@ -177,6 +235,16 @@ In your AI assistant, try:
 
 DevMind provides **18 powerful tools** for your AI assistant:
 
+#### Professional Documentation
+
+**Use the `project_analysis_engineer` prompt for all professional documentation needs:**
+
+| Prompt                      | Purpose                     | Example Use                |
+|-----------------------------|-----------------------------|----------------------------|
+| `project_analysis_engineer` | Generate comprehensive docs | Create DEVMIND.md analysis |
+
+*Note: Previous project analysis tools have been consolidated into this powerful prompt-based approach.*
+
 #### Session Management
 
 | Tool                  | Purpose                         | Example Use             |
@@ -206,16 +274,13 @@ DevMind provides **18 powerful tools** for your AI assistant:
 | `get_related_contexts` | Find related contexts      | Explore connections          |
 | `generate_embeddings`  | Generate vector embeddings | Index new content            |
 
-#### Project Intelligence
+#### Memory Optimization
 
-| Tool                      | Purpose                                         | Example Use                               |
-|---------------------------|-------------------------------------------------|-------------------------------------------|
-| `index_project`           | Analyze entire project                          | Generate comprehensive insights           |
-| `analyze_project`         | Get project structure and metrics               | Understand project architecture           |
-| `generate_project_doc`    | Generate project documentation                  | Create initial project docs               |
-| `query_project_memory`    | Query project memory with advanced capabilities | Time-based queries, evolution tracking    |
-| `get_project_context`     | Get intelligent project awareness               | Smart suggestions and maturity assessment |
-| `optimize_project_memory` | Optimize memory storage and performance         | Cleanup, compression, deduplication       |
+| Tool                      | Purpose                                 | Example Use                         |
+|---------------------------|-----------------------------------------|-------------------------------------|
+| `optimize_project_memory` | Optimize memory storage and performance | Cleanup, compression, deduplication |
+
+*Note: All project analysis features have been unified under the `project_analysis_engineer` prompt for a better user experience.*
 
 ### CLI Commands
 
@@ -290,75 +355,61 @@ const results = await semantic_search({
 
 ---
 
-## 📂 Smart Project Indexing
+## 🚀 Professional Documentation Generation
 
 ### Overview
 
-DevMind's **Smart Project Indexing** automatically analyzes your entire project to generate comprehensive, structured memories. This feature intelligently scans files, extracts meaningful content, and creates searchable project insights.
+DevMind's **Project Analysis Engineer** uses AI to automatically analyze your codebase and generate comprehensive, professional documentation. This powerful prompt-based approach provides deeper insights than traditional static analysis.
 
 ### Key Features
 
-- **Intelligent Analysis** - Automatically detects project type, tech stack, and architecture
-- **Security-First** - Built-in sensitive file detection and content filtering
-- **Performance Optimized** - Smart file prioritization and content compression
-- **Memory Generation** - Creates structured project memories: overview, tech stack, structure, and features
-- **Progress Tracking** - Real-time indexing progress with performance insights
-- **Contextual Understanding** - Analyzes project complexity and provides intelligent recommendations
+- **AI-Powered Analysis** - Deep understanding of code patterns, architecture, and business logic
+- **Multi-Language Support** - Automatically detects and generates Chinese or English documentation
+- **Professional Quality** - Generates DEVMIND.md format documentation with technical depth
+- **Auto-Save to Memory** - Documentation is automatically saved to your project's memory for future reference
+- **Customizable Focus** - Target specific areas like architecture, APIs, business logic, or security
+- **Multiple Formats** - Supports DEVMIND.md, technical specs, and README formats
 
 ### How It Works
 
 ```text
-Project Discovery → File Scanning → Content Analysis → Memory Generation
-       │                 │                │                │
-   Auto-detect      Smart filtering   Extract insights   Structured memories
-   project type     & prioritization   & tech features   for AI context
+Project Scanning → Code Analysis → AI Processing → Professional Docs → Memory Storage
+       │                │             │              │                │
+   Smart file       Extract tech    Generate deep    Create DEVMIND.md   Auto-save to
+   selection        insights        analysis         documentation       searchable DB
 ```
 
-### Available Tools
+### Usage
 
-#### Project Indexing Tools
+#### Natural Language Generation
 
-| Tool                   | Purpose                       | Example Use                     |
-|------------------------|-------------------------------|---------------------------------|
-| `index_project`        | Analyze entire project        | Generate comprehensive insights |
-| `get_project_insights` | Retrieve project memories     | Access cached project analysis  |
-| `validate_project`     | Check project before indexing | Ensure safe indexing            |
-| `get_indexing_status`  | Check indexing progress       | Monitor background analysis     |
+**English:**
+- "Generate professional DevMind documentation for this project"
+- "Create comprehensive technical analysis with DEVMIND.md format"
+- "Analyze this codebase and generate professional documentation"
 
-### Usage Examples
+**Chinese:**
+- "为这个项目生成专业的DevMind文档"
+- "创建全面的技术分析，使用DEVMIND.md格式"
+- "分析这个代码库并生成专业文档"
 
-#### Index Current Project
+#### Direct Prompt Usage
 
 ```typescript
-// Start intelligent project indexing
-const result = await index_project({
-  project_path: "/path/to/project",
-  trigger: "manual",
-  options: {
-    max_files: 50,
-    include_code_analysis: true,
-    generate_memories: true
-  }
+// English documentation
+const analysis = await project_analysis_engineer({
+  project_path: "./my-project",
+  doc_style: "devmind",
+  language: "en"
+});
+
+// Chinese documentation (auto-detected)
+const analysis = await project_analysis_engineer({
+  project_path: "./chinese-project",
+  doc_style: "devmind",
+  language: "zh"
 });
 ```
-
-#### Retrieve Project Insights
-
-```typescript
-// Get generated project memories
-const insights = await get_project_insights({
-  project_path: "/path/to/project",
-  memory_types: ["overview", "tech_stack", "structure"]
-});
-```
-
-#### Project Validation
-
-```typescript
-// Validate project before indexing
-const validation = await validate_project({
-  project_path: "/path/to/project"
-});
 
 if (validation.is_valid) {
   console.log("Project ready for indexing");
@@ -497,7 +548,7 @@ DevMind Memory Rules:
    - Complex solutions → type="solution"
 4. Format: Include file_path, line_ranges [[start,end],...], and tags
 5. Session: Auto-creates/reuses one session per project
-6. New project: Suggest generate_project_doc once for comprehensive docs
+6. New project: Use project_analysis_engineer prompt for comprehensive docs
 
 Note: NPX has no auto-monitoring. AI must record important contexts.
 ```
@@ -578,6 +629,45 @@ const id = await record_context({
   tags: ["websocket", "memory-leak", "bug-fix"]
 });
 ```
+
+---
+
+#### `project_analysis_engineer(options: AnalysisOptions): Promise<AnalysisPrompt>`
+
+**NEW!** Generate professional project documentation with AI-powered analysis.
+
+**Parameters:**
+
+- `project_path` (string) - Path to project directory
+- `analysis_focus` (string) - Focus areas: `architecture,entities,apis,business_logic` 
+- `doc_style` (string) - Documentation style: `devmind`, `claude`, `technical`, `readme`
+- `language` (string) - Documentation language: `en`, `zh`, `auto` (default: auto-detect)
+- `auto_save` (boolean) - Auto-save analysis to memory (default: true)
+
+**Returns:** Analysis prompt for AI to generate comprehensive documentation
+
+**Example:**
+
+```typescript
+// English documentation
+const analysis = await project_analysis_engineer({
+  project_path: "./my-project",
+  doc_style: "devmind",
+  language: "en"
+});
+
+// Chinese documentation (auto-detected or explicit)
+const analysis = await project_analysis_engineer({
+  project_path: "./my-chinese-project",
+  doc_style: "devmind",
+  language: "zh"
+});
+```
+
+**Natural Language Examples:**
+- "Generate professional DevMind documentation for this project"
+- "为这个项目生成专业的DevMind文档" (Chinese)
+- "Create comprehensive technical analysis with DEVMIND.md format"
 
 ---
 
