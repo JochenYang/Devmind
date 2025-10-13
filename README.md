@@ -487,16 +487,19 @@ Add this concise rule to your MCP client's system prompt:
 ```
 DevMind Memory Rules:
 
-1. ALWAYS search first: Use semantic_search before answering technical questions
-2. Project initialization: First time working on a project, ask if user wants to generate_project_doc
-3. Auto-tracking active: File changes and Git operations are recorded automatically
-4. One project = One session: Each project maintains a single persistent session
-5. Manual recording triggers:
-   - User says "remember this" → record_context
-   - Bug fixes/solutions → record_context type="solution"
-   - Architecture decisions → record_context type="documentation"
-   - Important discoveries → record_context with relevant tags
-6. Reference found context IDs when citing past information
+1. Search first: Use semantic_search before answering technical questions
+2. Record immediately (no ask):
+   - User says "remember this"
+   - Completed bug fixes → type="solution"
+3. Suggest recording (ask first):
+   - New features → type="code"
+   - Architecture decisions → type="documentation"
+   - Complex solutions → type="solution"
+4. Format: Include file_path, line_ranges [[start,end],...], and tags
+5. Session: Auto-creates/reuses one session per project
+6. New project: Suggest generate_project_doc once for comprehensive docs
+
+Note: NPX has no auto-monitoring. AI must record important contexts.
 ```
 
 #### Auto-Recording Triggers

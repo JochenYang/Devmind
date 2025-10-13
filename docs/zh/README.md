@@ -485,18 +485,21 @@ devmind validate /path/to/project
 在您的MCP客户端系统提示中添加这个简洁规则:
 
 ```
-DevMind记忆规则:
+DevMind 记忆规则:
 
-1. 始终先搜索: 回答技术问题前使用semantic_search
-2. 项目初始化: 首次接触项目时，询问用户是否需要generate_project_doc
-3. 自动跟踪启用: 文件变化和Git操作自动记录
-4. 一个项目=一个会话: 每个项目维护单一持久会话
-5. 手动记录触发:
-   - 用户说"记住这个" → record_context
-   - Bug修复/解决方案 → record_context type="solution"
-   - 架构决策 → record_context type="documentation"
-   - 重要发现 → record_context 带相关标签
-6. 引用过去信息时提供上下文ID
+1. 先搜索: 回答技术问题前使用 semantic_search
+2. 立即记录 (不询问):
+   - 用户说"记住这个"
+   - 已完成的 bug 修复 → type="solution"
+3. 建议记录 (先询问):
+   - 新功能 → type="code"
+   - 架构决策 → type="documentation"
+   - 复杂解决方案 → type="solution"
+4. 格式: 包含 file_path、line_ranges [[起始,结束],...] 和 tags
+5. 会话: 自动创建/复用项目唯一会话
+6. 新项目: 首次建议使用 generate_project_doc 生成完整文档
+
+注意: NPX 模式无自动监听，AI 需主动记录重要内容。
 ```
 
 #### 自动记录触发场景
