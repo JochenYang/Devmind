@@ -121,7 +121,7 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: 'devmind-mcp',
-        version: '1.6.1',
+        version: '1.7.0',
       },
       {
         capabilities: {
@@ -223,8 +223,18 @@ export class AiMemoryMcpServer {
               },
               content: { type: 'string', description: 'The context content' },
               file_path: { type: 'string', description: 'Optional file path' },
-              line_start: { type: 'number', description: 'Optional starting line number' },
-              line_end: { type: 'number', description: 'Optional ending line number' },
+              line_start: { type: 'number', description: 'Optional starting line number (deprecated, use line_ranges for multiple ranges)' },
+              line_end: { type: 'number', description: 'Optional ending line number (deprecated, use line_ranges for multiple ranges)' },
+              line_ranges: { 
+                type: 'array', 
+                items: { 
+                  type: 'array',
+                  items: { type: 'number' },
+                  minItems: 2,
+                  maxItems: 2
+                },
+                description: 'Multiple line ranges: [[10,15], [50,60]] for non-contiguous changes'
+              },
               language: { type: 'string', description: 'Optional programming language' },
               tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags' },
               metadata: { type: 'object', description: 'Optional metadata' },
@@ -800,10 +810,24 @@ export class AiMemoryMcpServer {
         args.line_end
       );
 
+      // 处理多行范围
+      let finalLineStart = args.line_start;
+      let finalLineEnd = args.line_end;
+      const lineRangesData: any = {};
+
+      if (args.line_ranges && args.line_ranges.length > 0) {
+        // 使用 line_ranges（新方式）
+        lineRangesData.line_ranges = args.line_ranges;
+        // 为了向后兼容，仍然保存第一个范围到 line_start/line_end
+        finalLineStart = args.line_ranges[0][0];
+        finalLineEnd = args.line_ranges[args.line_ranges.length - 1][1];
+      }
+
       // 合并元数据
       const mergedMetadata = {
         ...(args.metadata || {}),
         ...extractedContext.metadata,
+        ...lineRangesData,
         ...(Object.keys(pathDetectionMeta).length > 0 ? { path_detection: pathDetectionMeta } : {})
       };
 
@@ -812,8 +836,8 @@ export class AiMemoryMcpServer {
         type: args.type,
         content: args.content,
         file_path: detectedFilePath,
-        line_start: args.line_start,
-        line_end: args.line_end,
+        line_start: finalLineStart,
+        line_end: finalLineEnd,
         language: detectedLanguage || extractedContext.language,
         tags: (args.tags || extractedContext.tags).join(','),
         quality_score: extractedContext.quality_score,
