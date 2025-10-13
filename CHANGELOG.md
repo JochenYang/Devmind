@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed test files from npm package
 - Removed unnecessary documentation files
 
-## [1.6.0] - 2025-01-13
+## [1.6.0] - 2025-10-13
 
 ### Added
 - **Intelligent File Path Detection**: Automatically detect and suggest file paths when recording context
