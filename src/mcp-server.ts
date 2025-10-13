@@ -16,6 +16,7 @@ import { ContentExtractor } from './content-extractor.js';
 import { VectorSearchEngine } from './vector-search.js';
 import { AutoRecordFilter } from './auto-record-filter.js';
 import { createProjectIndexer } from './project-indexer/index.js';
+import { createFilePathDetector, FilePathDetector } from './utils/file-path-detector.js';
 import { 
   AiMemoryConfig, 
   ContextSearchParams, 
@@ -120,7 +121,7 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: 'devmind-mcp',
-        version: '1.5.1',
+        version: '1.6.0',
       },
       {
         capabilities: {
@@ -742,24 +743,81 @@ export class AiMemoryMcpServer {
 
   private async handleRecordContext(args: RecordContextParams) {
     try {
+      // 智能检测文件路径（如果未提供）
+      let detectedFilePath = args.file_path;
+      let detectedLanguage = args.language;
+      let pathDetectionMeta: any = {};
+
+      if (!detectedFilePath) {
+        const session = this.db.getSession(args.session_id);
+        if (session && session.project_id) {
+          const project = this.db.getProject(session.project_id);
+          if (project && project.path) {
+            try {
+              const detector = createFilePathDetector(project.path);
+              
+              // 获取最近的上下文记录（用于推断）
+              const recentContexts = this.db.getContextsBySession(args.session_id)
+                .slice(0, 10)
+                .map(ctx => ({
+                  file_path: ctx.file_path,
+                  content: ctx.content,
+                  created_at: ctx.created_at
+                }));
+
+              const suggestions = await detector.detectFilePath({
+                projectPath: project.path,
+                content: args.content,
+                recentContexts
+              });
+
+              if (suggestions.length > 0) {
+                const topSuggestion = suggestions[0];
+                detectedFilePath = topSuggestion.path;
+                pathDetectionMeta = {
+                  auto_detected: true,
+                  confidence: topSuggestion.confidence,
+                  source: topSuggestion.source,
+                  reason: topSuggestion.reason,
+                  all_suggestions: suggestions.slice(0, 3).map(s => ({
+                    path: detector.getRelativePath(s.path),
+                    confidence: s.confidence,
+                    source: s.source
+                  }))
+                };
+              }
+            } catch (error) {
+              console.error('[handleRecordContext] File path detection failed:', error);
+            }
+          }
+        }
+      }
+
       const extractedContext = this.contentExtractor.extractCodeContext(
         args.content,
-        args.file_path,
+        detectedFilePath,
         args.line_start,
         args.line_end
       );
+
+      // 合并元数据
+      const mergedMetadata = {
+        ...(args.metadata || {}),
+        ...extractedContext.metadata,
+        ...(Object.keys(pathDetectionMeta).length > 0 ? { path_detection: pathDetectionMeta } : {})
+      };
 
       const contextId = this.db.createContext({
         session_id: args.session_id,
         type: args.type,
         content: args.content,
-        file_path: args.file_path,
+        file_path: detectedFilePath,
         line_start: args.line_start,
         line_end: args.line_end,
-        language: args.language || extractedContext.language,
+        language: detectedLanguage || extractedContext.language,
         tags: (args.tags || extractedContext.tags).join(','),
         quality_score: extractedContext.quality_score,
-        metadata: JSON.stringify(args.metadata || extractedContext.metadata),
+        metadata: JSON.stringify(mergedMetadata),
       });
 
       // 异步生成embedding（不阻塞响应）
@@ -775,13 +833,17 @@ export class AiMemoryMcpServer {
       return {
         content: [{
           type: 'text',
-          text: `Recorded context: ${contextId}`,
+          text: `Recorded context: ${contextId}` + 
+                (pathDetectionMeta.auto_detected ? 
+                  `\n🔍 Auto-detected file: ${pathDetectionMeta.all_suggestions?.[0]?.path || 'N/A'} (confidence: ${Math.round((pathDetectionMeta.confidence || 0) * 100)}%)` : 
+                  ''),
         }],
         isError: false,
         _meta: {
           context_id: contextId,
           quality_score: extractedContext.quality_score,
           embedding_enabled: !!(this.vectorSearch && this.config.vector_search?.enabled),
+          ...pathDetectionMeta,
         },
       };
     } catch (error) {

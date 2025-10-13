@@ -157,6 +157,11 @@ export class DatabaseManager {
     return stmt.get(path) as Project | null;
   }
 
+  getProject(projectId: string): Project | null {
+    const stmt = this.db.prepare('SELECT * FROM projects WHERE id = ?');
+    return stmt.get(projectId) as Project | null;
+  }
+
   updateProjectAccess(projectId: string): void {
     const stmt = this.db.prepare('UPDATE projects SET last_accessed = ? WHERE id = ?');
     stmt.run(new Date().toISOString(), projectId);

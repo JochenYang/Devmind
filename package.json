@@ -1,12 +1,12 @@
 {
   "name": "devmind-mcp",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "DevMind MCP - An intelligent context-aware memory system for AI assistants",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
     "devmind-mcp": "dist/cli.js",
-    "devmind": "dist/cli-new.js"
+    "devmind": "dist/cli.js"
   },
   "scripts": {
     "build": "tsc",
@@ -16,7 +16,7 @@
     "lint": "eslint src/**/*.ts",
     "prepare": "npm run build",
     "daemon": "node dist/daemon.js",
-    "cli": "node dist/cli-new.js"
+    "cli": "node dist/cli.js"
   },
   "keywords": [
     "mcp",
