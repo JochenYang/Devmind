@@ -28,8 +28,8 @@ export interface Context {
   type: ContextType;
   content: string;
   file_path?: string;
-  line_start?: number;
-  line_end?: number;
+  line_start?: number; // Deprecated: use line_ranges for multiple ranges
+  line_end?: number;   // Deprecated: use line_ranges for multiple ranges
   language?: string;
   tags: string; // comma-separated
   quality_score: number;
@@ -37,7 +37,7 @@ export interface Context {
   embedding?: Float64Array;
   embedding_text?: string; // JSON serialized embedding
   embedding_version?: string;
-  metadata: string; // JSON
+  metadata: string; // JSON - now can include line_ranges: [[start,end], [start,end]]
 }
 
 export interface Relationship {
@@ -96,8 +96,9 @@ export interface RecordContextParams {
   type: ContextType;
   content: string;
   file_path?: string;
-  line_start?: number;
-  line_end?: number;
+  line_start?: number; // Single range start (deprecated, use line_ranges)
+  line_end?: number;   // Single range end (deprecated, use line_ranges)
+  line_ranges?: Array<[number, number]>; // Multiple ranges: [[10,15], [50,60]]
   language?: string;
   tags?: string[];
   metadata?: Record<string, any>;

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-10-13
+
+### Added
+- **Multiple Line Ranges Support**: Record context with non-contiguous line changes
+  - New `line_ranges` parameter: `[[10,15], [50,60]]` for multiple ranges
+  - Backward compatible: `line_start`/`line_end` still supported for single range
+  - Stored in metadata for complete change tracking
+  - Enables precise multi-location code modification recording
+
+### Changed
+- Enhanced `record_context` tool schema with `line_ranges` array parameter
+- `line_start` and `line_end` marked as deprecated (use `line_ranges` instead)
+- Metadata now includes complete line range information
+
 ## [1.6.1] - 2025-10-13
 
 ### Fixed
@@ -12,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed test files from npm package
 - Removed unnecessary documentation files
 
-## [1.6.0] - 2025-01-13
+## [1.6.0] - 2025-10-13
 
 ### Added
 - **Intelligent File Path Detection**: Automatically detect and suggest file paths when recording context
@@ -92,6 +106,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.7.0]: https://github.com/JochenYang/Devmind/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/JochenYang/Devmind/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/JochenYang/Devmind/compare/v1.5.2...v1.6.0
 [1.5.2]: https://github.com/JochenYang/Devmind/compare/v1.5.1...v1.5.2
