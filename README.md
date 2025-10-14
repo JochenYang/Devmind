@@ -233,7 +233,7 @@ In your AI assistant, try:
 
 ### MCP Tools Quick Reference
 
-DevMind provides **18 powerful tools** for your AI assistant:
+DevMind provides **13 powerful tools and 4 prompts** for your AI assistant:
 
 #### Professional Documentation
 
@@ -281,6 +281,17 @@ DevMind provides **18 powerful tools** for your AI assistant:
 | `optimize_project_memory` | Optimize memory storage and performance | Cleanup, compression, deduplication |
 
 *Note: All project analysis features have been unified under the `project_analysis_engineer` prompt for a better user experience.*
+
+#### Intelligent Prompts
+
+| Prompt                      | Purpose                          | Example Use                 |
+|-----------------------------|----------------------------------|-----------------------------|
+| `project_analysis_engineer` | Generate professional docs       | Create DEVMIND.md analysis  |
+| `context_summary`           | Summarize project context        | Get project overview        |
+| `code_explanation`          | Explain code context             | Understand complex code     |
+| `solution_recommendation`   | Get solution recommendations     | Find fixes for errors       |
+
+*Prompts provide AI-powered intelligent assistance beyond simple tool execution.*
 
 ### CLI Commands
 

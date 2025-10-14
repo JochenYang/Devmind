@@ -62,7 +62,7 @@ npm run daemon
 
 #### 1. MCP服务器层 (`mcp-server.ts`)
 - **职责**: MCP协议处理、请求路由、会话管理
-- **特性**: 18个MCP工具支持、自动文件监控、智能上下文记录
+- **特性**: 13个MCP工具支持、自动文件监控、智能上下文记录
 - **关键类**: `AiMemoryMcpServer`
 
 #### 2. 数据库层 (`database.ts`)
@@ -120,7 +120,7 @@ npm run daemon
 
 ### MCP工具集
 
-DevMind提供18个MCP工具，分为以下类别：
+DevMind提供13个MCP工具和4个专业提示，分为以下类别：
 
 #### 会话管理
 - `create_session`: 创建开发会话
@@ -143,7 +143,11 @@ DevMind提供18个MCP工具，分为以下类别：
 #### 内存优化
 - `optimize_project_memory`: 优化内存存储和性能
 
-#### 专业文档生成
+#### 专业提示
+
+- `context_summary`: 生成项目上下文摘要
+- `code_explanation`: 生成代码解释
+- `solution_recommendation`: 获取解决方案推荐
 - `project_analysis_engineer`: 专业项目分析工程师提示
 
 ### 向量搜索系统

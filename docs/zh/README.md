@@ -233,7 +233,7 @@ devmind start
 
 ### MCP工具速查
 
-DevMind为您的AI助手提供 **18个强大工具**:
+DevMind为您的AI助手提供 **13个强大工具和4个提示**:
 
 #### 专业文档生成
 
@@ -281,6 +281,17 @@ DevMind为您的AI助手提供 **18个强大工具**:
 | `optimize_project_memory` | 优化记忆存储和性能     | 清理、压缩、去重       |
 
 *注意: 所有项目分析功能已统一到 `project_analysis_engineer` 提示中，提供更好的用户体验。*
+
+#### 智能提示
+
+| 提示                       | 用途                       | 使用示例              |
+|-----------------------------|------------------------------|----------------------|
+| `project_analysis_engineer` | 生成专业文档              | 创建DEVMIND.md分析 |
+| `context_summary`           | 总结项目上下文              | 获取项目概览       |
+| `code_explanation`          | 解释代码上下文              | 理解复杂代码       |
+| `solution_recommendation`   | 获取解决方案推荐          | 查找错误修复方案   |
+
+*提示提供AI驱动的智能辅助，超越简单的工具执行。*
 
 ### CLI命令
 
