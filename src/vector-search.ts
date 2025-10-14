@@ -1,5 +1,6 @@
 import { pipeline } from '@xenova/transformers';
 import { Context, ContextSearchParams } from './types.js';
+import { QueryEnhancer } from './utils/query-enhancer.js';
 
 export interface VectorSearchConfig {
   model_name: string;
@@ -13,6 +14,7 @@ export class VectorSearchEngine {
   private embeddingPipeline: any = null;
   private config: VectorSearchConfig;
   private embeddingCache: Map<string, number[]> = new Map();
+  private queryEnhancer: QueryEnhancer;
 
   constructor(config: Partial<VectorSearchConfig> = {}) {
     this.config = {
@@ -23,6 +25,7 @@ export class VectorSearchEngine {
       cache_embeddings: true,
       ...config
     };
+    this.queryEnhancer = new QueryEnhancer();
   }
 
   /**
@@ -50,7 +53,7 @@ export class VectorSearchEngine {
   /**
    * 生成文本的embedding向量
    */
-  async generateEmbedding(text: string): Promise<number[]> {
+  async generateEmbedding(text: string, isQuery: boolean = false): Promise<number[]> {
     if (!this.embeddingPipeline) {
       await this.initialize();
     }
@@ -62,8 +65,16 @@ export class VectorSearchEngine {
     }
 
     try {
+      // 🚀 查询增强：仅对查询文本进行增强，不增强存储内容
+      let processedText = text;
+      if (isQuery) {
+        const enhancement = this.queryEnhancer.enhance(text);
+        processedText = enhancement.enhanced;
+        // console.log('[Query Enhanced]', { original: text, enhanced: processedText });
+      }
+      
       // 预处理文本
-      const cleanText = this.preprocessText(text);
+      const cleanText = this.preprocessText(processedText);
       
       // 生成embedding
       const output = await this.embeddingPipeline!(cleanText);
@@ -213,8 +224,8 @@ export class VectorSearchEngine {
     }
 
     try {
-      // 生成查询的embedding
-      const queryEmbedding = await this.generateEmbedding(query);
+      // 🚀 生成查询的embedding（启用查询增强）
+      const queryEmbedding = await this.generateEmbedding(query, true);
       
       // 计算相似度并排序
       const resultsWithSimilarity = await Promise.all(
@@ -320,9 +331,12 @@ export class VectorSearchEngine {
       const hybridResults = Array.from(resultMap.values());
       hybridResults.sort((a, b) => (b.hybrid_score || 0) - (a.hybrid_score || 0));
       
+      // 🚀 文件类型权重调整：根据查询意图优化结果
+      const adjustedResults = this.applyFileTypeWeights(query, hybridResults);
+      
       // 应用限制
       const limit = params.limit || 20;
-      return hybridResults.slice(0, limit);
+      return adjustedResults.slice(0, limit);
       
     } catch (error) {
       console.error('Hybrid search failed:', error);
@@ -348,6 +362,50 @@ export class VectorSearchEngine {
     }
     
     return embeddings;
+  }
+
+  /**
+   * 🚀 根据查询意图调整文件类型权重
+   */
+  private applyFileTypeWeights(
+    query: string,
+    results: Array<Context & { similarity?: number; hybrid_score?: number }>
+  ): Array<Context & { similarity?: number; hybrid_score?: number }> {
+    // 检测查询意图
+    const enhancement = this.queryEnhancer.enhance(query);
+    const { intent } = enhancement;
+    
+    // 如果是通用查询，不调整权重
+    if (intent === 'general') {
+      return results;
+    }
+    
+    // 获取文件类型权重提示
+    const hints = this.queryEnhancer.getFileTypeHints(intent);
+    
+    // 为每个结果调整分数
+    results.forEach(result => {
+      if (!result.file_path || !result.hybrid_score) return;
+      
+      let weightMultiplier = 1.0;
+      
+      // 检查文件路径是否匹配权重规则
+      for (const [pattern, weight] of Object.entries(hints.weights)) {
+        if (result.file_path.includes(pattern)) {
+          weightMultiplier = Math.max(weightMultiplier, weight);
+        }
+      }
+      
+      // 应用权重调整
+      if (weightMultiplier !== 1.0) {
+        result.hybrid_score = result.hybrid_score * weightMultiplier;
+      }
+    });
+    
+    // 重新排序
+    results.sort((a, b) => (b.hybrid_score || 0) - (a.hybrid_score || 0));
+    
+    return results;
   }
 
   /**
