@@ -9,7 +9,7 @@
 
 **为AI助手打造的智能上下文感知记忆系统**
 
-[English](../../README.md) | [中文](README.md)
+[English](../../README.md) | [中文](README.md) | [📋 更新日志](../../CHANGELOG.md) | [🚀 最新版本](https://github.com/JochenYang/Devmind/releases/latest)
 
 </div>
 
@@ -37,6 +37,7 @@
 - [使用场景](#-使用场景)
 - [开发指南](#-开发指南)
 - [贡献指南](#-贡献指南)
+- [更新日志](#-更新日志)
 - [许可证](#-许可证)
 - [支持](#-支持)
 
@@ -740,6 +741,27 @@ npm run build:dev
 # 清理构建产物
 npm run clean
 ```
+
+---
+
+## 📋 更新日志
+
+### 最新版本: v1.10.0 (2025-10-14)
+
+**🚀 语义检索增强**
+
+- **查询增强**: 自动同义词扩展 (+15% 召回率)
+  - 中英文同义词映射 (认证↔auth, 数据库↔database 等)
+  - 代码关键词提取 (React, Vue, Express, Jest)
+  - 查询意图识别 (6种类型)
+- **文件类型权重**: 上下文感知结果排名 (+10% 准确度)
+  - 文档查询优先显示 `.md` 文件 (+30% 权重)
+  - 测试查询优先显示 `.test.ts` 文件 (+50% 权重)
+  - 配置查询优先显示 `.json`, `.yaml` 文件 (+40% 权重)
+
+**完整更新日志**: [📄 CHANGELOG.md](../../CHANGELOG.md)
+
+**所有版本**: [📚 GitHub Releases](https://github.com/JochenYang/Devmind/releases)
 
 ---
 

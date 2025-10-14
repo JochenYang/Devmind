@@ -9,7 +9,7 @@
 
 **Intelligent context-aware memory system for AI assistants**
 
-[English](README.md) | [中文](docs/zh/README.md)
+[English](README.md) | [中文](docs/zh/README.md) | [📋 Changelog](CHANGELOG.md) | [🚀 Latest Release](https://github.com/JochenYang/Devmind/releases/latest)
 
 </div>
 
@@ -37,6 +37,7 @@
 - [Use Cases](#-use-cases)
 - [Development](#-development)
 - [Contributing](#-contributing)
+- [Changelog](#-changelog)
 - [License](#-license)
 - [Support](#-support)
 
@@ -733,6 +734,27 @@ npm run build:dev
 # Clean build artifacts
 npm run clean
 ```
+
+---
+
+## 📋 Changelog
+
+### Latest Release: v1.10.0 (2025-10-14)
+
+**🚀 Semantic Search Enhancement**
+
+- **Query Enhancement**: Automatic synonym expansion (+15% recall)
+  - Chinese-English synonym mapping (认证↔auth, 数据库↔database, etc.)
+  - Code keyword extraction (React, Vue, Express, Jest)
+  - Query intent recognition (6 types)
+- **File Type Weighting**: Context-aware result ranking (+10% accuracy)
+  - Documentation queries prioritize `.md` files (+30% weight)
+  - Test queries prioritize `.test.ts` files (+50% weight)
+  - Config queries prioritize `.json`, `.yaml` files (+40% weight)
+
+**Full changelog**: [📄 CHANGELOG.md](CHANGELOG.md)
+
+**All releases**: [📚 GitHub Releases](https://github.com/JochenYang/Devmind/releases)
 
 ---
 
