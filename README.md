@@ -95,58 +95,45 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 ## Project Structure
 
 ```
-Devmind/
+devmind-mcp/
 ├── src/
-│   ├── mcp-server.ts              # MCP protocol server - Core server implementation
-│   ├── database.ts                # SQLite database layer - Persistent storage
-│   ├── vector-search.ts           # Vector search engine - Semantic search
-│   ├── types.ts                   # TypeScript type definitions
-│   ├── index.ts                   # Main entry point
+│   ├── mcp-server.ts                # MCP protocol server
+│   ├── database.ts                  # SQLite storage engine
+│   ├── vector-search.ts             # Semantic search with embeddings
+│   ├── session-manager.ts           # Session & context management
+│   ├── content-extractor.ts         # Code analysis & extraction
+│   ├── content-quality-assessor.ts  # Content quality scoring
+│   ├── auto-record-filter.ts        # Smart deduplication
+│   ├── daemon.ts                    # Background file monitoring
+│   ├── cli.ts                       # Command-line interface
+│   ├── smart-confirmation-system.ts # User interaction system
+│   ├── performance-optimizer.ts     # Performance tuning
+│   ├── types.ts                     # Type definitions
+│   ├── index.ts                     # Main entry point
 │   │
-│   ├── 🧠 Session & Content Management
-│   ├── session-manager.ts         # Session manager - Cross-conversation context
-│   ├── content-extractor.ts       # Content extractor - Code analysis
-│   ├── content-quality-assessor.ts # Quality assessor - Content scoring
-│   ├── auto-record-filter.ts      # Auto-record filter - Intelligent deduplication
-│   │
-│   ├── 🛠️ System Tools
-│   ├── daemon.ts                  # Daemon process - Background monitoring
-│   ├── cli.ts                     # CLI tool entry
-│   ├── smart-confirmation-system.ts # Smart confirmation system
-│   ├── performance-optimizer.ts   # Performance optimizer
-│   │
-│   ├── 🔧 Utilities
 │   ├── utils/
-│   │   ├── file-path-detector.ts  # File path detection utilities
-│   │   ├── git-diff-parser.ts     # Git diff parsing
-│   │   └── path-normalizer.ts     # Path normalization
+│   │   ├── file-path-detector.ts    # Intelligent file detection
+│   │   ├── git-diff-parser.ts       # Git diff parsing
+│   │   ├── path-normalizer.ts       # Cross-platform path handling
+│   │   └── query-enhancer.ts        # Search query enhancement
 │   │
-│   └── 📂 project-indexer/        # Smart project analysis module
-│       ├── index.ts               # Indexer entry point
+│   └── project-indexer/
+│       ├── index.ts                 # Project analyzer entry
 │       ├── core/
-│       │   └── ProjectMemoryOptimizer.ts # Memory optimization engine
+│       │   └── ProjectMemoryOptimizer.ts
 │       ├── strategies/
-│       │   ├── SmartIndexingStrategy.ts  # Smart indexing strategy
-│       │   └── SecurityStrategy.ts       # Security scanning strategy
+│       │   ├── SmartIndexingStrategy.ts
+│       │   └── SecurityStrategy.ts
 │       ├── tools/
-│       │   ├── FileScanner.ts     # Intelligent file scanner
-│       │   ├── ContentExtractor.ts # Content extraction tool
-│       │   └── ProjectAnalyzer.ts  # Project structure analyzer
+│       │   ├── FileScanner.ts
+│       │   ├── ContentExtractor.ts
+│       │   └── ProjectAnalyzer.ts
 │       └── types/
-│           └── IndexingTypes.ts   # Indexing type definitions
+│           └── IndexingTypes.ts
 │
-├── dist/                          # Compiled JavaScript output
-├── docs/                          # Project documentation
-│   └── zh/                        # Chinese documentation
-├── scripts/                       # Utility scripts
-│   ├── cleanup-test-data.js       # Database cleanup
-│   ├── fix-duplicate-projects.js  # Fix project duplicates
-│   └── reset-database.js          # Database reset
-└── Configuration Files
-    ├── package.json               # Node.js package configuration
-    ├── tsconfig.json              # TypeScript configuration
-    ├── .devmind.json              # DevMind configuration
-    └── mcp-config-example.json    # MCP configuration example
+├── dist/                            # Compiled output
+├── scripts/                         # Maintenance scripts
+└── docs/zh/                         # Chinese documentation
 ```
 
 ---
@@ -234,17 +221,15 @@ In your AI assistant, try:
 
 ### MCP Tools Quick Reference
 
-DevMind provides **13 powerful tools and 4 prompts** for your AI assistant:
+DevMind provides **14 powerful tools** and **1 professional prompt** for your AI assistant:
 
-#### Professional Documentation
+#### Project Analysis
 
-**Use the `project_analysis_engineer` prompt for all professional documentation needs:**
+| Tool                        | Purpose                                  | Example Use                |
+|-----------------------------|------------------------------------------|----------------------------|
+| `project_analysis_engineer` | [PRIMARY] Comprehensive project analysis | Generate DEVMIND.md docs   |
 
-| Prompt                      | Purpose                     | Example Use                |
-|-----------------------------|-----------------------------|----------------------------|
-| `project_analysis_engineer` | Generate comprehensive docs | Create DEVMIND.md analysis |
-
-*Note: Previous project analysis tools have been consolidated into this powerful prompt-based approach.*
+*Note: This tool is also available as a Prompt for manual triggering.*
 
 #### Session Management
 
@@ -280,19 +265,6 @@ DevMind provides **13 powerful tools and 4 prompts** for your AI assistant:
 | Tool                      | Purpose                                 | Example Use                         |
 |---------------------------|-----------------------------------------|-------------------------------------|
 | `optimize_project_memory` | Optimize memory storage and performance | Cleanup, compression, deduplication |
-
-*Note: All project analysis features have been unified under the `project_analysis_engineer` prompt for a better user experience.*
-
-#### Intelligent Prompts
-
-| Prompt                      | Purpose                          | Example Use                 |
-|-----------------------------|----------------------------------|-----------------------------|
-| `project_analysis_engineer` | Generate professional docs       | Create DEVMIND.md analysis  |
-| `context_summary`           | Summarize project context        | Get project overview        |
-| `code_explanation`          | Explain code context             | Understand complex code     |
-| `solution_recommendation`   | Get solution recommendations     | Find fixes for errors       |
-
-*Prompts provide AI-powered intelligent assistance beyond simple tool execution.*
 
 ### CLI Commands
 
@@ -739,22 +711,9 @@ npm run clean
 
 ## 📋 Changelog
 
-### Latest Release: v1.10.0 (2025-10-14)
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
-**🚀 Semantic Search Enhancement**
-
-- **Query Enhancement**: Automatic synonym expansion (+15% recall)
-  - Chinese-English synonym mapping (认证↔auth, 数据库↔database, etc.)
-  - Code keyword extraction (React, Vue, Express, Jest)
-  - Query intent recognition (6 types)
-- **File Type Weighting**: Context-aware result ranking (+10% accuracy)
-  - Documentation queries prioritize `.md` files (+30% weight)
-  - Test queries prioritize `.test.ts` files (+50% weight)
-  - Config queries prioritize `.json`, `.yaml` files (+40% weight)
-
-**Full changelog**: [📄 CHANGELOG.md](CHANGELOG.md)
-
-**All releases**: [📚 GitHub Releases](https://github.com/JochenYang/Devmind/releases)
+**Latest version**: v1.11.0 (2025-10-15)
 
 ---
 

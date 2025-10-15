@@ -210,7 +210,7 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'record_context',
-          description: 'Record a new context in the current session',
+          description: 'Record development context (conversations, errors, solutions, code snippets) manually. Use this when you have content to save, not for reading files.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -265,7 +265,7 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'extract_file_context',
-          description: 'Extract context from a file and optionally record it',
+          description: '[LOW-LEVEL] Extract structured metadata from a single file (classes, functions, imports). NOT for project analysis - use project_analysis_engineer instead.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -294,7 +294,7 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'semantic_search',
-          description: 'Perform semantic search using vector embeddings',
+          description: '[RECOMMENDED] Intelligent search across project memory using AI embeddings. Use this to find relevant past contexts, similar problems, or related code.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -310,7 +310,7 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'list_contexts',
-          description: 'List contexts in a session or project for management',
+          description: 'List recorded contexts (search history, debug sessions, code changes). Use semantic_search for intelligent queries.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -322,7 +322,7 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'delete_context',
-          description: 'Delete a specific context by ID',
+          description: 'Delete a specific recorded context. Use for cleanup, not for regular development flow.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -333,7 +333,7 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'update_context',
-          description: 'Update a context content, tags, or metadata',
+          description: 'Update existing context metadata or content. Rarely needed in normal development.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -369,11 +369,35 @@ export class AiMemoryMcpServer {
             },
           },
         },
-        // Removed redundant project analysis tools:
-        // - index_project, analyze_project, generate_project_doc (replaced by project_analysis_engineer prompt)
-        // - query_project_memory, get_project_context (overly complex, limited utility)
-        //
-        // Use project_analysis_engineer prompt for comprehensive project documentation
+        {
+          name: 'project_analysis_engineer',
+          description: '[PRIMARY] Comprehensive project analysis and documentation generator. Use this for: analyzing entire projects, understanding codebase architecture, generating professional documentation (DEVMIND.md, CLAUDE.md). This is the main tool for project-level analysis.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_path: { type: 'string', description: 'Path to the project directory to analyze' },
+              analysis_focus: { 
+                type: 'string', 
+                description: 'Focus areas: architecture, entities, apis, business_logic, security, performance (comma-separated)' 
+              },
+              doc_style: { 
+                type: 'string', 
+                enum: ['devmind', 'claude', 'technical', 'readme'],
+                description: 'Documentation style: devmind (DEVMIND.md format), claude (CLAUDE.md format), technical (technical spec), readme (README format). Default: devmind' 
+              },
+              auto_save: { 
+                type: 'boolean', 
+                description: 'Automatically save generated analysis to memory (default: true)' 
+              },
+              language: { 
+                type: 'string', 
+                enum: ['en', 'zh', 'auto'],
+                description: 'Documentation language: en (English), zh (Chinese), auto (detect from README). Default: auto' 
+              },
+            },
+            required: ['project_path'],
+          },
+        },
         {
           name: 'optimize_project_memory',
           description: 'Optimize project memory storage and performance',
@@ -446,7 +470,14 @@ export class AiMemoryMcpServer {
           });
         case 'delete_session':
           return await this.handleDeleteSession(args as { session_id: string });
-        // Removed redundant handlers - use project_analysis_engineer prompt instead
+        case 'project_analysis_engineer':
+          return await this.handleProjectAnalysisEngineerTool(args as {
+            project_path: string;
+            analysis_focus?: string;
+            doc_style?: string;
+            auto_save?: boolean;
+            language?: string;
+          });
         case 'optimize_project_memory':
           return await this.handleOptimizeProjectMemory(args as {
             project_id: string;
@@ -461,54 +492,6 @@ export class AiMemoryMcpServer {
     // Prompts handlers
     this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
       prompts: [
-        {
-          name: 'context_summary',
-          description: 'Generate a summary of project context',
-          arguments: [
-            {
-              name: 'project_id',
-              description: 'Project ID to summarize',
-              required: true,
-            },
-            {
-              name: 'session_limit',
-              description: 'Maximum number of recent sessions to include',
-              required: false,
-            },
-          ],
-        },
-        {
-          name: 'code_explanation',
-          description: 'Generate explanation for a code context',
-          arguments: [
-            {
-              name: 'context_id',
-              description: 'Context ID to explain',
-              required: true,
-            },
-            {
-              name: 'detail_level',
-              description: 'Level of detail (brief, detailed, comprehensive)',
-              required: false,
-            },
-          ],
-        },
-        {
-          name: 'solution_recommendation',
-          description: 'Get solution recommendations based on context',
-          arguments: [
-            {
-              name: 'error_context_id',
-              description: 'Error context ID to find solutions for',
-              required: true,
-            },
-            {
-              name: 'include_similar',
-              description: 'Include similar solved problems',
-              required: false,
-            },
-          ],
-        },
         {
           name: 'project_analysis_engineer',
           description: 'Professional project analysis engineer prompt that analyzes project structure, identifies core functionality, and generates comprehensive development documentation',
@@ -547,12 +530,6 @@ export class AiMemoryMcpServer {
       const { name, arguments: args } = request.params;
 
       switch (name) {
-        case 'context_summary':
-          return await this.handleContextSummary(args);
-        case 'code_explanation':
-          return await this.handleCodeExplanation(args);
-        case 'solution_recommendation':
-          return await this.handleSolutionRecommendation(args);
         case 'project_analysis_engineer':
           return await this.handleProjectAnalysisEngineer(args);
         default:
@@ -1152,108 +1129,6 @@ export class AiMemoryMcpServer {
   }
 
   // Prompt handlers
-  private async handleContextSummary(args: any) {
-    const projectId = args?.project_id;
-    const sessionLimit = args?.session_limit || 5;
-
-    if (!projectId) {
-      throw new McpError(ErrorCode.InvalidParams, 'project_id argument is required');
-    }
-
-    // This would generate a comprehensive project context summary
-    const prompt = `You are an AI assistant helping to summarize project context. 
-
-Based on the stored contexts for project ${projectId}, provide a comprehensive summary that includes:
-
-1. **Project Overview**: Main technologies, frameworks, and architecture
-2. **Recent Development**: Key changes and developments in the last ${sessionLimit} sessions
-3. **Current State**: What the project does, key components, and structure
-4. **Key Patterns**: Common code patterns, architectural decisions
-5. **Outstanding Issues**: Any unresolved errors or TODOs
-
-Please provide a clear, structured summary that would help a developer quickly understand the project's current state and context.`;
-
-    return {
-      description: 'Generate a comprehensive project context summary',
-      messages: [
-        {
-          role: 'user',
-          content: {
-            type: 'text',
-            text: prompt,
-          },
-        },
-      ],
-    };
-  }
-
-  private async handleCodeExplanation(args: any) {
-    const contextId = args?.context_id;
-    const detailLevel = args?.detail_level || 'detailed';
-
-    if (!contextId) {
-      throw new McpError(ErrorCode.InvalidParams, 'context_id argument is required');
-    }
-
-    const prompt = `You are an AI assistant helping to explain code. 
-
-Please provide a ${detailLevel} explanation of the code context with ID: ${contextId}
-
-Based on the detail level "${detailLevel}":
-- **brief**: High-level overview of what the code does
-- **detailed**: Explain the logic, key functions, and important patterns
-- **comprehensive**: Deep dive into implementation details, design patterns, and relationships
-
-Focus on making the explanation clear and educational.`;
-
-    return {
-      description: `Generate ${detailLevel} code explanation`,
-      messages: [
-        {
-          role: 'user',
-          content: {
-            type: 'text',
-            text: prompt,
-          },
-        },
-      ],
-    };
-  }
-
-  private async handleSolutionRecommendation(args: any) {
-    const errorContextId = args?.error_context_id;
-    const includeSimilar = args?.include_similar !== false;
-
-    if (!errorContextId) {
-      throw new McpError(ErrorCode.InvalidParams, 'error_context_id argument is required');
-    }
-
-    const prompt = `You are an AI assistant helping to recommend solutions for programming errors.
-
-Based on the error context with ID: ${errorContextId}${includeSimilar ? ' and similar resolved problems in the memory' : ''}:
-
-1. **Error Analysis**: Analyze the error and its likely causes
-2. **Solution Steps**: Provide step-by-step solution recommendations
-3. **Code Examples**: Include relevant code examples if needed
-4. **Prevention**: Suggest how to prevent similar issues in the future
-${includeSimilar ? '5. **Similar Cases**: Reference similar problems that were resolved before' : ''}
-
-Provide practical, actionable solutions that can be immediately applied.`;
-
-    return {
-      description: 'Generate solution recommendations for an error',
-      messages: [
-        {
-          role: 'user',
-          content: {
-            type: 'text',
-            text: prompt,
-          },
-        },
-      ],
-    };
-  }
-
   async start(): Promise<void> {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
@@ -1880,6 +1755,84 @@ Happy coding! 🚀`;
         content: [{
           type: 'text',
           text: `Failed to optimize project memory: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  /**
+   * 处理项目分析工程师 Tool（直接调用，返回分析文档）
+   */
+  private async handleProjectAnalysisEngineerTool(args: any) {
+    try {
+      const {
+        project_path,
+        analysis_focus = 'architecture,entities,apis,business_logic',
+        doc_style = 'devmind',
+        auto_save = true,
+        language
+      } = args;
+
+      if (!project_path) {
+        throw new McpError(ErrorCode.InvalidParams, 'project_path is required');
+      }
+
+      console.log(`🔍 Starting project analysis for: ${project_path}`);
+      console.log(`🎯 Focus areas: ${analysis_focus}`);
+      console.log(`📝 Documentation style: ${doc_style}`);
+      if (language) console.log(`🌐 Language: ${language}`);
+
+      // 扫描和分析项目
+      const projectData = await this.analyzeProjectForPrompt(project_path, analysis_focus.split(','));
+      
+      // 生成专业分析提示
+      const analysisPrompt = await this.generateAnalysisPrompt(projectData, doc_style, analysis_focus, language);
+      
+      // 准备会话信息
+      let sessionId: string | undefined;
+      if (auto_save) {
+        const project = await this.sessionManager.getOrCreateProject(project_path);
+        try {
+          sessionId = await this.sessionManager.createSession({
+            project_path: project_path,
+            tool_used: 'project_analysis_engineer',
+            name: `Professional Analysis - ${projectData.projectName}`
+          });
+        } catch (error) {
+          console.warn('Could not create session for auto-save:', error);
+        }
+      }
+
+      console.log(`✅ Generated analysis prompt ready for AI processing`);
+      
+      // 返回分析提示，AI 将处理并生成文档
+      return {
+        content: [{
+          type: 'text',
+          text: analysisPrompt + 
+                (sessionId ? `\n\n---\n\n📝 **Auto-save enabled**: Generated documentation will be automatically saved to session ${sessionId}` : '')
+        }],
+        isError: false,
+        _meta: {
+          project_path: project_path,
+          project_name: projectData.projectName,
+          analysis_focus: analysis_focus,
+          doc_style: doc_style,
+          auto_save: auto_save,
+          session_id: sessionId,
+          files_analyzed: projectData.keyFiles.length,
+          project_type: projectData.projectType,
+          prompt_ready: true
+        }
+      };
+      
+    } catch (error) {
+      console.error('Project analysis engineer tool failed:', error);
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to analyze project: ${error instanceof Error ? error.message : 'Unknown error'}`
         }],
         isError: true
       };

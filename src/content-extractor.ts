@@ -189,6 +189,7 @@ export class ContentExtractor {
 
   /**
    * 批量提取文件内容
+   * 注意：每个文件只生成一个上下文记录，不分块
    */
   extractFromFile(filePath: string): ExtractedContext[] {
     if (!existsSync(filePath)) {
@@ -197,25 +198,18 @@ export class ContentExtractor {
 
     const content = readFileSync(filePath, 'utf-8');
     const language = this.detectLanguage(filePath);
+    const lineCount = content.split('\n').length;
     const contexts: ExtractedContext[] = [];
 
-    // 根据文件类型进行不同的处理
+    // 根据文件类型进行不同的处理，但每个文件只创建一个上下文记录
     if (this.isCodeFile(filePath)) {
-      // 对于代码文件，可能需要分块处理
-      const chunks = this.splitCodeIntoChunks(content, language);
-      let currentLine = 1;
-      
-      for (const chunk of chunks) {
-        const lineCount = chunk.split('\n').length;
-        const context = this.extractCodeContext(
-          chunk, 
-          filePath, 
-          currentLine, 
-          currentLine + lineCount - 1
-        );
-        contexts.push(context);
-        currentLine += lineCount;
-      }
+      const context = this.extractCodeContext(
+        content, 
+        filePath, 
+        1, 
+        lineCount
+      );
+      contexts.push(context);
     } else if (this.isDocumentationFile(filePath)) {
       const context = this.extractDocumentationContext(content, filePath);
       contexts.push(context);

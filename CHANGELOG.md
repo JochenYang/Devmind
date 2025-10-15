@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0] - 2025-10-15
+
+### Changed
+- **Major Tool Architecture Refactoring**: Streamlined and clarified tool responsibilities
+  - `extract_file_context` now generates **one complete record per file** (previously: 100 lines per chunk)
+    - 88KB file: 25 records → 1 record
+    - Cleaner database with no fragmentation
+  - Optimized tool descriptions with priority tags:
+    - `[PRIMARY]` for main tools (project_analysis_engineer)
+    - `[RECOMMENDED]` for frequently used tools (semantic_search)
+    - `[LOW-LEVEL]` for advanced/internal tools (extract_file_context)
+  - `project_analysis_engineer` now registered as **both Tool and Prompt**
+    - AI can call it directly as a tool
+    - Users can manually trigger it as a prompt
+    - Provides maximum flexibility for project analysis
+
+### Removed
+- **Cleaned up redundant Prompts**: Removed 3 incomplete prompt implementations
+  - Removed `context_summary` (AI can use semantic_search + list_contexts instead)
+  - Removed `code_explanation` (AI can directly explain code without dedicated tool)
+  - Removed `solution_recommendation` (AI can use semantic_search for similar errors)
+  - Reduced code by ~150 lines while maintaining functionality
+  - All features still available through existing tools and AI capabilities
+
+### Fixed
+- Enhanced tool descriptions to prevent AI misuse
+  - Clear guidance: don't use `extract_file_context` for project analysis
+  - Proper tool hierarchy prevents confusion
+- Corrected documentation tool count: **14 Tools + 1 Prompt**
+- Synchronized English and Chinese README with accurate project structure
+
+### Documentation
+- Updated project structure to reflect actual source files
+- Removed outdated tool references
+- Clarified tool usage priorities and best practices
+- Added utils/query-enhancer.ts to structure documentation
+
+### Technical Details
+- Total tools: 14 (up from 13 in v1.10.0 due to project_analysis_engineer being counted)
+- Tool categories:
+  - Session Management: 4 tools
+  - Context Operations: 5 tools
+  - Search & Discovery: 3 tools
+  - Project Analysis: 1 tool (new)
+  - Memory Optimization: 1 tool
+- Zero breaking changes: fully backward compatible
+
+### Migration Notes
+- All existing tools continue to work
+- `extract_file_context` behavior improved (one record per file)
+- Previous chunked records remain valid in database
+- New recordings will use improved single-record approach
+
 ## [1.10.0] - 2025-10-14
 
 ### Added
