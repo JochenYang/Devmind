@@ -432,24 +432,39 @@ const analysis = await project_analysis_engineer({
 
 ### 推荐系统提示
 
-在您的MCP客户端系统提示中添加这个简洁规则:
+在您的MCP客户端系统提示中添加这个规则，实现智能记忆管理：
 
 ```
-DevMind 记忆规则:
+DevMind 智能记录规则:
 
-1. 先搜索: 回答技术问题前使用 semantic_search
-2. 立即记录 (不询问):
-   - 用户说"记住这个"
-   - 已完成的 bug 修复 → type="solution"
-3. 建议记录 (先询问):
-   - 新功能 → type="code"
-   - 架构决策 → type="documentation"
-   - 复杂解决方案 → type="solution"
-4. 格式: 包含 file_path、line_ranges [[起始,结束],...] 和 tags
-5. 会话: 自动创建/复用项目唯一会话
-6. 新项目: 使用 project_analysis_engineer 提示生成全面文档
+1. 查询优先: 回答技术问题前先使用 semantic_search 搜索已有知识
 
-注意: NPX 模式无自动监听，AI 需主动记录重要内容。
+2. 立即记录 (无需确认):
+   - 用户明确说"记住这个"或"记录这个"
+   - Bug 修复完成并验证 → type="solution"
+   - 新功能开发完成并测试 → type="code"
+   - 版本发布完成 (包含 Git tag + NPM publish) → type="documentation"
+
+3. 建议记录 (先询问用户):
+   - 架构设计讨论 → type="documentation"
+   - 复杂问题的多种解决方案 → type="solution"
+   - 技术调研和对比分析 → type="documentation"
+
+4. 记录格式要求:
+   - 必需字段: content、type、session_id、tags
+   - 推荐字段: file_path、line_ranges [[起始,结束],...]
+   - Tags 格式: ["技术栈", "模块名", "功能类型", "状态"]
+
+5. 会话管理: 每个项目自动创建/复用唯一主会话
+
+6. 新项目: 使用 project_analysis_engineer 提示生成专业文档
+
+关键原则:
+- "完成" = 代码已写 + 测试通过 + 验证可用
+- "进行中" = 仅讨论/设计，尚未实现
+- "发布" = 已完成工作的全面总结记录
+
+重要提示: NPX 模式下无后台监听，AI 必须主动记录所有重要上下文。
 ```
 
 #### 自动记录触发场景

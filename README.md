@@ -431,24 +431,39 @@ Create `.devmind.json` in your project root:
 
 ### Recommended System Prompt
 
-Add this concise rule to your MCP client's system prompt:
+Add this rule to your MCP client's system prompt for intelligent memory management:
 
 ```
-DevMind Memory Rules:
+DevMind Smart Recording Rules:
 
-1. Search first: Use semantic_search before answering technical questions
-2. Record immediately (no ask):
-   - User says "remember this"
-   - Completed bug fixes → type="solution"
-3. Suggest recording (ask first):
-   - New features → type="code"
-   - Architecture decisions → type="documentation"
-   - Complex solutions → type="solution"
-4. Format: Include file_path, line_ranges [[start,end],...], and tags
-5. Session: Auto-creates/reuses one session per project
-6. New project: Use project_analysis_engineer prompt for comprehensive docs
+1. Query First: Use semantic_search before answering technical questions to leverage existing knowledge
 
-Note: NPX has no auto-monitoring. AI must record important contexts.
+2. Record Immediately (no confirmation needed):
+   - User explicitly says "remember this" or "record this"
+   - Bug fix completed and verified → type="solution"
+   - New feature completed and tested → type="code"
+   - Version release completed (with Git tag + NPM publish) → type="documentation"
+
+3. Suggest Recording (ask user first):
+   - Architecture design discussions → type="documentation"
+   - Complex problems with multiple solutions → type="solution"
+   - Technical research and comparative analysis → type="documentation"
+
+4. Recording Format Requirements:
+   - Required fields: content, type, session_id, tags
+   - Recommended fields: file_path, line_ranges [[start,end],...]
+   - Tags format: ["tech-stack", "module", "feature-type", "status"]
+
+5. Session Management: Auto-creates/reuses one main session per project
+
+6. New Project: Use project_analysis_engineer prompt for comprehensive documentation
+
+Key Principles:
+- "Completed" = Code written + Tests passed + Verified working
+- "In Progress" = Discussion/design only, not yet implemented
+- "Release" = Comprehensive summary record of completed work
+
+IMPORTANT: NPX mode has no background monitoring. AI must actively record all important contexts.
 ```
 
 #### Auto-Recording Triggers
