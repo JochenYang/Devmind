@@ -186,6 +186,35 @@ export class DatabaseManager {
     return stmt.all(projectId) as Session[];
   }
 
+  getAllProjects(limit?: number): Project[] {
+    const sql = `
+      SELECT * FROM projects
+      ORDER BY last_accessed DESC, created_at DESC
+      ${limit ? 'LIMIT ?' : ''}
+    `;
+    const stmt = this.db.prepare(sql);
+    return (limit ? stmt.all(limit) : stmt.all()) as Project[];
+  }
+
+  getProjectSessions(projectId: string): Session[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM sessions
+      WHERE project_id = ?
+      ORDER BY started_at DESC
+    `);
+    return stmt.all(projectId) as Session[];
+  }
+
+  getProjectContextsCount(projectId: string): number {
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM contexts c
+      JOIN sessions s ON c.session_id = s.id
+      WHERE s.project_id = ?
+    `);
+    const result = stmt.get(projectId) as { count: number };
+    return result.count;
+  }
+
   // Session operations
   createSession(session: Omit<Session, 'id' | 'started_at'>): string {
     const id = this.generateId();

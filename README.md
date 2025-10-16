@@ -221,7 +221,7 @@ In your AI assistant, try:
 
 ### MCP Tools Quick Reference
 
-DevMind provides **14 powerful tools** and **1 professional prompt** for your AI assistant:
+DevMind provides **15 powerful tools** and **1 professional prompt** for your AI assistant:
 
 #### Project Analysis
 
@@ -230,6 +230,12 @@ DevMind provides **14 powerful tools** and **1 professional prompt** for your AI
 | `project_analysis_engineer` | [PRIMARY] Comprehensive project analysis | Generate DEVMIND.md docs   |
 
 *Note: This tool is also available as a Prompt for manual triggering.*
+
+#### Project Management
+
+| Tool             | Purpose                              | Example Use             |
+|------------------|--------------------------------------|-------------------------|
+| `list_projects`  | [RECOMMENDED] List all projects with stats | Overview tracked projects |
 
 #### Session Management
 

@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2025-10-16
+
+### Added
+- **Project Management Tool**: New `list_projects` tool for comprehensive project overview
+  - Lists all tracked projects with detailed statistics
+  - Shows contexts count, sessions count, and activity status
+  - Displays last activity timestamp for each project
+  - Includes project metadata (language, framework)
+  - Supports optional statistics filtering and result limits
+  - Helps users organize and navigate multiple projects efficiently
+
+### Changed
+- **Enhanced DEVMIND.md Generation**: Improved documentation template structure
+  - Added **"Key Features"** section to documentation template (now 9 sections total)
+  - Documentation now includes: Overview → Features → Commands → Architecture → Components → Details → Config → Notes → Tasks
+  - More comprehensive project documentation with clear feature highlights
+  - Better structure for understanding project capabilities at a glance
+
+### Technical Details
+- New database query methods:
+  - `getAllProjects(limit?: number)`: Fetch all projects with optional limit
+  - `getProjectSessions(projectId: string)`: Get all sessions for a project
+  - `getProjectContextsCount(projectId: string)`: Count total contexts per project
+- Enhanced mcp-server with project listing capability
+- Tool count increased from 14 to **15 tools**
+- Zero breaking changes: fully backward compatible
+
+### Documentation
+- Updated English README: tool count corrected to 15
+- Updated Chinese README: synchronized with English version
+- Added "Project Management" category to tool reference
+- Clarified tool priorities with `[RECOMMENDED]` tag for `list_projects`
+
+### Use Cases
+- Quickly overview all projects being tracked by DevMind
+- Identify inactive projects that need attention
+- Check which projects have the most contexts/activity
+- Better organize multi-project development workflows
+- Understand memory distribution across projects
+
 ## [1.11.0] - 2025-10-15
 
 ### Changed

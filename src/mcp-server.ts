@@ -264,6 +264,17 @@ export class AiMemoryMcpServer {
           },
         },
         {
+          name: 'list_projects',
+          description: '[RECOMMENDED] List all projects with memory statistics (contexts count, sessions count, last activity). Use this to overview all tracked projects.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              include_stats: { type: 'boolean', description: 'Include detailed statistics for each project (default: true)' },
+              limit: { type: 'number', description: 'Maximum number of projects to return (default: 50)' },
+            },
+          },
+        },
+        {
           name: 'extract_file_context',
           description: '[LOW-LEVEL] Extract structured metadata from a single file (classes, functions, imports). NOT for project analysis - use project_analysis_engineer instead.',
           inputSchema: {
@@ -433,6 +444,8 @@ export class AiMemoryMcpServer {
           return await this.handleEndSession(args as { session_id: string });
         case 'get_current_session':
           return await this.handleGetCurrentSession(args as { project_path: string });
+        case 'list_projects':
+          return await this.handleListProjects(args as { include_stats?: boolean; limit?: number });
         case 'extract_file_context':
           return await this.handleExtractFileContext(args as { file_path: string; session_id?: string; record?: boolean });
         case 'get_related_contexts':
@@ -858,6 +871,100 @@ export class AiMemoryMcpServer {
         content: [{
           type: 'text',
           text: `Failed to get current session: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        }],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleListProjects(args: { include_stats?: boolean; limit?: number }) {
+    try {
+      const includeStats = args.include_stats !== false; // 默认 true
+      const limit = args.limit || 50;
+      
+      // 获取所有项目
+      const projects = this.db.getAllProjects(limit);
+      
+      // 为每个项目附加统计信息
+      const projectsWithStats = projects.map(project => {
+        if (!includeStats) {
+          return {
+            id: project.id,
+            name: project.name,
+            path: project.path,
+            language: project.language,
+            framework: project.framework,
+          };
+        }
+        
+        // 获取项目的统计信息
+        const sessions = this.db.getProjectSessions(project.id);
+        const contextsCount = this.db.getProjectContextsCount(project.id);
+        const activeSessions = sessions.filter(s => s.status === 'active');
+        
+        // 获取最后活动时间
+        let lastActivity = project.created_at;
+        if (sessions.length > 0) {
+          const lastSession = sessions.sort((a, b) => 
+            new Date(b.ended_at || b.started_at).getTime() - 
+            new Date(a.ended_at || a.started_at).getTime()
+          )[0];
+          lastActivity = lastSession.ended_at || lastSession.started_at;
+        }
+        
+        return {
+          id: project.id,
+          name: project.name,
+          path: project.path,
+          language: project.language,
+          framework: project.framework,
+          stats: {
+            total_sessions: sessions.length,
+            active_sessions: activeSessions.length,
+            total_contexts: contextsCount,
+            last_activity: lastActivity,
+            created_at: project.created_at,
+          },
+        };
+      });
+      
+      // 格式化输出文本
+      const outputLines = [
+        `📚 Found ${projectsWithStats.length} projects:\n`,
+      ];
+      
+      projectsWithStats.forEach((project, index) => {
+        outputLines.push(`${index + 1}. **${project.name}**`);
+        outputLines.push(`   - Path: \`${project.path}\``);
+        outputLines.push(`   - ID: ${project.id}`);
+        if (project.language) outputLines.push(`   - Language: ${project.language}`);
+        if (project.framework) outputLines.push(`   - Framework: ${project.framework}`);
+        
+        if (includeStats && 'stats' in project && project.stats) {
+          outputLines.push(`   - 📊 Statistics:`);
+          outputLines.push(`     - Contexts: ${project.stats.total_contexts}`);
+          outputLines.push(`     - Sessions: ${project.stats.total_sessions} (${project.stats.active_sessions} active)`);
+          outputLines.push(`     - Last Activity: ${new Date(project.stats.last_activity).toLocaleString()}`);
+        }
+        outputLines.push('');
+      });
+      
+      return {
+        content: [{
+          type: 'text',
+          text: outputLines.join('\n'),
+        }],
+        isError: false,
+        _meta: {
+          total_projects: projectsWithStats.length,
+          projects: projectsWithStats,
+        },
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to list projects: ${error instanceof Error ? error.message : 'Unknown error'}`,
         }],
         isError: true,
       };
@@ -2202,24 +2309,26 @@ Happy coding! 🚀`;
         prompt.push('生成一份全面的 **DEVMIND.md** 风格的开发文档，包含以下内容：');
         prompt.push('');
         prompt.push('1. **项目概述** - 项目的核心功能和价值主张');
-        prompt.push('2. **开发命令** - 构建、测试和运行的基本命令');
-        prompt.push('3. **架构概览** - 高级系统设计和组件关系');
-        prompt.push('4. **核心组件** - 主要模块、类及其职责');
-        prompt.push('5. **重要实现细节** - 关键技术决策和模式');
-        prompt.push('6. **配置** - 如何配置和自定义系统');
-        prompt.push('7. **开发笔记** - 开发者的重要注意事项');
-        prompt.push('8. **常见开发任务** - 典型的工作流程和过程');
+        prompt.push('2. **主要功能** - 详细列出项目提供的核心功能特性，每个功能包含简短说明');
+        prompt.push('3. **开发命令** - 构建、测试和运行的基本命令');
+        prompt.push('4. **架构概览** - 高级系统设计和组件关系');
+        prompt.push('5. **核心组件** - 主要模块、类及其职责');
+        prompt.push('6. **重要实现细节** - 关键技术决策和模式');
+        prompt.push('7. **配置** - 如何配置和自定义系统');
+        prompt.push('8. **开发笔记** - 开发者的重要注意事项');
+        prompt.push('9. **常见开发任务** - 典型的工作流程和过程');
       } else {
         prompt.push('Generate a comprehensive **DEVMIND.md** style development guide that includes:');
         prompt.push('');
         prompt.push('1. **Project Overview** - What this project does and its core value proposition');
-        prompt.push('2. **Development Commands** - Essential commands for building, testing, and running');
-        prompt.push('3. **Architecture Overview** - High-level system design and component relationships');
-        prompt.push('4. **Core Components** - Main modules, classes, and their responsibilities');
-        prompt.push('5. **Important Implementation Details** - Key technical decisions and patterns');
-        prompt.push('6. **Configuration** - How to configure and customize the system');
-        prompt.push('7. **Development Notes** - Important considerations for developers');
-        prompt.push('8. **Common Development Tasks** - Typical workflows and procedures');
+        prompt.push('2. **Key Features** - Detailed list of core features/capabilities provided by this project, with brief explanation for each');
+        prompt.push('3. **Development Commands** - Essential commands for building, testing, and running');
+        prompt.push('4. **Architecture Overview** - High-level system design and component relationships');
+        prompt.push('5. **Core Components** - Main modules, classes, and their responsibilities');
+        prompt.push('6. **Important Implementation Details** - Key technical decisions and patterns');
+        prompt.push('7. **Configuration** - How to configure and customize the system');
+        prompt.push('8. **Development Notes** - Important considerations for developers');
+        prompt.push('9. **Common Development Tasks** - Typical workflows and procedures');
       }
     } else if (docStyle === 'claude') {
       if (isChineseDoc) {
