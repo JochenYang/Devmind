@@ -210,11 +210,12 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'record_context',
-          description: 'Record development context (conversations, errors, solutions, code snippets) manually. Use this when you have content to save, not for reading files.',
+          description: 'Record development context (conversations, errors, solutions, code snippets) manually. Automatically handles session creation/retrieval if project_path is provided.',
           inputSchema: {
             type: 'object',
             properties: {
-              session_id: { type: 'string', description: 'Session ID to record context in' },
+              session_id: { type: 'string', description: 'Session ID to record context in (optional if project_path is provided)' },
+              project_path: { type: 'string', description: 'Project path to auto-detect/create session (optional if session_id is provided)' },
               type: { 
                 type: 'string', 
                 enum: ['code', 'conversation', 'error', 'solution', 'documentation', 'test', 'configuration', 'commit'],
@@ -238,7 +239,7 @@ export class AiMemoryMcpServer {
               tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags' },
               metadata: { type: 'object', description: 'Optional metadata' },
             },
-            required: ['session_id', 'type', 'content'],
+            required: ['type', 'content'],
           },
         },
         {
@@ -666,13 +667,48 @@ export class AiMemoryMcpServer {
 
   private async handleRecordContext(args: RecordContextParams) {
     try {
+      // 自动获取或创建会话（如果未提供 session_id）
+      let sessionId = args.session_id;
+      let autoSessionMeta: any = {};
+
+      if (!sessionId && args.project_path) {
+        // 尝试获取活跃会话
+        const currentSessionId = await this.sessionManager.getCurrentSession(args.project_path);
+        
+        if (currentSessionId) {
+          sessionId = currentSessionId;
+          autoSessionMeta = {
+            auto_session: true,
+            session_source: 'existing_active',
+            session_id: sessionId
+          };
+        } else {
+          // 创建新会话
+          sessionId = await this.sessionManager.createSession({
+            project_path: args.project_path,
+            tool_used: 'auto',
+            name: 'Auto-created session',
+          });
+          autoSessionMeta = {
+            auto_session: true,
+            session_source: 'newly_created',
+            session_id: sessionId
+          };
+        }
+      }
+
+      // 验证必须有 session_id
+      if (!sessionId) {
+        throw new Error('Either session_id or project_path must be provided');
+      }
+
       // 智能检测文件路径（如果未提供）
       let detectedFilePath = args.file_path;
       let detectedLanguage = args.language;
       let pathDetectionMeta: any = {};
 
       if (!detectedFilePath) {
-        const session = this.db.getSession(args.session_id);
+        const session = this.db.getSession(sessionId);
         if (session && session.project_id) {
           const project = this.db.getProject(session.project_id);
           if (project && project.path) {
@@ -680,7 +716,7 @@ export class AiMemoryMcpServer {
               const detector = createFilePathDetector(project.path);
               
               // 获取最近的上下文记录（用于推断）
-              const recentContexts = this.db.getContextsBySession(args.session_id)
+              const recentContexts = this.db.getContextsBySession(sessionId)
                 .slice(0, 10)
                 .map(ctx => ({
                   file_path: ctx.file_path,
@@ -741,11 +777,12 @@ export class AiMemoryMcpServer {
         ...(args.metadata || {}),
         ...extractedContext.metadata,
         ...lineRangesData,
-        ...(Object.keys(pathDetectionMeta).length > 0 ? { path_detection: pathDetectionMeta } : {})
+        ...(Object.keys(pathDetectionMeta).length > 0 ? { path_detection: pathDetectionMeta } : {}),
+        ...(Object.keys(autoSessionMeta).length > 0 ? { session_info: autoSessionMeta } : {})
       };
 
       const contextId = this.db.createContext({
-        session_id: args.session_id,
+        session_id: sessionId,
         type: args.type,
         content: args.content,
         file_path: detectedFilePath,
@@ -771,6 +808,9 @@ export class AiMemoryMcpServer {
         content: [{
           type: 'text',
           text: `Recorded context: ${contextId}` + 
+                (autoSessionMeta.auto_session ? 
+                  `\n📋 Session: ${autoSessionMeta.session_source === 'existing_active' ? 'Reused active session' : 'Created new session'} (${sessionId})` : 
+                  '') +
                 (pathDetectionMeta.auto_detected ? 
                   `\n🔍 Auto-detected file: ${pathDetectionMeta.all_suggestions?.[0]?.path || 'N/A'} (confidence: ${Math.round((pathDetectionMeta.confidence || 0) * 100)}%)` : 
                   ''),
@@ -781,6 +821,7 @@ export class AiMemoryMcpServer {
           quality_score: extractedContext.quality_score,
           embedding_enabled: !!(this.vectorSearch && this.config.vector_search?.enabled),
           ...pathDetectionMeta,
+          ...autoSessionMeta,
         },
       };
     } catch (error) {
@@ -1237,6 +1278,16 @@ export class AiMemoryMcpServer {
 
   // Prompt handlers
   async start(): Promise<void> {
+    // 确保在 MCP (stdio) 传输下，任何日志都不会写入 stdout，避免破坏 JSON-RPC 流
+    // 将 console.log/info/debug 重定向到 stderr。
+    try {
+      const originalError = console.error.bind(console);
+      const toStderr = (...args: any[]) => originalError(...args);
+      console.log = toStderr as any;
+      console.info = toStderr as any;
+      console.debug = toStderr as any;
+    } catch {}
+
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
 

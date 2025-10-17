@@ -92,7 +92,8 @@ export interface ProjectContextParams {
 }
 
 export interface RecordContextParams {
-  session_id: string;
+  session_id?: string; // Optional: If not provided, will auto-detect/create from project_path
+  project_path?: string; // Optional: Used to auto-detect/create session if session_id not provided
   type: ContextType;
   content: string;
   file_path?: string;

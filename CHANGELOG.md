@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2025-01-17
+
+### Changed
+- **Smart Session Management**: `record_context` tool now supports automatic session handling
+  - `session_id` parameter is now optional when `project_path` is provided
+  - Automatically detects and reuses existing active sessions for the same project
+  - Creates new session automatically if no active session exists
+  - Simplifies AI assistant workflow: no need to call `get_current_session` or `create_session` separately
+  - Backward compatible: manual `session_id` still works as before
+
+### Added
+- New optional parameter `project_path` for `record_context` tool
+- Session auto-detection via `SessionManager.getCurrentSession()`
+- Informative feedback in response: indicates whether session was created or reused
+- Session metadata tracking in context records for audit purposes
+
+### Technical Details
+- Modified `RecordContextParams` interface: `session_id` and `project_path` both optional
+- Updated `handleRecordContext()` with automatic session resolution logic
+- Enhanced response metadata with `auto_session` and `session_source` fields
+- Zero breaking changes: fully backward compatible
+
+### Benefits
+- Reduces AI tool calls from 2 steps to 1 step for recording context
+- Automatically associates all project contexts to the same session
+- Clear user feedback on session creation vs. reuse
+- Improved developer experience for memory recording
+
 ## [1.12.0] - 2025-10-16
 
 ### Added
