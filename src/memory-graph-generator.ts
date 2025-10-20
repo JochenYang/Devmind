@@ -8,6 +8,7 @@ export type GraphFormat = 'mermaid' | 'html' | 'json';
 export interface GraphNode {
   id: string;
   label: string;
+  content: string;        // 完整内容
   type: string;
   importance: number;
   tags: string[];
@@ -85,8 +86,9 @@ export class MemoryGraphGenerator {
     }
 
     // 限制节点数量（选择最重要的）
-    const maxNodes = options.max_nodes || 30;
-    if (contexts.length > maxNodes) {
+    // max_nodes=0 表示显示所有，默认也是显示所有
+    const maxNodes = options.max_nodes || 0;
+    if (maxNodes > 0 && contexts.length > maxNodes) {
       contexts = contexts
         .sort((a, b) => b.quality_score - a.quality_score)
         .slice(0, maxNodes);
@@ -96,6 +98,7 @@ export class MemoryGraphGenerator {
     const nodes: GraphNode[] = contexts.map(context => ({
       id: context.id,
       label: this.truncateLabel(context.content),
+      content: context.content,  // 保存完整内容
       type: context.type,
       importance: context.quality_score,
       tags: context.tags ? context.tags.split(',').filter(t => t) : [],
@@ -395,9 +398,17 @@ export class MemoryGraphGenerator {
       .attr("dy", -15)
       .text(d => d.label.substring(0, 30) + (d.label.length > 30 ? "..." : ""));
     
-    // 提示信息
+    // 提示信息 - 显示完整内容
     node.append("title")
-      .text(d => \`\${d.label}\\nType: \${d.type}\\nImportance: \${(d.importance * 100).toFixed(0)}%\`);
+      .text(d => {
+        const contentPreview = d.content.substring(0, 500) + (d.content.length > 500 ? '...' : '');
+        const separator = '\\n\\n---\\n';
+        const typeInfo = 'Type: ' + d.type;
+        const importanceInfo = 'Importance: ' + (d.importance * 100).toFixed(0) + '%';
+        const createdInfo = 'Created: ' + d.created_at;
+        const fileInfo = d.file_path ? '\\nFile: ' + d.file_path : '';
+        return contentPreview + separator + typeInfo + '\\n' + importanceInfo + '\\n' + createdInfo + fileInfo;
+      });
     
     // 更新位置
     simulation.on("tick", () => {
@@ -448,8 +459,9 @@ export class MemoryGraphGenerator {
 </body>
 </html>`;
 
-    // 保存文件
-    const filePath = outputPath || join(process.cwd(), 'docs', 'memory-graph.html');
+    // 保存文件 - 使用项目路径而非当前工作目录
+    const projectPath = this.getProjectPath(data.metadata.project_name);
+    const filePath = outputPath || join(projectPath || process.cwd(), 'docs', 'memory-graph.html');
     
     // 确保目录存在
     const dir = dirname(filePath);
@@ -471,8 +483,9 @@ export class MemoryGraphGenerator {
   ): { content: string; file_path: string } {
     const json = JSON.stringify(data, null, 2);
 
-    // 保存文件
-    const filePath = outputPath || join(process.cwd(), 'docs', 'memory-graph.json');
+    // 保存文件 - 使用项目路径而非当前工作目录
+    const projectPath = this.getProjectPath(data.metadata.project_name);
+    const filePath = outputPath || join(projectPath || process.cwd(), 'docs', 'memory-graph.json');
     
     // 确保目录存在
     const dir = dirname(filePath);
@@ -491,6 +504,20 @@ export class MemoryGraphGenerator {
   private truncateLabel(text: string, maxLength: number = 40): string {
     text = text.replace(/\n/g, ' ').trim();
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  }
+
+  /**
+   * 获取项目路径
+   */
+  private getProjectPath(projectName: string): string | null {
+    try {
+      // 从数据库查找项目路径
+      const projects = this.db.getAllProjects(100);
+      const project = projects.find(p => p.name === projectName);
+      return project ? project.path : null;
+    } catch {
+      return null;
+    }
   }
 
   /**

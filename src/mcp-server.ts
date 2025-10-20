@@ -460,7 +460,7 @@ export class AiMemoryMcpServer {
                 enum: ['mermaid', 'html', 'json'],
                 description: 'Export format: mermaid (instant render), html (interactive file), json (raw data). Default: mermaid'
               },
-              max_nodes: { type: 'number', description: 'Maximum number of nodes to include (default: 30)' },
+              max_nodes: { type: 'number', description: 'Maximum number of nodes to include (default: 0 = all)' },
               focus_type: { 
                 type: 'string',
                 enum: ['all', 'solution', 'error', 'code', 'documentation', 'conversation'],
@@ -1885,7 +1885,7 @@ Happy coding! 🚀`;
   }) {
     try {
       const format = args.format || 'mermaid';
-      const maxNodes = args.max_nodes || 30;
+      const maxNodes = args.max_nodes !== undefined ? args.max_nodes : 0; // 0表示显示所有
       const focusType = args.focus_type || 'all';
 
       // 验证项目存在
@@ -1913,7 +1913,7 @@ Happy coding! 🚀`;
         return {
           content: [{
             type: 'text',
-            text: `# 📊 Memory Graph: ${project.name}\n\n${result.content}\n\n✨ Graph rendered above showing ${maxNodes} most important contexts${focusType !== 'all' ? ` (filtered by: ${focusType})` : ''}.`
+            text: `# 📊 Memory Graph: ${project.name}\n\n${result.content}\n\n✨ Graph rendered above showing ${maxNodes === 0 ? 'all' : maxNodes} contexts${focusType !== 'all' ? ` (filtered by: ${focusType})` : ''}.`
           }],
           isError: false,
         };
