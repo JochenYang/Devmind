@@ -102,6 +102,8 @@ devmind-mcp/
 │   ├── session-manager.ts           # 会话与上下文管理
 │   ├── content-extractor.ts         # 代码分析与提取
 │   ├── content-quality-assessor.ts  # 内容质量评分
+│   ├── quality-score-calculator.ts  # 多维度质量评分
+│   ├── memory-graph-generator.ts    # 记忆图谱可视化 (Mermaid/HTML/JSON)
 │   ├── auto-record-filter.ts        # 智能去重
 │   ├── daemon.ts                    # 后台文件监控
 │   ├── cli.ts                       # 命令行界面

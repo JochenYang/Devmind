@@ -103,6 +103,8 @@ devmind-mcp/
 │   ├── session-manager.ts           # Session & context management
 │   ├── content-extractor.ts         # Code analysis & extraction
 │   ├── content-quality-assessor.ts  # Content quality scoring
+│   ├── quality-score-calculator.ts  # Multi-dimensional quality scoring
+│   ├── memory-graph-generator.ts    # Memory graph visualization (Mermaid/HTML/JSON)
 │   ├── auto-record-filter.ts        # Smart deduplication
 │   ├── daemon.ts                    # Background file monitoring
 │   ├── cli.ts                       # Command-line interface
