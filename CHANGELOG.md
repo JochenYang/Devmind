@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.2] - 2025-10-20
+
+### Enhanced
+- **🎨 Memory Graph Visualization Improvements**:
+  - **Simplified Export**: Removed mermaid and json formats, kept HTML-only to reduce AI confusion
+  - **Complete Node Type Legend**:
+    - Added all 6 node types with bilingual support (Chinese/English)
+    - Color-coded: Conversation (Yellow), Documentation (Purple), Solution (Green), Code/Test (Blue), Error (Red), Config/Commit (Pink)
+  - **Type-Based Zone Clustering**:
+    - Visual zone backgrounds with colored circles
+    - Zone labels showing type names (dynamically sized)
+    - Hexagonal layout with nodes grouped by type
+    - Dynamic zone sizing based on node count
+  - **Advanced Collision Detection**:
+    - Collision radius includes label space (35px buffer)
+    - Prevents node label overlap
+    - Stronger collision forces (strength 0.9)
+  - **Dynamic Zone Spacing**:
+    - Automatic spacing: maxRadius × 2.8 + 120px
+    - Zones adjust positions based on content volume
+    - Prevents zone overlap when nodes are numerous
+  - **Fixed Double-Click Toggle**:
+    - Added `locked` flag to distinguish manual lock from drag
+    - Yellow border (4px) indicates locked state
+    - Properly toggles lock/unlock on double-click
+    - Drag-end only clears fx/fy for unlocked nodes
+  - **Improved Drag Responsiveness**:
+    - Increased alphaTarget to 0.5 during drag
+    - Better follow-through when dragging nodes
+
+### Technical Details
+- Zone radius formula: `baseRadius + √(nodeCount) × 15`
+- Safe distance: `maxRadius × 2.8 + 120px`
+- Collision radius: node radius + 35px label space
+- Click delay: 250ms to prevent single-click interference
+- Force parameters: charge -400, type attraction 0.5
+
+### User Experience
+- Clear visual grouping by node type
+- No overlapping labels even with many nodes
+- Smooth drag interactions
+- Intuitive lock/unlock with visual feedback
+- Bilingual zone labels
+
 ## [1.15.1] - 2025-10-20
 
 ### Enhanced
