@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0] - 2025-10-20
+
+### Changed
+- **🎨 Enhanced Memory Graph UI**: Dramatically improved visualization experience
+  - Gradient background with glass morphism effects (backdrop-filter blur)
+  - Custom tooltip replacing browser default with better formatting
+  - Improved hover effects with node scaling and shadow animations
+  - Enhanced color scheme and modern UI components
+  - Better typography with Microsoft YaHei support for Chinese
+  - Custom scrollbar styling for dark theme consistency
+
+- **🌐 i18n Support**: Full Chinese/English language switching
+  - Smart language detection based on content (>30% Chinese characters → Chinese UI)
+  - Top-centered language switcher with active state indicators
+  - All UI elements support i18n: labels, placeholders, tooltips, dropdowns
+  - Tooltip content displays in selected language (类型/Type, 重要度/Importance, etc.)
+  - Seamless language switching without page reload
+
+- **🔍 Enhanced Filtering**: More powerful search and filter capabilities
+  - New node type filter dropdown (All/Solution/Error/Code/Documentation)
+  - Search now includes full content, not just labels
+  - Link opacity adjusts based on connected node visibility
+  - Combined search + type filter for precise results
+
+- **📁 Better File Organization**: Changed output directory structure
+  - HTML/JSON files now save to `<project>/memory/` instead of `<project>/docs/`
+  - More intuitive organization: memory artifacts grouped together
+  - Auto-creates `memory/` directory if it doesn't exist
+
+### Technical Details
+- Added `detectLanguage()` function: analyzes Chinese character ratio for auto language selection
+- Implemented `switchLang()` function: updates all UI elements dynamically
+- Enhanced `filterNodes()`: combines search query and type filter with link filtering
+- Improved CSS with modern features: backdrop-filter, drop-shadow, transitions
+- Better event handling: mouseover/mousemove/mouseout for custom tooltip positioning
+
+### User Experience
+- 🎨 More polished and professional visualization interface
+- 🌐 Native language support improves accessibility for Chinese users
+- 🔍 Easier to find specific contexts with enhanced filtering
+- 📁 More logical file organization in project structure
+- ✨ Smooth animations and transitions for better interaction feedback
+
 ## [1.14.1] - 2025-10-20
 
 ### Fixed
