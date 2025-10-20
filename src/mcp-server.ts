@@ -16,7 +16,7 @@ import { ContentExtractor } from './content-extractor.js';
 import { VectorSearchEngine } from './vector-search.js';
 import { AutoRecordFilter } from './auto-record-filter.js';
 import { QualityScoreCalculator } from './quality-score-calculator.js';
-import { MemoryGraphGenerator, GraphFormat } from './memory-graph-generator.js';
+import { MemoryGraphGenerator } from './memory-graph-generator.js';
 import { createFilePathDetector, FilePathDetector } from './utils/file-path-detector.js';
 import { 
   AiMemoryConfig, 
@@ -450,23 +450,18 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'export_memory_graph',
-          description: '📊 [NEW] Export project memory relationships as graph visualization. Supports mermaid (instant render in Claude), html (interactive file), and json (raw data) formats.',
+          description: '📊 [NEW] Export project memory relationships as interactive HTML visualization with D3.js force-directed graph.',
           inputSchema: {
             type: 'object',
             properties: {
               project_id: { type: 'string', description: 'Project ID to export graph for', required: true },
-              format: { 
-                type: 'string', 
-                enum: ['mermaid', 'html', 'json'],
-                description: 'Export format: mermaid (instant render), html (interactive file), json (raw data). Default: mermaid'
-              },
               max_nodes: { type: 'number', description: 'Maximum number of nodes to include (default: 0 = all)' },
               focus_type: { 
                 type: 'string',
                 enum: ['all', 'solution', 'error', 'code', 'documentation', 'conversation'],
                 description: 'Filter by context type (default: all)'
               },
-              output_path: { type: 'string', description: 'Optional custom output path for HTML/JSON formats' },
+              output_path: { type: 'string', description: 'Optional custom output path for the HTML file' },
             },
             required: ['project_id'],
           },
@@ -548,7 +543,6 @@ export class AiMemoryMcpServer {
         case 'export_memory_graph':
           return await this.handleExportMemoryGraph(args as {
             project_id: string;
-            format?: GraphFormat;
             max_nodes?: number;
             focus_type?: string;
             output_path?: string;
@@ -1874,17 +1868,15 @@ Happy coding! 🚀`;
   // These tools were causing confusion and overlap with the more powerful prompt-based approach.
 
   /**
-   * 📊 导出记忆图谱
+   * 📊 导出记忆图谱（HTML格式）
    */
   private async handleExportMemoryGraph(args: {
     project_id: string;
-    format?: GraphFormat;
     max_nodes?: number;
     focus_type?: string;
     output_path?: string;
   }) {
     try {
-      const format = args.format || 'mermaid';
       const maxNodes = args.max_nodes !== undefined ? args.max_nodes : 0; // 0表示显示所有
       const focusType = args.focus_type || 'all';
 
@@ -1897,10 +1889,9 @@ Happy coding! 🚀`;
         };
       }
 
-      // 生成图谱
+      // 生成 HTML 图谱
       const result = await this.graphGenerator.generateGraph(
         args.project_id,
-        format,
         {
           max_nodes: maxNodes,
           focus_type: focusType,
@@ -1908,31 +1899,19 @@ Happy coding! 🚀`;
         }
       );
 
-      // 根据格式返回不同的响应
-      if (format === 'mermaid') {
-        return {
-          content: [{
-            type: 'text',
-            text: `# 📊 Memory Graph: ${project.name}\n\n${result.content}\n\n✨ Graph rendered above showing ${maxNodes === 0 ? 'all' : maxNodes} contexts${focusType !== 'all' ? ` (filtered by: ${focusType})` : ''}.`
-          }],
-          isError: false,
-        };
-      } else {
-        // HTML 或 JSON 格式
-        const fileType = format.toUpperCase();
-        return {
-          content: [{
-            type: 'text',
-            text: `# 📊 Memory Graph Exported\n\n✅ **Format**: ${fileType}\n📁 **File**: \`${result.file_path}\`\n📊 **Nodes**: ${maxNodes}\n🔗 **Filter**: ${focusType}\n\n${format === 'html' ? '🌐 Open the file in your browser for interactive visualization!' : '📊 Use this JSON data for custom analysis or import to other tools.'}\n\n---\n\n**Quick access**: \`file:///${result.file_path?.replace(/\\/g, '/')}\``
-          }],
-          isError: false,
-          _meta: {
-            format,
-            file_path: result.file_path,
-            project_name: project.name,
-          }
-        };
-      }
+      // 返回 HTML 文件路径
+      return {
+        content: [{
+          type: 'text',
+          text: `# 📊 Memory Graph Exported\n\n✅ **Format**: HTML (Interactive)\n📁 **File**: \`${result.file_path}\`\n📊 **Nodes**: ${maxNodes === 0 ? 'All' : maxNodes}\n🔗 **Filter**: ${focusType}\n\n🌐 Open the file in your browser for interactive D3.js visualization!\n\n---\n\n**Quick access**: \`file:///${result.file_path?.replace(/\\/g, '/')}\``
+        }],
+        isError: false,
+        _meta: {
+          format: 'html',
+          file_path: result.file_path,
+          project_name: project.name,
+        }
+      };
     } catch (error) {
       return {
         content: [{

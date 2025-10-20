@@ -3,7 +3,6 @@ import { DatabaseManager } from './database.js';
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 
-export type GraphFormat = 'mermaid' | 'html' | 'json';
 
 export interface GraphNode {
   id: string;
@@ -38,31 +37,21 @@ export class MemoryGraphGenerator {
   constructor(private db: DatabaseManager) {}
 
   /**
-   * 生成记忆图谱
+   * 生成记忆图谱（HTML格式）
    */
   async generateGraph(
     projectId: string,
-    format: GraphFormat = 'mermaid',
     options: {
       max_nodes?: number;
       focus_type?: string;
       output_path?: string;
     } = {}
-  ): Promise<{ content: string; file_path?: string }> {
+  ): Promise<{ content: string; file_path: string }> {
     // 获取图谱数据
     const graphData = this.extractGraphData(projectId, options);
 
-    // 根据格式生成输出
-    switch (format) {
-      case 'mermaid':
-        return { content: this.generateMermaid(graphData) };
-      case 'html':
-        return this.generateHTML(graphData, options.output_path);
-      case 'json':
-        return this.generateJSON(graphData, options.output_path);
-      default:
-        throw new Error(`Unsupported format: ${format}`);
-    }
+    // 生成HTML输出
+    return this.generateHTML(graphData, options.output_path);
   }
 
   /**
@@ -135,73 +124,6 @@ export class MemoryGraphGenerator {
         generated_at: new Date().toISOString()
       }
     };
-  }
-
-  /**
-   * 生成Mermaid格式
-   */
-  private generateMermaid(data: MemoryGraphData): string {
-    let mermaid = '```mermaid\n';
-    mermaid += 'graph TD\n';
-    mermaid += `  %% ${data.metadata.project_name} - Memory Graph\n`;
-    mermaid += `  %% Generated: ${data.metadata.generated_at}\n\n`;
-
-    // 添加节点（带样式）
-    data.nodes.forEach(node => {
-      const shape = this.getMermaidShape(node.type);
-      const label = node.label.replace(/"/g, "'"); // 转义引号
-      
-      mermaid += `  ${node.id}${shape[0]}"${label}"${shape[1]}\n`;
-    });
-
-    mermaid += '\n';
-
-    // 添加关系
-    const relationStyles = {
-      depends_on: '-->',
-      related_to: '-.->',
-      fixes: '==>',
-      implements: '-->',
-      tests: '-.->',
-      documents: '-->'
-    };
-
-    data.edges.forEach(edge => {
-      const style = relationStyles[edge.relation as keyof typeof relationStyles] || '-->';
-      const label = edge.relation.replace(/_/g, ' ');
-      mermaid += `  ${edge.from} ${style}|${label}| ${edge.to}\n`;
-    });
-
-    // 添加样式定义
-    mermaid += '\n  %% Styles\n';
-    mermaid += '  classDef solution fill:#4ade80,stroke:#22c55e,stroke-width:2px\n';
-    mermaid += '  classDef error fill:#f87171,stroke:#ef4444,stroke-width:2px\n';
-    mermaid += '  classDef code fill:#60a5fa,stroke:#3b82f6,stroke-width:2px\n';
-    mermaid += '  classDef doc fill:#a78bfa,stroke:#8b5cf6,stroke-width:2px\n';
-
-    // 应用样式
-    const typeClasses: Record<string, string[]> = {
-      solution: [],
-      error: [],
-      code: [],
-      documentation: []
-    };
-
-    data.nodes.forEach(node => {
-      if (typeClasses[node.type]) {
-        typeClasses[node.type].push(node.id);
-      }
-    });
-
-    Object.entries(typeClasses).forEach(([type, ids]) => {
-      if (ids.length > 0) {
-        mermaid += `  class ${ids.join(',')} ${type}\n`;
-      }
-    });
-
-    mermaid += '```\n';
-
-    return mermaid;
   }
 
   /**
@@ -480,22 +402,30 @@ export class MemoryGraphGenerator {
   </div>
 
   <div class="legend">
-    <h3 style="margin-bottom: 10px;">Node Types</h3>
+    <h3 id="legendTitle" style="margin-bottom: 10px;">Node Types</h3>
     <div class="legend-item">
-      <div class="legend-color" style="background: #4ade80;"></div>
-      <span>Solution</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #f87171;"></div>
-      <span>Error</span>
-    </div>
-    <div class="legend-item">
-      <div class="legend-color" style="background: #60a5fa;"></div>
-      <span>Code</span>
+      <div class="legend-color" style="background: #fbbf24;"></div>
+      <span id="legendConversation">Conversation</span>
     </div>
     <div class="legend-item">
       <div class="legend-color" style="background: #a78bfa;"></div>
-      <span>Documentation</span>
+      <span id="legendDocumentation">Documentation</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #4ade80;"></div>
+      <span id="legendSolution">Solution</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #60a5fa;"></div>
+      <span id="legendCode">Code/Test</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #f87171;"></div>
+      <span id="legendError">Error</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-color" style="background: #f472b6;"></div>
+      <span id="legendConfig">Config/Commit</span>
     </div>
   </div>
 
@@ -537,6 +467,8 @@ export class MemoryGraphGenerator {
         test: 'Test',
         configuration: 'Configuration',
         commit: 'Commit',
+        codeTest: 'Code/Test',
+        configCommit: 'Config/Commit',
         type: 'Type',
         importance: 'Importance',
         created: 'Created',
@@ -569,6 +501,8 @@ export class MemoryGraphGenerator {
         test: '测试',
         configuration: '配置',
         commit: '提交',
+        codeTest: '代码/测试',
+        configCommit: '配置/提交',
         type: '类型',
         importance: '重要性',
         created: '创建时间',
@@ -589,7 +523,15 @@ export class MemoryGraphGenerator {
       document.getElementById('resetLayout').innerHTML = t.resetLayout;
       document.getElementById('exportJson').innerHTML = t.exportJson;
       document.getElementById('langToggle').textContent = t.langToggle;
-      document.querySelector('.legend h3').textContent = t.legendTitle;
+      document.getElementById('legendTitle').textContent = t.legendTitle;
+      
+      // 更新legend标签
+      document.getElementById('legendConversation').textContent = t.conversation;
+      document.getElementById('legendDocumentation').textContent = t.documentation;
+      document.getElementById('legendSolution').textContent = t.solution;
+      document.getElementById('legendCode').textContent = t.codeTest;
+      document.getElementById('legendError').textContent = t.error;
+      document.getElementById('legendConfig').textContent = t.configCommit;
       
       const typeFilter = document.getElementById('typeFilter');
       typeFilter.options[0].text = t.allTypes;
@@ -609,11 +551,13 @@ export class MemoryGraphGenerator {
       timeFilter.options[3].text = t.last30d;
       timeFilter.options[4].text = t.last90d;
       
-      const legendItems = document.querySelectorAll('.legend-item span');
-      legendItems[0].textContent = t.solution;
-      legendItems[1].textContent = t.error;
-      legendItems[2].textContent = t.code;
-      legendItems[3].textContent = t.documentation;
+      // 更新区域标签
+      d3.select('.zone-label-conversation').text(t.conversation);
+      d3.select('.zone-label-documentation').text(t.documentation);
+      d3.select('.zone-label-solution').text(t.solution);
+      d3.select('.zone-label-code').text(t.codeTest);
+      d3.select('.zone-label-error').text(t.error);
+      d3.select('.zone-label-configuration').text(t.configCommit);
       
       // 更新统计信息
       updateStats();
@@ -655,14 +599,6 @@ export class MemoryGraphGenerator {
     const width = window.innerWidth;
     const height = window.innerHeight;
     
-    // 设置节点初始位置（从中心随机散开）
-    data.nodes.forEach(node => {
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * 100;
-      node.x = width / 2 + Math.cos(angle) * radius;
-      node.y = height / 2 + Math.sin(angle) * radius;
-    });
-    
     const svg = d3.select("#graph")
       .attr("width", width)
       .attr("height", height);
@@ -683,23 +619,125 @@ export class MemoryGraphGenerator {
       code: "#60a5fa",
       documentation: "#a78bfa",
       conversation: "#fbbf24",
-      test: "#34d399",
+      test: "#60a5fa",  // 与code相同颜色
       configuration: "#f472b6",
-      commit: "#818cf8"
+      commit: "#f472b6"  // 与configuration相同颜色
     };
     
-    // 力导向布局 - 重要节点靠近中心
+    // 统计每个类型的节点数量
+    const typeCounts = {};
+    data.nodes.forEach(node => {
+      const type = node.type;
+      typeCounts[type] = (typeCounts[type] || 0) + 1;
+    });
+    
+    // 动态计算区域半径（根据节点数量）
+    const baseRadius = Math.min(width, height) * 0.12;
+    const zoneRadii = {};
+    Object.keys(typeCounts).forEach(type => {
+      const count = typeCounts[type] + (typeCounts[type === 'code' ? 'test' : type === 'test' ? 'code' : type === 'configuration' ? 'commit' : type === 'commit' ? 'configuration' : null] || 0);
+      // 根据节点数量动态调整半径
+      zoneRadii[type] = baseRadius + Math.sqrt(count) * 15;
+    });
+    
+    // 获取最大区域半径，用于计算安全间距
+    const maxRadius = Math.max(...Object.values(zoneRadii), baseRadius);
+    // 区域中心之间的距离 = 2.8個最大半径 + 额外缓冲
+    const minDistance = maxRadius * 2.8 + 120;
+    
+    // 动态计算类型中心点位置（六边形布局）
+    const centerX = width / 2;
+    const centerY = height / 2;
+    // 确保区域间距至少是minDistance
+    const verticalSpacing = Math.max(height * 0.28, minDistance);
+    const horizontalSpacing = Math.max(width * 0.32, minDistance);
+    
+    const typeCenter = {
+      conversation: { x: centerX, y: centerY - verticalSpacing * 1.3 },
+      documentation: { x: centerX - horizontalSpacing, y: centerY - verticalSpacing * 0.4 },
+      solution: { x: centerX + horizontalSpacing, y: centerY - verticalSpacing * 0.4 },
+      code: { x: centerX + horizontalSpacing, y: centerY + verticalSpacing * 0.4 },
+      test: { x: centerX + horizontalSpacing, y: centerY + verticalSpacing * 0.4 },  // 与code共享区域
+      error: { x: centerX - horizontalSpacing, y: centerY + verticalSpacing * 0.4 },
+      configuration: { x: centerX, y: centerY + verticalSpacing * 1.3 },
+      commit: { x: centerX, y: centerY + verticalSpacing * 1.3 },  // 与configuration共享区域
+      default: { x: centerX, y: centerY }
+    };
+    
+    // 设置节点初始位置（按类型分组）
+    data.nodes.forEach(node => {
+      const center = typeCenter[node.type] || typeCenter.default;
+      const radius = Math.random() * (zoneRadii[node.type] || baseRadius) * 0.7;
+      const angle = Math.random() * Math.PI * 2;
+      node.x = center.x + Math.cos(angle) * radius;
+      node.y = center.y + Math.sin(angle) * radius;
+    });
+    
+    // 绘制类型区域背景圆圈
+    const zones = [
+      { type: 'conversation', center: typeCenter.conversation, color: colorMap.conversation },
+      { type: 'documentation', center: typeCenter.documentation, color: colorMap.documentation },
+      { type: 'solution', center: typeCenter.solution, color: colorMap.solution },
+      { type: 'code', center: typeCenter.code, color: colorMap.code },
+      { type: 'error', center: typeCenter.error, color: colorMap.error },
+      { type: 'configuration', center: typeCenter.configuration, color: colorMap.configuration }
+    ];
+    
+    const zoneGroup = g.append('g').attr('class', 'zones');
+    
+    zones.forEach(zone => {
+      const radius = zoneRadii[zone.type] || baseRadius;
+      // 背景圆
+      zoneGroup.append('circle')
+        .attr('cx', zone.center.x)
+        .attr('cy', zone.center.y)
+        .attr('r', radius)
+        .attr('fill', zone.color)
+        .attr('opacity', 0.08)
+        .attr('stroke', zone.color)
+        .attr('stroke-width', 2)
+        .attr('stroke-opacity', 0.3);
+      
+      // 区域标签
+      zoneGroup.append('text')
+        .attr('x', zone.center.x)
+        .attr('y', zone.center.y - radius - 10)
+        .attr('text-anchor', 'middle')
+        .attr('class', 'zone-label zone-label-' + zone.type)
+        .style('font-size', '14px')
+        .style('font-weight', '600')
+        .style('fill', zone.color)
+        .style('opacity', 0.6)
+        .style('pointer-events', 'none')
+        .text(i18n[currentLang][zone.type === 'code' ? 'codeTest' : zone.type === 'configuration' ? 'configCommit' : zone.type]);
+    });
+    
+    // 力导向布局 - 增强碰撞防止重叠（包含标签空间）
     const simulation = d3.forceSimulation(data.nodes)
-      .force("link", d3.forceLink(data.edges).id(d => d.id).distance(100))
-      .force("charge", d3.forceManyBody().strength(-300))
-      .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius(40))
-      // 添加微弱的径向力,让重要节点倾向于靠近中心
+      .force("link", d3.forceLink(data.edges).id(d => d.id).distance(120))
+      .force("charge", d3.forceManyBody().strength(-400))
+      .force("collision", d3.forceCollide().radius(d => {
+        // 节点半径 + 标签预留空间
+        const nodeRadius = 5 + d.importance * 15;
+        const labelSpace = 35; // 为标签预留的额外空间
+        return nodeRadius + labelSpace;
+      }).strength(0.9))
+      // 类型向心力（X轴）
+      .force("typeX", d3.forceX(d => {
+        const center = typeCenter[d.type] || typeCenter.default;
+        return center.x;
+      }).strength(0.5))
+      // 类型向心力（Y轴）
+      .force("typeY", d3.forceY(d => {
+        const center = typeCenter[d.type] || typeCenter.default;
+        return center.y;
+      }).strength(0.5))
+      // 微弱的径向力，让重要节点更靠近类型中心
       .force("radial", d3.forceRadial(
-        d => (1 - d.importance) * Math.min(width, height) / 3,
-        width / 2,
-        height / 2
-      ).strength(0.05));
+        d => (1 - d.importance) * 80,
+        d => typeCenter[d.type]?.x || width / 2,
+        d => typeCenter[d.type]?.y || height / 2
+      ).strength(0.1));
     
     // 绘制连线
     const link = g.append("g")
@@ -782,7 +820,7 @@ export class MemoryGraphGenerator {
     
     // 拖拽
     function dragstarted(event) {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
+      if (!event.active) simulation.alphaTarget(0.5).restart();
       event.subject.fx = event.subject.x;
       event.subject.fy = event.subject.y;
     }
@@ -794,8 +832,11 @@ export class MemoryGraphGenerator {
     
     function dragended(event) {
       if (!event.active) simulation.alphaTarget(0);
-      event.subject.fx = null;
-      event.subject.fy = null;
+      // 只有未锁定的节点才清除fx/fy
+      if (!event.subject.locked) {
+        event.subject.fx = null;
+        event.subject.fy = null;
+      }
     }
     
     // 搜索和筛选功能
@@ -888,49 +929,73 @@ export class MemoryGraphGenerator {
       applyFilters();
     });
     
-    // 节点双击固定/解锁位置
-    node.on('dblclick', function(event, d) {
-      event.stopPropagation();
-      if (d.fx === null) {
-        // 固定节点
-        d.fx = d.x;
-        d.fy = d.y;
-        d3.select(this).attr('stroke', '#fbbf24').attr('stroke-width', 3);
-      } else {
-        // 解锁节点
-        d.fx = null;
-        d.fy = null;
-        d3.select(this).attr('stroke', 'none');
-      }
-    });
-    
     // 节点点击高亮相关节点
     let selectedNode = null;
+    let clickTimeout = null;
+    
     node.on('click', function(event, d) {
       event.stopPropagation();
       
-      if (selectedNode === d) {
-        // 取消选中
-        selectedNode = null;
-        node.classed('dimmed', false);
-        link.classed('dimmed', false);
-        label.classed('dimmed', false);
+      // 延迟处理单击，等待双击
+      clearTimeout(clickTimeout);
+      clickTimeout = setTimeout(() => {
+        
+        if (selectedNode === d) {
+          // 取消选中
+          selectedNode = null;
+          node.classed('dimmed', false);
+          link.classed('dimmed', false);
+          label.classed('dimmed', false);
+        } else {
+          // 选中节点
+          selectedNode = d;
+          
+          // 获取相关节点ID
+          const connectedNodes = new Set([d.id]);
+          data.edges.forEach(edge => {
+            if (edge.source.id === d.id) connectedNodes.add(edge.target.id);
+            if (edge.target.id === d.id) connectedNodes.add(edge.source.id);
+          });
+          
+          // 高亮相关节点
+          node.classed('dimmed', n => !connectedNodes.has(n.id));
+          label.classed('dimmed', n => !connectedNodes.has(n.id));
+          link.classed('dimmed', e => e.source.id !== d.id && e.target.id !== d.id);
+        }
+      }, 250); // 250ms延迟，等待双击
+    });
+    
+    // 节点双击固定/解锁位置
+    node.on('dblclick', function(event, d) {
+      event.stopPropagation();
+      event.preventDefault();
+      clearTimeout(clickTimeout); // 取消单击
+      
+      console.log('Double click - before:', { fx: d.fx, fy: d.fy, locked: d.locked });
+      
+      if (!d.locked) {
+        // 固定节点
+        d.locked = true;
+        d.fx = d.x;
+        d.fy = d.y;
+        console.log('Locking node at:', { fx: d.fx, fy: d.fy });
+        d3.select(this)
+          .attr('stroke', '#fbbf24')
+          .attr('stroke-width', 4)
+          .attr('stroke-opacity', 1);
       } else {
-        // 选中节点
-        selectedNode = d;
-        
-        // 获取相关节点ID
-        const connectedNodes = new Set([d.id]);
-        data.edges.forEach(edge => {
-          if (edge.source.id === d.id) connectedNodes.add(edge.target.id);
-          if (edge.target.id === d.id) connectedNodes.add(edge.source.id);
-        });
-        
-        // 高亮相关节点
-        node.classed('dimmed', n => !connectedNodes.has(n.id));
-        label.classed('dimmed', n => !connectedNodes.has(n.id));
-        link.classed('dimmed', e => e.source.id !== d.id && e.target.id !== d.id);
+        // 解锁节点
+        console.log('Unlocking node');
+        d.locked = false;
+        d.fx = null;
+        d.fy = null;
+        d3.select(this)
+          .attr('stroke', null)
+          .attr('stroke-width', null)
+          .attr('stroke-opacity', null);
       }
+      
+      console.log('Double click - after:', { fx: d.fx, fy: d.fy, locked: d.locked });
     });
     
     // 点击背景取消选中
@@ -960,30 +1025,6 @@ export class MemoryGraphGenerator {
   }
 
   /**
-   * 生成JSON格式
-   */
-  private generateJSON(
-    data: MemoryGraphData,
-    outputPath?: string
-  ): { content: string; file_path: string } {
-    const json = JSON.stringify(data, null, 2);
-
-    // 保存文件 - 使用项目路径下的memory目录
-    const projectPath = this.getProjectPath(data.metadata.project_name);
-    const filePath = outputPath || join(projectPath || process.cwd(), 'memory', 'memory-graph.json');
-    
-    // 确保目录存在
-    const dir = dirname(filePath);
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-    
-    writeFileSync(filePath, json, 'utf-8');
-
-    return { content: json, file_path: filePath };
-  }
-
-  /**
    * 辅助方法：截断标签
    */
   private truncateLabel(text: string, maxLength: number = 40): string {
@@ -1005,21 +1046,4 @@ export class MemoryGraphGenerator {
     }
   }
 
-  /**
-   * 辅助方法：获取Mermaid节点形状
-   */
-  private getMermaidShape(type: string): [string, string] {
-    const shapes: Record<string, [string, string]> = {
-      solution: ['[', ']'],      // 矩形
-      error: ['([', '])'],        // 圆角矩形
-      code: ['[[', ']]'],         // 子程序形状
-      documentation: ['[(', ')]'], // 圆柱形
-      conversation: ['>', ']'],   // 不对称形
-      test: ['{', '}'],          // 菱形
-      configuration: ['{{', '}}'], // 六边形
-      commit: ['[/', '/]']        // 平行四边形
-    };
-
-    return shapes[type] || ['[', ']'];
-  }
 }

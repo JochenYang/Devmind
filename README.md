@@ -279,7 +279,7 @@ DevMind provides **17 powerful tools** and **1 professional prompt** for your AI
 
 | Tool                      | Purpose                                 | Example Use                         |
 |---------------------------|-----------------------------------------|-------------------------------------|
-| `export_memory_graph` 🆕    | 📊 Export memory graph (Mermaid/HTML/JSON) | Visualize project relationships |
+| `export_memory_graph` 🆕    | 📊 Export interactive HTML graph with D3.js | Visualize project memory relationships |
 
 ### CLI Commands
 
