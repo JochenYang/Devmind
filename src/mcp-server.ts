@@ -15,6 +15,8 @@ import { SessionManager } from './session-manager.js';
 import { ContentExtractor } from './content-extractor.js';
 import { VectorSearchEngine } from './vector-search.js';
 import { AutoRecordFilter } from './auto-record-filter.js';
+import { QualityScoreCalculator } from './quality-score-calculator.js';
+import { MemoryGraphGenerator, GraphFormat } from './memory-graph-generator.js';
 import { createFilePathDetector, FilePathDetector } from './utils/file-path-detector.js';
 import { 
   AiMemoryConfig, 
@@ -34,6 +36,8 @@ export class AiMemoryMcpServer {
   private sessionManager: SessionManager;
   private contentExtractor: ContentExtractor;
   private vectorSearch: VectorSearchEngine | null = null;
+  private qualityCalculator: QualityScoreCalculator;
+  private graphGenerator: MemoryGraphGenerator;
   private config: AiMemoryConfig;
   private autoMonitoringInitialized: boolean = false;
   private autoRecordFilter: AutoRecordFilter;
@@ -97,6 +101,8 @@ export class AiMemoryMcpServer {
     this.db = new DatabaseManager(this.config.database_path!);
     this.sessionManager = new SessionManager(this.db, this.config);
     this.contentExtractor = new ContentExtractor();
+    this.qualityCalculator = new QualityScoreCalculator();
+    this.graphGenerator = new MemoryGraphGenerator(this.db);
 
     // 初始化自动记录过滤器
     this.autoRecordFilter = new AutoRecordFilter({
@@ -430,6 +436,41 @@ export class AiMemoryMcpServer {
             required: ['project_id'],
           },
         },
+        {
+          name: 'update_quality_scores',
+          description: '🚀 [NEW] Recalculate multi-dimensional quality scores for contexts (freshness, relevance, usefulness). Run this periodically to update time-decayed scores.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_id: { type: 'string', description: 'Optional project ID to filter contexts' },
+              limit: { type: 'number', description: 'Maximum number of contexts to update (default: 100)' },
+              force_all: { type: 'boolean', description: 'Force update all contexts, even recently updated ones (default: false)' },
+            },
+          },
+        },
+        {
+          name: 'export_memory_graph',
+          description: '📊 [NEW] Export project memory relationships as graph visualization. Supports mermaid (instant render in Claude), html (interactive file), and json (raw data) formats.',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              project_id: { type: 'string', description: 'Project ID to export graph for', required: true },
+              format: { 
+                type: 'string', 
+                enum: ['mermaid', 'html', 'json'],
+                description: 'Export format: mermaid (instant render), html (interactive file), json (raw data). Default: mermaid'
+              },
+              max_nodes: { type: 'number', description: 'Maximum number of nodes to include (default: 30)' },
+              focus_type: { 
+                type: 'string',
+                enum: ['all', 'solution', 'error', 'code', 'documentation', 'conversation'],
+                description: 'Filter by context type (default: all)'
+              },
+              output_path: { type: 'string', description: 'Optional custom output path for HTML/JSON formats' },
+            },
+            required: ['project_id'],
+          },
+        },
       ],
     }));
 
@@ -497,6 +538,20 @@ export class AiMemoryMcpServer {
             project_id: string;
             strategies?: string[];
             dry_run?: boolean;
+          });
+        case 'update_quality_scores':
+          return await this.handleUpdateQualityScores(args as {
+            project_id?: string;
+            limit?: number;
+            force_all?: boolean;
+          });
+        case 'export_memory_graph':
+          return await this.handleExportMemoryGraph(args as {
+            project_id: string;
+            format?: GraphFormat;
+            max_nodes?: number;
+            focus_type?: string;
+            output_path?: string;
           });
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
@@ -1146,6 +1201,11 @@ export class AiMemoryMcpServer {
         allContexts,
         searchParams
       );
+
+      // 🚀 记录搜索命中，更新质量评分
+      results.forEach(context => {
+        this.db.recordContextSearch(context.id);
+      });
 
       return {
         content: [{
@@ -1812,6 +1872,198 @@ Happy coding! 🚀`;
   // - handleGetProjectContext: Redundant with existing context tools
   //
   // These tools were causing confusion and overlap with the more powerful prompt-based approach.
+
+  /**
+   * 📊 导出记忆图谱
+   */
+  private async handleExportMemoryGraph(args: {
+    project_id: string;
+    format?: GraphFormat;
+    max_nodes?: number;
+    focus_type?: string;
+    output_path?: string;
+  }) {
+    try {
+      const format = args.format || 'mermaid';
+      const maxNodes = args.max_nodes || 30;
+      const focusType = args.focus_type || 'all';
+
+      // 验证项目存在
+      const project = this.db.getProject(args.project_id);
+      if (!project) {
+        return {
+          content: [{ type: 'text', text: `Project not found: ${args.project_id}` }],
+          isError: true,
+        };
+      }
+
+      // 生成图谱
+      const result = await this.graphGenerator.generateGraph(
+        args.project_id,
+        format,
+        {
+          max_nodes: maxNodes,
+          focus_type: focusType,
+          output_path: args.output_path
+        }
+      );
+
+      // 根据格式返回不同的响应
+      if (format === 'mermaid') {
+        return {
+          content: [{
+            type: 'text',
+            text: `# 📊 Memory Graph: ${project.name}\n\n${result.content}\n\n✨ Graph rendered above showing ${maxNodes} most important contexts${focusType !== 'all' ? ` (filtered by: ${focusType})` : ''}.`
+          }],
+          isError: false,
+        };
+      } else {
+        // HTML 或 JSON 格式
+        const fileType = format.toUpperCase();
+        return {
+          content: [{
+            type: 'text',
+            text: `# 📊 Memory Graph Exported\n\n✅ **Format**: ${fileType}\n📁 **File**: \`${result.file_path}\`\n📊 **Nodes**: ${maxNodes}\n🔗 **Filter**: ${focusType}\n\n${format === 'html' ? '🌐 Open the file in your browser for interactive visualization!' : '📊 Use this JSON data for custom analysis or import to other tools.'}\n\n---\n\n**Quick access**: \`file:///${result.file_path?.replace(/\\/g, '/')}\``
+          }],
+          isError: false,
+          _meta: {
+            format,
+            file_path: result.file_path,
+            project_name: project.name,
+          }
+        };
+      }
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to export memory graph: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
+
+  /**
+   * 🚀 更新context的多维度质量评分
+   */
+  private async handleUpdateQualityScores(args: {
+    project_id?: string;
+    limit?: number;
+    force_all?: boolean;
+  }) {
+    try {
+      const limit = args.limit || 100;
+      
+      // 获取需要更新的contexts
+      let contexts: any[];
+      if (args.project_id) {
+        contexts = this.db.getContextsByProject(args.project_id).slice(0, limit);
+      } else {
+        // 获取最近的contexts
+        const allProjects = this.db.getAllProjects(10);
+        contexts = [];
+        for (const project of allProjects) {
+          const projectContexts = this.db.getContextsByProject(project.id).slice(0, limit / allProjects.length);
+          contexts.push(...projectContexts);
+          if (contexts.length >= limit) break;
+        }
+        contexts = contexts.slice(0, limit);
+      }
+
+      if (contexts.length === 0) {
+        return {
+          content: [{ type: 'text', text: 'No contexts found to update.' }],
+          isError: false,
+        };
+      }
+
+      // 更新质量评分
+      let updated = 0;
+      let skipped = 0;
+      const updates: any[] = [];
+
+      for (const context of contexts) {
+        // 如果不是强制更新，检查是否最近已更新
+        if (!args.force_all) {
+          const metadata = context.metadata ? JSON.parse(context.metadata) : {};
+          const lastAccessed = metadata.quality_metrics?.last_accessed;
+          if (lastAccessed) {
+            const daysSince = Math.floor((Date.now() - new Date(lastAccessed).getTime()) / (1000 * 60 * 60 * 24));
+            if (daysSince < 7) {
+              skipped++;
+              continue; // 跳过最近更新的
+            }
+          }
+        }
+
+        // 计算新的质量评分
+        const qualityMetrics = this.qualityCalculator.calculateQualityMetrics(context);
+        
+        // 更新metadata
+        const metadata = context.metadata ? JSON.parse(context.metadata) : {};
+        metadata.quality_metrics = qualityMetrics;
+        
+        // 更新到数据库
+        const success = this.db.updateContext(context.id, {
+          quality_score: qualityMetrics.overall,
+          metadata: JSON.stringify(metadata)
+        });
+
+        if (success) {
+          updated++;
+          updates.push({
+            id: context.id,
+            old_score: context.quality_score,
+            new_score: qualityMetrics.overall,
+            relevance: qualityMetrics.relevance,
+            freshness: qualityMetrics.freshness,
+            usefulness: qualityMetrics.usefulness
+          });
+        }
+      }
+
+      // 生成报告
+      let output = `# 🚀 Quality Score Update Report\n\n`;
+      output += `**Total Contexts**: ${contexts.length}\n`;
+      output += `**Updated**: ${updated}\n`;
+      output += `**Skipped** (recently updated): ${skipped}\n\n`;
+
+      if (updates.length > 0) {
+        output += `## Top Improvements\n\n`;
+        updates
+          .sort((a, b) => (b.new_score - b.old_score) - (a.new_score - a.old_score))
+          .slice(0, 5)
+          .forEach(u => {
+            const improvement = ((u.new_score - u.old_score) * 100).toFixed(1);
+            const improvementNum = parseFloat(improvement);
+            output += `- Context \`${u.id.substring(0, 8)}...\`: ${u.old_score.toFixed(2)} → ${u.new_score.toFixed(2)} (${improvementNum > 0 ? '+' : ''}${improvement}%)\n`;
+            output += `  - Relevance: ${u.relevance.toFixed(2)}, Freshness: ${u.freshness.toFixed(2)}, Usefulness: ${u.usefulness.toFixed(2)}\n`;
+          });
+      }
+
+      output += `\n✨ Quality scores updated successfully! Search results will now reflect improved rankings.`;
+
+      return {
+        content: [{ type: 'text', text: output }],
+        isError: false,
+        _meta: {
+          total: contexts.length,
+          updated,
+          skipped,
+          updates: updates.slice(0, 10) // 只返回前10个
+        }
+      };
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Failed to update quality scores: ${error instanceof Error ? error.message : 'Unknown error'}`
+        }],
+        isError: true
+      };
+    }
+  }
 
   private async handleOptimizeProjectMemory(args: {
     project_id: string;

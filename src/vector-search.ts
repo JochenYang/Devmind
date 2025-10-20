@@ -278,6 +278,7 @@ export class VectorSearchEngine {
 
   /**
    * 混合搜索：结合关键词和语义搜索
+   * 🚀 增强版: 整合多维度质量评分
    */
   async hybridSearch(
     query: string,
@@ -327,12 +328,17 @@ export class VectorSearchEngine {
         }
       });
       
-      // 转换为数组并排序
+      // 转换为数组
       const hybridResults = Array.from(resultMap.values());
-      hybridResults.sort((a, b) => (b.hybrid_score || 0) - (a.hybrid_score || 0));
+      
+      // 🚀 应用多维度质量评分加权
+      const qualityWeightedResults = this.applyQualityScoreWeighting(hybridResults);
       
       // 🚀 文件类型权重调整：根据查询意图优化结果
-      const adjustedResults = this.applyFileTypeWeights(query, hybridResults);
+      const adjustedResults = this.applyFileTypeWeights(query, qualityWeightedResults);
+      
+      // 最终排序
+      adjustedResults.sort((a, b) => (b.hybrid_score || 0) - (a.hybrid_score || 0));
       
       // 应用限制
       const limit = params.limit || 20;
@@ -342,6 +348,44 @@ export class VectorSearchEngine {
       console.error('Hybrid search failed:', error);
       return keywordResults;
     }
+  }
+
+  /**
+   * 🚀 应用多维度质量评分加权
+   * 
+   * 综合考虑:
+   * - 语义相似度 (50%)
+   * - 质量评分相关性 (30%) - 使用频率
+   * - 时间新鲜度 (20%)
+   */
+  private applyQualityScoreWeighting(
+    results: Array<Context & { similarity?: number; hybrid_score?: number }>
+  ): Array<Context & { similarity?: number; hybrid_score?: number }> {
+    return results.map(context => {
+      const metadata = context.metadata ? JSON.parse(context.metadata) : {};
+      const qualityMetrics = metadata.quality_metrics || {};
+      
+      // 提取多维度评分
+      const relevance = qualityMetrics.relevance || 0.5;
+      const freshness = qualityMetrics.freshness || 0.5;
+      const usefulness = qualityMetrics.usefulness || 0.5;
+      
+      // 原始混合分数
+      const baseScore = context.hybrid_score || 0;
+      
+      // 综合加权 (可调整权重)
+      const finalScore = (
+        baseScore * 0.50 +          // 语义相似度 50%
+        relevance * 0.30 +          // 相关性 30%
+        freshness * 0.15 +          // 新鲜度 15%
+        usefulness * 0.05           // 实用性 5%
+      );
+      
+      return {
+        ...context,
+        hybrid_score: finalScore
+      };
+    });
   }
 
   /**

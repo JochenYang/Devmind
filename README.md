@@ -221,7 +221,7 @@ In your AI assistant, try:
 
 ### MCP Tools Quick Reference
 
-DevMind provides **15 powerful tools** and **1 professional prompt** for your AI assistant:
+DevMind provides **17 powerful tools** and **1 professional prompt** for your AI assistant:
 
 #### Project Analysis
 
@@ -271,6 +271,13 @@ DevMind provides **15 powerful tools** and **1 professional prompt** for your AI
 | Tool                      | Purpose                                 | Example Use                         |
 |---------------------------|-----------------------------------------|-------------------------------------|
 | `optimize_project_memory` | Optimize memory storage and performance | Cleanup, compression, deduplication |
+| `update_quality_scores` 🆕 | 🚀 Recalculate multi-dimensional quality scores | Refresh time-decayed scores |
+
+#### Visualization
+
+| Tool                      | Purpose                                 | Example Use                         |
+|---------------------------|-----------------------------------------|-------------------------------------|
+| `export_memory_graph` 🆕    | 📊 Export memory graph (Mermaid/HTML/JSON) | Visualize project relationships |
 
 ### CLI Commands
 

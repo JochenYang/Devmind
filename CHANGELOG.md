@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0] - 2025-10-20
+
+### Added
+- **🚀 Multi-Dimensional Quality Scoring System**: Advanced context quality evaluation
+  - 6-dimensional scoring: relevance, freshness, completeness, accuracy, usefulness, overall
+  - Time decay algorithm: 7 days=1.0, 30 days=0.8, 90 days=0.5, 180 days=0.3
+  - Usage frequency tracking: reference count and search count
+  - Automatic search hit recording during `semantic_search`
+  - New tool: `update_quality_scores` - Batch recalculate quality scores for contexts
+  - Enhanced search ranking: 50% semantic similarity + 30% relevance + 15% freshness + 5% usefulness
+
+- **📊 Memory Graph Visualization**: Export project memory relationships as interactive graphs
+  - 3 export formats:
+    - **Mermaid** (default): Instant rendering in Claude Desktop, zero file generation
+    - **HTML**: Interactive D3.js visualization with drag, zoom, and search (saved to `./docs/`)
+    - **JSON**: Raw graph data for custom analysis and import to other tools
+  - Smart node filtering: limit max nodes, filter by context type (solution/error/code/etc.)
+  - Node styling: different colors and shapes for different context types
+  - Relationship visualization: depends_on, fixes, implements, tests, documents
+  - New tool: `export_memory_graph` - Generate memory graph in Mermaid/HTML/JSON formats
+  - Cross-platform compatible: Claude, Cursor, Windsurf, and all MCP clients
+
+### Changed
+- Enhanced `semantic_search` with quality score integration
+  - Now considers context relevance (usage frequency) in ranking
+  - Prioritizes recently accessed and frequently used contexts
+  - Backward compatible: existing searches continue to work
+
+### Technical Details
+- New modules:
+  - `src/quality-score-calculator.ts` - Multi-dimensional quality evaluation
+  - `src/memory-graph-generator.ts` - Graph generation engine
+- Database enhancements:
+  - `incrementContextReference()` - Track reference counts
+  - `recordContextSearch()` - Track search hits
+- Vector search improvements:
+  - `applyQualityScoreWeighting()` - Multi-dimensional weighted ranking
+- New types:
+  - `QualityMetrics` interface with 6 dimensions + metadata
+  - `GraphNode`, `GraphEdge`, `MemoryGraphData` interfaces
+- Tool count increased from 15 to **17 tools**
+- Zero breaking changes: fully backward compatible
+
+### Benefits
+- 📈 Improved search accuracy: Quality scores help find the most useful contexts
+- ⏰ Time-aware memory: Old contexts naturally fade, keeping results relevant
+- 📊 Visual understanding: See how contexts relate to each other at a glance
+- 🌐 Universal compatibility: HTML export works on all platforms and tools
+- 🎯 Smarter ranking: Frequently used contexts rank higher automatically
+
+### Use Cases
+- Run `update_quality_scores` periodically (e.g., weekly) to refresh time-decayed scores
+- Use `export_memory_graph` in Claude for instant Mermaid rendering
+- Generate HTML graphs for team sharing and deep analysis
+- Export JSON for custom graph analysis or CI/CD integration
+- Quality scores automatically improve search results over time
+
 ## [1.13.0] - 2025-10-17
 
 ### Changed

@@ -392,6 +392,40 @@ export class DatabaseManager {
     return result.changes > 0;
   }
 
+  /**
+   * 增加context的引用计数 (用于质量评分)
+   */
+  incrementContextReference(contextId: string): boolean {
+    const context = this.getContextById(contextId);
+    if (!context) return false;
+
+    const metadata = context.metadata ? JSON.parse(context.metadata) : {};
+    const qualityMetrics = metadata.quality_metrics || {};
+    
+    qualityMetrics.reference_count = (qualityMetrics.reference_count || 0) + 1;
+    qualityMetrics.last_accessed = new Date().toISOString();
+    metadata.quality_metrics = qualityMetrics;
+
+    return this.updateContext(contextId, { metadata: JSON.stringify(metadata) });
+  }
+
+  /**
+   * 记录context被搜索命中 (用于质量评分)
+   */
+  recordContextSearch(contextId: string): boolean {
+    const context = this.getContextById(contextId);
+    if (!context) return false;
+
+    const metadata = context.metadata ? JSON.parse(context.metadata) : {};
+    const qualityMetrics = metadata.quality_metrics || {};
+    
+    qualityMetrics.search_count = (qualityMetrics.search_count || 0) + 1;
+    qualityMetrics.last_accessed = new Date().toISOString();
+    metadata.quality_metrics = qualityMetrics;
+
+    return this.updateContext(contextId, { metadata: JSON.stringify(metadata) });
+  }
+
   deleteSession(sessionId: string): boolean {
     // 由于外键约束，删除session会自动删除相关contexts
     const stmt = this.db.prepare('DELETE FROM sessions WHERE id = ?');

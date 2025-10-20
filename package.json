@@ -1,6 +1,6 @@
 {
   "name": "devmind-mcp",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "DevMind MCP - An intelligent context-aware memory system for AI assistants",
   "main": "dist/index.js",
   "type": "module",

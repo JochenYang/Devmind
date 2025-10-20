@@ -37,7 +37,23 @@ export interface Context {
   embedding?: Float64Array;
   embedding_text?: string; // JSON serialized embedding
   embedding_version?: string;
-  metadata: string; // JSON - now can include line_ranges: [[start,end], [start,end]]
+  metadata: string; // JSON - includes quality_metrics, line_ranges, etc.
+}
+
+// 多维度质量评分指标 (存储在metadata中)
+export interface QualityMetrics {
+  overall: number;          // 综合评分 (0-1, 对应quality_score)
+  relevance: number;        // 相关性 - 基于被引用/检索次数
+  freshness: number;        // 新鲜度 - 基于时间衰减
+  completeness: number;     // 完整性 - 基于内容丰富度
+  accuracy: number;         // 准确性 - 基于用户反馈/验证
+  usefulness: number;       // 实用性 - 综合指标
+  
+  // 元数据
+  reference_count?: number; // 被引用次数
+  search_count?: number;    // 被检索次数
+  last_accessed?: string;   // 最后访问时间
+  user_rating?: number;     // 用户评分 (可选)
 }
 
 export interface Relationship {
