@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.1] - 2025-10-20
+
+### Fixed
+- **🐛 Critical Bug Fixes**: Memory graph generation issues resolved
+  - Fixed HTML/JSON files generated to wrong directory (IDE install dir → project directory)
+    - Issue: Files were saved to MCP server's `process.cwd()` (IDE installation path)
+    - Solution: Added `getProjectPath()` to retrieve correct project path from database
+  - Fixed node hover tooltip showing only truncated label
+    - Issue: Tooltip only displayed first 40 characters of content
+    - Solution: Now shows full content preview (500 characters) + metadata (type, importance, created time, file path)
+  - Fixed default node limit preventing full memory visualization
+    - Issue: Default `max_nodes=30` only showed 30 most important contexts
+    - Solution: Changed default to `max_nodes=0` (show all memories), users can optionally limit
+  - Fixed template string escaping in HTML generation causing TypeScript compilation errors
+
+### Changed
+- **GraphNode Interface**: Extended with `content` field to store full context content
+- **File Path Logic**: Now uses project database path as primary source, falls back to `process.cwd()` if unavailable
+- **Default Behavior**: Memory graphs now show ALL contexts by default (not limited to 20-30)
+- **Tooltip Enhancement**: Hover tooltips now include comprehensive metadata for better context understanding
+
+### Technical Details
+- Added `getProjectPath(projectName: string)` method to query database for project directory
+- Modified `max_nodes` default from `30` to `0` (unlimited)
+- Updated node tooltip generation to avoid template string nesting issues
+- GraphNode interface now includes both `label` (truncated) and `content` (full) fields
+
+### User Experience
+- 🏠 Files now correctly saved to project `./docs/` directory
+- 🔍 Hover tooltips provide much more context for decision-making
+- 🌐 Knowledge graphs show complete project memory by default
+- ✅ Cross-platform path handling improved
+
 ## [1.14.0] - 2025-10-20
 
 ### Added
