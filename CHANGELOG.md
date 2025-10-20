@@ -5,81 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.15.0] - 2025-10-20
+## [1.15.1] - 2025-10-20
+
+### Enhanced
+- **🎨 Memory Graph HTML Visualization Enhancements**:
+  - **UI Beautification**:
+    - Gradient background (purple-blue gradient)
+    - Glassmorphism effects on control panels (backdrop blur + transparency)
+    - Custom tooltips with rich metadata display
+    - Smooth animations (0.3s transitions on all interactions)
+  - **Multi-language Support**:
+    - Full Chinese/English language toggle
+    - All UI elements support i18n (controls, labels, legends, stats)
+    - Language switcher button in control panel
+  - **Interactive Features**:
+    - Time range filter (All Time, Last 24h, 7d, 30d, 90d)
+    - Type filter (All Types, Solution, Error, Code, Documentation, etc.)
+    - Search with content matching (searches in labels, content, and tags)
+    - Combined filters work together (time + type + search)
+  - **Node Interactions**:
+    - Click node → Highlight related nodes and connections
+    - Double-click node → Fix/unfix position (shows golden border when fixed)
+    - Hover node → Show custom tooltip with full details
+    - Click background → Clear selection
+  - **Layout Optimization**:
+    - Importance-based positioning: high-quality nodes naturally gravitate to center
+    - Smooth initial animation: nodes spawn from center and spread outward
+    - Radial force (0.05 strength) gently pulls important nodes inward
+  - **Export Features**:
+    - "Reset Layout" button: unlock all nodes and restart simulation
+    - "Export JSON" button: download complete graph data
+    - Real-time statistics update based on active filters
 
 ### Changed
-- **🎨 Enhanced Memory Graph UI**: Dramatically improved visualization experience
-  - Gradient background with glass morphism effects (backdrop-filter blur)
-  - Custom tooltip replacing browser default with better formatting
-  - Improved hover effects with node scaling and shadow animations
-  - Enhanced color scheme and modern UI components
-  - Better typography with Microsoft YaHei support for Chinese
-  - Custom scrollbar styling for dark theme consistency
-
-- **🌐 i18n Support**: Full Chinese/English language switching
-  - Smart language detection based on content (>30% Chinese characters → Chinese UI)
-  - Top-centered language switcher with active state indicators
-  - All UI elements support i18n: labels, placeholders, tooltips, dropdowns
-  - Tooltip content displays in selected language (类型/Type, 重要度/Importance, etc.)
-  - Seamless language switching without page reload
-
-- **🔍 Enhanced Filtering**: More powerful search and filter capabilities
-  - New node type filter dropdown (All/Solution/Error/Code/Documentation)
-  - Search now includes full content, not just labels
-  - Link opacity adjusts based on connected node visibility
-  - Combined search + type filter for precise results
-
-- **📁 Better File Organization**: Changed output directory structure
-  - HTML/JSON files now save to `<project>/memory/` instead of `<project>/docs/`
-  - More intuitive organization: memory artifacts grouped together
-  - Auto-creates `memory/` directory if it doesn't exist
-
-### Technical Details
-- Added `detectLanguage()` function: analyzes Chinese character ratio for auto language selection
-- Implemented `switchLang()` function: updates all UI elements dynamically
-- Enhanced `filterNodes()`: combines search query and type filter with link filtering
-- Improved CSS with modern features: backdrop-filter, drop-shadow, transitions
-- Better event handling: mouseover/mousemove/mouseout for custom tooltip positioning
-
-### User Experience
-- 🎨 More polished and professional visualization interface
-- 🌐 Native language support improves accessibility for Chinese users
-- 🔍 Easier to find specific contexts with enhanced filtering
-- 📁 More logical file organization in project structure
-- ✨ Smooth animations and transitions for better interaction feedback
-
-## [1.14.1] - 2025-10-20
+- Simplified layout options: removed complex multi-layout system
+  - Kept only force-directed layout (most effective for knowledge graphs)
+  - Removed radial, tree, and grid layouts (caused visual clutter)
+- Updated node initialization: center-based spawning for better first impression
 
 ### Fixed
-- **🐛 Critical Bug Fixes**: Memory graph generation issues resolved
-  - Fixed HTML/JSON files generated to wrong directory (IDE install dir → project directory)
-    - Issue: Files were saved to MCP server's `process.cwd()` (IDE installation path)
-    - Solution: Added `getProjectPath()` to retrieve correct project path from database
-  - Fixed node hover tooltip showing only truncated label
-    - Issue: Tooltip only displayed first 40 characters of content
-    - Solution: Now shows full content preview (500 characters) + metadata (type, importance, created time, file path)
-  - Fixed default node limit preventing full memory visualization
-    - Issue: Default `max_nodes=30` only showed 30 most important contexts
-    - Solution: Changed default to `max_nodes=0` (show all memories), users can optionally limit
-  - Fixed template string escaping in HTML generation causing TypeScript compilation errors
-
-### Changed
-- **GraphNode Interface**: Extended with `content` field to store full context content
-- **File Path Logic**: Now uses project database path as primary source, falls back to `process.cwd()` if unavailable
-- **Default Behavior**: Memory graphs now show ALL contexts by default (not limited to 20-30)
-- **Tooltip Enhancement**: Hover tooltips now include comprehensive metadata for better context understanding
+- Filter combination logic: time + type + search now work correctly together
+- Link visibility: connections properly hide when related nodes are filtered out
+- Statistics accuracy: node/relationship counts update dynamically with filters
 
 ### Technical Details
-- Added `getProjectPath(projectName: string)` method to query database for project directory
-- Modified `max_nodes` default from `30` to `0` (unlimited)
-- Updated node tooltip generation to avoid template string nesting issues
-- GraphNode interface now includes both `label` (truncated) and `content` (full) fields
+- Enhanced CSS with glassmorphism and gradients
+- Added i18n system with English and Chinese translations
+- Implemented multi-dimensional filtering (search, type, time)
+- Custom D3.js tooltip replacing native browser tooltips
+- Improved force simulation with radial forces for importance-based clustering
+- Cache-Control headers to prevent browser caching issues
 
 ### User Experience
-- 🏠 Files now correctly saved to project `./docs/` directory
-- 🔍 Hover tooltips provide much more context for decision-making
-- 🌐 Knowledge graphs show complete project memory by default
-- ✅ Cross-platform path handling improved
+- Professional, modern UI that matches contemporary design standards
+- Intuitive controls with clear labels and visual feedback
+- Seamless language switching without page reload
+- Powerful filtering for large knowledge graphs (60+ nodes tested)
+- Interactive exploration with click/hover/drag interactions
 
 ## [1.14.0] - 2025-10-20
 

@@ -211,45 +211,38 @@ export class MemoryGraphGenerator {
     data: MemoryGraphData,
     outputPath?: string
   ): { content: string; file_path: string } {
-    // 检测项目主要语言（根据内容中中文字符比例）
-    const detectLanguage = (): 'zh' | 'en' => {
-      const allContent = data.nodes.map(n => n.content).join('');
-      const chineseChars = (allContent.match(/[\u4e00-\u9fa5]/g) || []).length;
-      const totalChars = allContent.length;
-      return chineseChars / totalChars > 0.3 ? 'zh' : 'en';
-    };
-    
-    const defaultLang = detectLanguage();
-    
     const html = `<!DOCTYPE html>
-<html lang="\${currentLang}">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>${data.metadata.project_name} - Memory Graph</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 50%, #1e293b 100%);
       color: #e2e8f0;
       overflow: hidden;
     }
     #graph { width: 100vw; height: 100vh; }
-    
     .controls {
       position: absolute;
       top: 20px;
       left: 20px;
-      background: rgba(30, 41, 59, 0.95);
+      background: rgba(30, 41, 59, 0.8);
       backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       padding: 20px;
       border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
       z-index: 1000;
-      min-width: 250px;
+      min-width: 260px;
     }
     .controls h2 {
       margin-bottom: 15px;
@@ -257,259 +250,418 @@ export class MemoryGraphGenerator {
       color: #60a5fa;
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
     }
-    .controls input {
+    .controls input, .controls select {
       width: 100%;
-      padding: 10px 12px;
-      background: #1e293b;
+      padding: 8px 12px;
+      background: rgba(30, 41, 59, 0.9);
       border: 1px solid #334155;
-      border-radius: 8px;
+      border-radius: 6px;
       color: #e2e8f0;
       font-size: 14px;
-      transition: all 0.3s;
+      transition: all 0.2s;
     }
-    .controls input:focus {
+    .controls input:focus, .controls select:focus {
       outline: none;
       border-color: #60a5fa;
       box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
     }
-    .filter-group {
-      margin-top: 15px;
+    .control-group {
+      margin-bottom: 15px;
     }
-    .filter-group label {
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+    .control-label {
       display: block;
-      margin-bottom: 8px;
-      font-size: 13px;
+      margin-bottom: 6px;
+      font-size: 12px;
       color: #94a3b8;
+      font-weight: 500;
     }
-    .filter-group select {
-      width: 100%;
-      padding: 8px 12px;
-      background: #1e293b;
-      border: 1px solid #334155;
-      border-radius: 6px;
-      color: #e2e8f0;
-      font-size: 14px;
-    }
-    
     .stats {
       position: absolute;
       bottom: 20px;
       left: 20px;
-      background: rgba(30, 41, 59, 0.95);
+      background: rgba(30, 41, 59, 0.8);
       backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       padding: 15px 20px;
-      border-radius: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
       font-size: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 1000;
     }
-    .stats div { 
-      margin: 6px 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .stats strong { color: #60a5fa; font-size: 14px; }
-    
+    .stats div { margin: 4px 0; }
     .legend {
       position: absolute;
       top: 20px;
       right: 20px;
-      background: rgba(30, 41, 59, 0.95);
+      background: rgba(30, 41, 59, 0.8);
       backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       padding: 15px;
-      border-radius: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(148, 163, 184, 0.1);
       font-size: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 1000;
-    }
-    .legend h3 {
-      margin-bottom: 10px;
-      color: #60a5fa;
-      font-size: 14px;
     }
     .legend-item {
       display: flex;
       align-items: center;
-      margin: 8px 0;
-      padding: 4px;
-      border-radius: 4px;
-      transition: background 0.2s;
-    }
-    .legend-item:hover {
-      background: rgba(96, 165, 250, 0.1);
+      margin: 6px 0;
     }
     .legend-color {
-      width: 18px;
-      height: 18px;
-      border-radius: 4px;
-      margin-right: 10px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      margin-right: 8px;
     }
-    
-    .lang-switch {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(30, 41, 59, 0.95);
-      backdrop-filter: blur(10px);
-      padding: 10px 15px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      z-index: 1000;
-      display: flex;
-      gap: 10px;
-    }
-    .lang-switch button {
-      padding: 6px 14px;
-      background: transparent;
-      border: 1px solid #334155;
-      border-radius: 6px;
-      color: #94a3b8;
-      cursor: pointer;
-      font-size: 13px;
-      transition: all 0.3s;
-    }
-    .lang-switch button:hover {
-      border-color: #60a5fa;
-      color: #60a5fa;
-    }
-    .lang-switch button.active {
-      background: #60a5fa;
-      border-color: #60a5fa;
-      color: #0f172a;
-    }
-    
     .node { 
-      cursor: pointer;
-      transition: all 0.3s;
-      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+      cursor: pointer; 
+      transition: all 0.3s ease;
     }
     .node:hover { 
-      transform: scale(1.1);
-      filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+      opacity: 0.8;
+      filter: brightness(1.2);
+    }
+    .node.filtered-out {
+      opacity: 0.1 !important;
+      transition: opacity 0.3s ease;
+    }
+    .node.dimmed {
+      opacity: 0.15 !important;
+      transition: opacity 0.3s ease;
     }
     .link { 
       stroke: #475569; 
       stroke-opacity: 0.6;
-      transition: all 0.3s;
+      transition: all 0.3s ease;
     }
-    .link:hover {
-      stroke: #60a5fa;
-      stroke-opacity: 1;
+    .link.filtered-out {
+      opacity: 0.1 !important;
+      transition: opacity 0.3s ease;
+    }
+    .link.dimmed {
+      opacity: 0.05 !important;
+      transition: opacity 0.3s ease;
     }
     .node-label {
       fill: #e2e8f0;
       font-size: 11px;
       pointer-events: none;
       text-anchor: middle;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+      transition: opacity 0.3s ease;
     }
-    
-    .tooltip {
+    .node-label.filtered-out {
+      opacity: 0.1 !important;
+    }
+    .node-label.dimmed {
+      opacity: 0.15 !important;
+      transition: opacity 0.3s ease;
+    }
+    .btn {
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    }
+    .btn-secondary {
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    }
+    .btn-secondary:hover {
+      background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+      box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    }
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .custom-tooltip {
       position: absolute;
-      background: rgba(15, 23, 42, 0.98);
+      background: rgba(15, 23, 42, 0.95);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(96, 165, 250, 0.3);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 8px;
       padding: 12px 16px;
-      color: #e2e8f0;
-      font-size: 12px;
       pointer-events: none;
       opacity: 0;
+      transition: opacity 0.2s;
       z-index: 2000;
       max-width: 400px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      transition: opacity 0.2s;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
-    .tooltip.show { opacity: 1; }
+    .custom-tooltip.visible {
+      opacity: 1;
+    }
     .tooltip-title {
-      font-weight: bold;
+      font-weight: 600;
       color: #60a5fa;
       margin-bottom: 8px;
       font-size: 13px;
     }
     .tooltip-content {
-      margin-bottom: 8px;
+      color: #cbd5e1;
+      font-size: 12px;
       line-height: 1.5;
-      max-height: 200px;
-      overflow-y: auto;
+      margin-bottom: 8px;
     }
     .tooltip-meta {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid rgba(255,255,255,0.1);
       font-size: 11px;
       color: #94a3b8;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+      padding-top: 8px;
+      margin-top: 8px;
     }
-    .tooltip-meta div { margin: 4px 0; }
-    
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #1e293b; }
-    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    .tooltip-meta div {
+      margin: 2px 0;
+    }
   </style>
 </head>
 <body>
-  <div class="lang-switch">
-    <button id="lang-zh" onclick="switchLang('zh')" class="\${defaultLang === 'zh' ? 'active' : ''}">中文</button>
-    <button id="lang-en" onclick="switchLang('en')" class="\${defaultLang === 'en' ? 'active' : ''}">English</button>
-  </div>
-
   <div class="controls">
-    <h2>🔍 <span class="lang-text" data-zh="搜索" data-en="Search"></span></h2>
-    <input type="text" id="search" class="lang-placeholder" data-zh="搜索节点..." data-en="Search nodes...">
-    <div class="filter-group">
-      <label class="lang-text" data-zh="节点类型" data-en="Node Type"></label>
-      <select id="type-filter">
-        <option value="all" class="lang-option" data-zh="全部" data-en="All">All</option>
-        <option value="solution" class="lang-option" data-zh="解决方案" data-en="Solution">Solution</option>
-        <option value="error" class="lang-option" data-zh="错误" data-en="Error">Error</option>
-        <option value="code" class="lang-option" data-zh="代码" data-en="Code">Code</option>
-        <option value="documentation" class="lang-option" data-zh="文档" data-en="Documentation">Documentation</option>
+    <h2>
+      <span id="controlTitle">🔍 Search</span>
+      <button class="btn btn-secondary" id="langToggle" style="padding: 4px 8px; font-size: 12px;">中文</button>
+    </h2>
+    <div class="control-group">
+      <label class="control-label" id="searchLabel">Search Nodes</label>
+      <input type="text" id="search" placeholder="Search nodes...">
+    </div>
+    <div class="control-group">
+      <label class="control-label" id="typeLabel">Filter by Type</label>
+      <select id="typeFilter">
+        <option value="all">All Types</option>
+        <option value="solution">Solution</option>
+        <option value="error">Error</option>
+        <option value="code">Code</option>
+        <option value="documentation">Documentation</option>
+        <option value="conversation">Conversation</option>
+        <option value="test">Test</option>
+        <option value="configuration">Configuration</option>
+        <option value="commit">Commit</option>
       </select>
     </div>
+    <div class="control-group">
+      <label class="control-label" id="timeLabel">Time Range</label>
+      <select id="timeFilter">
+        <option value="all">All Time</option>
+        <option value="24h">Last 24 Hours</option>
+        <option value="7d">Last 7 Days</option>
+        <option value="30d">Last 30 Days</option>
+        <option value="90d">Last 90 Days</option>
+      </select>
+    </div>
+    <div class="button-group">
+      <button class="btn" id="resetLayout">🔄 Reset Layout</button>
+      <button class="btn" id="exportJson">💾 Export JSON</button>
+    </div>
+  </div>
+
+  <div class="custom-tooltip" id="customTooltip">
+    <div class="tooltip-title" id="tooltipTitle"></div>
+    <div class="tooltip-content" id="tooltipContent"></div>
+    <div class="tooltip-meta" id="tooltipMeta"></div>
   </div>
 
   <div class="legend">
-    <h3 class="lang-text" data-zh="节点类型" data-en="Node Types"></h3>
+    <h3 style="margin-bottom: 10px;">Node Types</h3>
     <div class="legend-item">
       <div class="legend-color" style="background: #4ade80;"></div>
-      <span class="lang-text" data-zh="解决方案" data-en="Solution"></span>
+      <span>Solution</span>
     </div>
     <div class="legend-item">
       <div class="legend-color" style="background: #f87171;"></div>
-      <span class="lang-text" data-zh="错误" data-en="Error"></span>
+      <span>Error</span>
     </div>
     <div class="legend-item">
       <div class="legend-color" style="background: #60a5fa;"></div>
-      <span class="lang-text" data-zh="代码" data-en="Code"></span>
+      <span>Code</span>
     </div>
     <div class="legend-item">
       <div class="legend-color" style="background: #a78bfa;"></div>
-      <span class="lang-text" data-zh="文档" data-en="Documentation"></span>
+      <span>Documentation</span>
     </div>
   </div>
 
   <div class="stats">
     <div><strong>${data.metadata.project_name}</strong></div>
-    <div>📊 <span class="lang-text" data-zh="节点数" data-en="Nodes"></span>: ${data.metadata.total_contexts}</div>
-    <div>🔗 <span class="lang-text" data-zh="关系数" data-en="Relationships"></span>: ${data.metadata.total_relationships}</div>
-    <div>📅 <span class="lang-text" data-zh="生成时间" data-en="Generated"></span>: ${new Date(data.metadata.generated_at).toLocaleString()}</div>
+    <div id="statsNodes">📊 Nodes: <span id="statsNodesCount">${data.metadata.total_contexts}</span></div>
+    <div id="statsRels">🔗 Relationships: <span id="statsRelsCount">${data.metadata.total_relationships}</span></div>
+    <div id="statsGenerated">📅 Generated: ${new Date(data.metadata.generated_at).toLocaleString()}</div>
   </div>
 
-  <div class="tooltip" id="tooltip"></div>
   <svg id="graph"></svg>
 
   <script>
     const data = ${JSON.stringify(data, null, 2)};
     
+    // 多语言支持
+    let currentLang = 'en';
+    const i18n = {
+      en: {
+        controlTitle: '🔍 Search',
+        searchLabel: 'Search Nodes',
+        typeLabel: 'Filter by Type',
+        timeLabel: 'Time Range',
+        resetLayout: '🔄 Reset Layout',
+        exportJson: '💾 Export JSON',
+        langToggle: '中文',
+        legendTitle: 'Node Types',
+        allTypes: 'All Types',
+        allTime: 'All Time',
+        last24h: 'Last 24 Hours',
+        last7d: 'Last 7 Days',
+        last30d: 'Last 30 Days',
+        last90d: 'Last 90 Days',
+        solution: 'Solution',
+        error: 'Error',
+        code: 'Code',
+        documentation: 'Documentation',
+        conversation: 'Conversation',
+        test: 'Test',
+        configuration: 'Configuration',
+        commit: 'Commit',
+        type: 'Type',
+        importance: 'Importance',
+        created: 'Created',
+        file: 'File',
+        tags: 'Tags',
+        nodes: 'Nodes',
+        relationships: 'Relationships',
+        generated: 'Generated'
+      },
+      zh: {
+        controlTitle: '🔍 搜索',
+        searchLabel: '搜索节点',
+        typeLabel: '按类型筛选',
+        timeLabel: '时间范围',
+        resetLayout: '🔄 重置布局',
+        exportJson: '💾 导出JSON',
+        langToggle: 'English',
+        legendTitle: '节点类型',
+        allTypes: '所有类型',
+        allTime: '全部时间',
+        last24h: '最近24小时',
+        last7d: '最近7天',
+        last30d: '最近30天',
+        last90d: '最近90天',
+        solution: '解决方案',
+        error: '错误',
+        code: '代码',
+        documentation: '文档',
+        conversation: '对话',
+        test: '测试',
+        configuration: '配置',
+        commit: '提交',
+        type: '类型',
+        importance: '重要性',
+        created: '创建时间',
+        file: '文件',
+        tags: '标签',
+        nodes: '节点数',
+        relationships: '关系数',
+        generated: '生成时间'
+      }
+    };
+    
+    function updateLanguage() {
+      const t = i18n[currentLang];
+      document.getElementById('controlTitle').textContent = t.controlTitle;
+      document.getElementById('searchLabel').textContent = t.searchLabel;
+      document.getElementById('typeLabel').textContent = t.typeLabel;
+      document.getElementById('timeLabel').textContent = t.timeLabel;
+      document.getElementById('resetLayout').innerHTML = t.resetLayout;
+      document.getElementById('exportJson').innerHTML = t.exportJson;
+      document.getElementById('langToggle').textContent = t.langToggle;
+      document.querySelector('.legend h3').textContent = t.legendTitle;
+      
+      const typeFilter = document.getElementById('typeFilter');
+      typeFilter.options[0].text = t.allTypes;
+      typeFilter.options[1].text = t.solution;
+      typeFilter.options[2].text = t.error;
+      typeFilter.options[3].text = t.code;
+      typeFilter.options[4].text = t.documentation;
+      typeFilter.options[5].text = t.conversation;
+      typeFilter.options[6].text = t.test;
+      typeFilter.options[7].text = t.configuration;
+      typeFilter.options[8].text = t.commit;
+      
+      const timeFilter = document.getElementById('timeFilter');
+      timeFilter.options[0].text = t.allTime;
+      timeFilter.options[1].text = t.last24h;
+      timeFilter.options[2].text = t.last7d;
+      timeFilter.options[3].text = t.last30d;
+      timeFilter.options[4].text = t.last90d;
+      
+      const legendItems = document.querySelectorAll('.legend-item span');
+      legendItems[0].textContent = t.solution;
+      legendItems[1].textContent = t.error;
+      legendItems[2].textContent = t.code;
+      legendItems[3].textContent = t.documentation;
+      
+      // 更新统计信息
+      updateStats();
+    }
+    
+    // 语言切换
+    document.getElementById('langToggle').addEventListener('click', () => {
+      currentLang = currentLang === 'en' ? 'zh' : 'en';
+      updateLanguage();
+    });
+    
+    // 重置布局
+    document.getElementById('resetLayout').addEventListener('click', () => {
+      // 移除所有固定位置
+      data.nodes.forEach(node => {
+        node.fx = null;
+        node.fy = null;
+      });
+      
+      // 重启力导向模拟
+      simulation
+        .alpha(1)
+        .restart();
+    });
+    
+    // JSON导出
+    document.getElementById('exportJson').addEventListener('click', () => {
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'memory-graph.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+    
     // D3.js 可视化
     const width = window.innerWidth;
     const height = window.innerHeight;
+    
+    // 设置节点初始位置（从中心随机散开）
+    data.nodes.forEach(node => {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 100;
+      node.x = width / 2 + Math.cos(angle) * radius;
+      node.y = height / 2 + Math.sin(angle) * radius;
+    });
     
     const svg = d3.select("#graph")
       .attr("width", width)
@@ -536,12 +688,18 @@ export class MemoryGraphGenerator {
       commit: "#818cf8"
     };
     
-    // 力导向布局
+    // 力导向布局 - 重要节点靠近中心
     const simulation = d3.forceSimulation(data.nodes)
       .force("link", d3.forceLink(data.edges).id(d => d.id).distance(100))
       .force("charge", d3.forceManyBody().strength(-300))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius(40));
+      .force("collision", d3.forceCollide().radius(40))
+      // 添加微弱的径向力,让重要节点倾向于靠近中心
+      .force("radial", d3.forceRadial(
+        d => (1 - d.importance) * Math.min(width, height) / 3,
+        width / 2,
+        height / 2
+      ).strength(0.05));
     
     // 绘制连线
     const link = g.append("g")
@@ -574,37 +732,35 @@ export class MemoryGraphGenerator {
       .text(d => d.label.substring(0, 30) + (d.label.length > 30 ? "..." : ""));
     
     // 自定义tooltip
-    const tooltip = d3.select("#tooltip");
+    const tooltip = d3.select('#customTooltip');
     
-    node.on("mouseover", function(event, d) {
-      const contentPreview = d.content.substring(0, 500) + (d.content.length > 500 ? '...' : '');
-      const typeLabel = currentLang === 'zh' ? 
-        { solution: '解决方案', error: '错误', code: '代码', documentation: '文档' }[d.type] || d.type :
-        d.type;
+    node.on('mouseenter', function(event, d) {
+      const t = i18n[currentLang];
+      const contentPreview = d.content.length > 300 ? d.content.substring(0, 300) + '...' : d.content;
       
-      let tooltipHtml = \`
-        <div class="tooltip-title">\${d.label}</div>
-        <div class="tooltip-content">\${contentPreview.replace(/\n/g, '<br>')}</div>
-        <div class="tooltip-meta">
-          <div>📝 \${currentLang === 'zh' ? '类型' : 'Type'}: \${typeLabel}</div>
-          <div>⭐ \${currentLang === 'zh' ? '重要度' : 'Importance'}: \${(d.importance * 100).toFixed(0)}%</div>
-          <div>📅 \${currentLang === 'zh' ? '创建时间' : 'Created'}: \${new Date(d.created_at).toLocaleString()}</div>
-          \${d.file_path ? \`<div>📁 \${currentLang === 'zh' ? '文件' : 'File'}: \${d.file_path}</div>\` : ''}
-        </div>
-      \`;
+      tooltip.select('#tooltipTitle').text(d.label);
+      tooltip.select('#tooltipContent').text(contentPreview);
       
-      tooltip.html(tooltipHtml)
-        .classed("show", true)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY + 10) + "px");
+      let metaHTML = '<div><strong>' + t.type + ':</strong> ' + d.type + '</div>';
+      metaHTML += '<div><strong>' + t.importance + ':</strong> ' + (d.importance * 100).toFixed(0) + '%</div>';
+      metaHTML += '<div><strong>' + t.created + ':</strong> ' + new Date(d.created_at).toLocaleString() + '</div>';
+      if (d.file_path) {
+        metaHTML += '<div><strong>' + t.file + ':</strong> ' + d.file_path + '</div>';
+      }
+      if (d.tags.length > 0) {
+        metaHTML += '<div><strong>' + t.tags + ':</strong> ' + d.tags.join(', ') + '</div>';
+      }
+      
+      tooltip.select('#tooltipMeta').html(metaHTML);
+      tooltip.classed('visible', true);
     })
-    .on("mousemove", function(event) {
+    .on('mousemove', function(event) {
       tooltip
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY + 10) + "px");
+        .style('left', (event.pageX + 15) + 'px')
+        .style('top', (event.pageY + 15) + 'px');
     })
-    .on("mouseout", function() {
-      tooltip.classed("show", false);
+    .on('mouseleave', function() {
+      tooltip.classed('visible', false);
     });
     
     // 更新位置
@@ -642,75 +798,148 @@ export class MemoryGraphGenerator {
       event.subject.fy = null;
     }
     
-    // 搜索功能
+    // 搜索和筛选功能
+    let currentTypeFilter = 'all';
+    let currentTimeFilter = 'all';
+    let currentSearchQuery = '';
+    
+    function getTimeFilterDate(filter) {
+      const now = new Date();
+      switch(filter) {
+        case '24h': return new Date(now - 24 * 60 * 60 * 1000);
+        case '7d': return new Date(now - 7 * 24 * 60 * 60 * 1000);
+        case '30d': return new Date(now - 30 * 24 * 60 * 60 * 1000);
+        case '90d': return new Date(now - 90 * 24 * 60 * 60 * 1000);
+        default: return null;
+      }
+    }
+    
+    function applyFilters() {
+      const timeFilterDate = getTimeFilterDate(currentTimeFilter);
+      let visibleCount = 0;
+      let visibleRelCount = 0;
+      
+      node.each(function(d) {
+        const matchesSearch = !currentSearchQuery || 
+          d.label.toLowerCase().includes(currentSearchQuery) || 
+          d.content.toLowerCase().includes(currentSearchQuery) ||
+          d.tags.some(t => t.toLowerCase().includes(currentSearchQuery));
+        const matchesType = currentTypeFilter === 'all' || d.type === currentTypeFilter;
+        const matchesTime = !timeFilterDate || new Date(d.created_at) >= timeFilterDate;
+        const isVisible = matchesSearch && matchesType && matchesTime;
+        
+        d3.select(this)
+          .classed('filtered-out', !isVisible)
+          .attr('opacity', isVisible ? 1 : 0.1);
+        
+        if (isVisible) visibleCount++;
+      });
+      
+      label.each(function(d) {
+        const matchesSearch = !currentSearchQuery || 
+          d.label.toLowerCase().includes(currentSearchQuery) || 
+          d.content.toLowerCase().includes(currentSearchQuery) ||
+          d.tags.some(t => t.toLowerCase().includes(currentSearchQuery));
+        const matchesType = currentTypeFilter === 'all' || d.type === currentTypeFilter;
+        const matchesTime = !timeFilterDate || new Date(d.created_at) >= timeFilterDate;
+        const isVisible = matchesSearch && matchesType && matchesTime;
+        
+        d3.select(this)
+          .classed('filtered-out', !isVisible)
+          .attr('opacity', isVisible ? 1 : 0.1);
+      });
+      
+      link.each(function(d) {
+        const sourceVisible = !d3.select(node.filter(n => n.id === d.source.id).node()).classed('filtered-out');
+        const targetVisible = !d3.select(node.filter(n => n.id === d.target.id).node()).classed('filtered-out');
+        const isVisible = sourceVisible && targetVisible;
+        
+        d3.select(this)
+          .classed('filtered-out', !isVisible)
+          .attr('opacity', isVisible ? 0.6 : 0.1);
+        
+        if (isVisible) visibleRelCount++;
+      });
+      
+      // 更新统计数字
+      document.getElementById('statsNodesCount').textContent = visibleCount;
+      document.getElementById('statsRelsCount').textContent = visibleRelCount;
+    }
+    
+    function updateStats() {
+      const t = i18n[currentLang];
+      document.getElementById('statsNodes').innerHTML = '📊 ' + t.nodes + ': <span id="statsNodesCount">' + document.getElementById('statsNodesCount').textContent + '</span>';
+      document.getElementById('statsRels').innerHTML = '🔗 ' + t.relationships + ': <span id="statsRelsCount">' + document.getElementById('statsRelsCount').textContent + '</span>';
+      document.getElementById('statsGenerated').textContent = '📅 ' + t.generated + ': ' + new Date(data.metadata.generated_at).toLocaleString();
+    }
+    
     document.getElementById("search").addEventListener("input", (e) => {
-      const query = e.target.value.toLowerCase();
-      filterNodes();
+      currentSearchQuery = e.target.value.toLowerCase();
+      applyFilters();
     });
     
-    // 类型筛选
-    document.getElementById("type-filter").addEventListener("change", () => {
-      filterNodes();
+    document.getElementById("typeFilter").addEventListener("change", (e) => {
+      currentTypeFilter = e.target.value;
+      applyFilters();
     });
     
-    function filterNodes() {
-      const query = document.getElementById("search").value.toLowerCase();
-      const typeFilter = document.getElementById("type-filter").value;
-      
-      node.attr("opacity", d => {
-        const matchesSearch = !query || d.label.toLowerCase().includes(query) || 
-                             d.content.toLowerCase().includes(query) ||
-                             d.tags.some(t => t.toLowerCase().includes(query));
-        const matchesType = typeFilter === 'all' || d.type === typeFilter;
-        return matchesSearch && matchesType ? 1 : 0.1;
-      });
-      
-      label.attr("opacity", d => {
-        const matchesSearch = !query || d.label.toLowerCase().includes(query) || 
-                             d.content.toLowerCase().includes(query) ||
-                             d.tags.some(t => t.toLowerCase().includes(query));
-        const matchesType = typeFilter === 'all' || d.type === typeFilter;
-        return matchesSearch && matchesType ? 1 : 0.1;
-      });
-      
-      link.attr("opacity", d => {
-        const sourceVisible = node.filter(n => n.id === d.source.id).attr("opacity") == 1;
-        const targetVisible = node.filter(n => n.id === d.target.id).attr("opacity") == 1;
-        return sourceVisible && targetVisible ? 0.6 : 0.1;
-      });
-    }
+    document.getElementById("timeFilter").addEventListener("change", (e) => {
+      currentTimeFilter = e.target.value;
+      applyFilters();
+    });
     
-    // 语言切换
-    let currentLang = '${defaultLang}';
+    // 节点双击固定/解锁位置
+    node.on('dblclick', function(event, d) {
+      event.stopPropagation();
+      if (d.fx === null) {
+        // 固定节点
+        d.fx = d.x;
+        d.fy = d.y;
+        d3.select(this).attr('stroke', '#fbbf24').attr('stroke-width', 3);
+      } else {
+        // 解锁节点
+        d.fx = null;
+        d.fy = null;
+        d3.select(this).attr('stroke', 'none');
+      }
+    });
     
-    function switchLang(lang) {
-      currentLang = lang;
-      document.documentElement.lang = lang;
+    // 节点点击高亮相关节点
+    let selectedNode = null;
+    node.on('click', function(event, d) {
+      event.stopPropagation();
       
-      // 更新按钮状态
-      document.querySelectorAll('.lang-switch button').forEach(btn => {
-        btn.classList.remove('active');
-      });
-      document.getElementById('lang-' + lang).classList.add('active');
-      
-      // 更新文本
-      document.querySelectorAll('.lang-text').forEach(el => {
-        el.textContent = el.getAttribute('data-' + lang);
-      });
-      
-      // 更新placeholder
-      document.querySelectorAll('.lang-placeholder').forEach(el => {
-        el.placeholder = el.getAttribute('data-' + lang);
-      });
-      
-      // 更新选项
-      document.querySelectorAll('.lang-option').forEach(el => {
-        el.textContent = el.getAttribute('data-' + lang);
-      });
-    }
+      if (selectedNode === d) {
+        // 取消选中
+        selectedNode = null;
+        node.classed('dimmed', false);
+        link.classed('dimmed', false);
+        label.classed('dimmed', false);
+      } else {
+        // 选中节点
+        selectedNode = d;
+        
+        // 获取相关节点ID
+        const connectedNodes = new Set([d.id]);
+        data.edges.forEach(edge => {
+          if (edge.source.id === d.id) connectedNodes.add(edge.target.id);
+          if (edge.target.id === d.id) connectedNodes.add(edge.source.id);
+        });
+        
+        // 高亮相关节点
+        node.classed('dimmed', n => !connectedNodes.has(n.id));
+        label.classed('dimmed', n => !connectedNodes.has(n.id));
+        link.classed('dimmed', e => e.source.id !== d.id && e.target.id !== d.id);
+      }
+    });
     
-    // 初始化语言
-    switchLang(currentLang);
+    // 点击背景取消选中
+    svg.on('click', () => {
+      selectedNode = null;
+      node.classed('dimmed', false);
+      link.classed('dimmed', false);
+      label.classed('dimmed', false);
+    });
   </script>
 </body>
 </html>`;
