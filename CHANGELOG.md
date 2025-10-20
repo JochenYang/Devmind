@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.1] - 2025-10-20
+
+### Enhanced
+- **🎨 Memory Graph HTML Visualization Enhancements**:
+  - **UI Beautification**:
+    - Gradient background (purple-blue gradient)
+    - Glassmorphism effects on control panels (backdrop blur + transparency)
+    - Custom tooltips with rich metadata display
+    - Smooth animations (0.3s transitions on all interactions)
+  - **Multi-language Support**:
+    - Full Chinese/English language toggle
+    - All UI elements support i18n (controls, labels, legends, stats)
+    - Language switcher button in control panel
+  - **Interactive Features**:
+    - Time range filter (All Time, Last 24h, 7d, 30d, 90d)
+    - Type filter (All Types, Solution, Error, Code, Documentation, etc.)
+    - Search with content matching (searches in labels, content, and tags)
+    - Combined filters work together (time + type + search)
+  - **Node Interactions**:
+    - Click node → Highlight related nodes and connections
+    - Double-click node → Fix/unfix position (shows golden border when fixed)
+    - Hover node → Show custom tooltip with full details
+    - Click background → Clear selection
+  - **Layout Optimization**:
+    - Importance-based positioning: high-quality nodes naturally gravitate to center
+    - Smooth initial animation: nodes spawn from center and spread outward
+    - Radial force (0.05 strength) gently pulls important nodes inward
+  - **Export Features**:
+    - "Reset Layout" button: unlock all nodes and restart simulation
+    - "Export JSON" button: download complete graph data
+    - Real-time statistics update based on active filters
+
+### Changed
+- Simplified layout options: removed complex multi-layout system
+  - Kept only force-directed layout (most effective for knowledge graphs)
+  - Removed radial, tree, and grid layouts (caused visual clutter)
+- Updated node initialization: center-based spawning for better first impression
+
+### Fixed
+- Filter combination logic: time + type + search now work correctly together
+- Link visibility: connections properly hide when related nodes are filtered out
+- Statistics accuracy: node/relationship counts update dynamically with filters
+
+### Technical Details
+- Enhanced CSS with glassmorphism and gradients
+- Added i18n system with English and Chinese translations
+- Implemented multi-dimensional filtering (search, type, time)
+- Custom D3.js tooltip replacing native browser tooltips
+- Improved force simulation with radial forces for importance-based clustering
+- Cache-Control headers to prevent browser caching issues
+
+### User Experience
+- Professional, modern UI that matches contemporary design standards
+- Intuitive controls with clear labels and visual feedback
+- Seamless language switching without page reload
+- Powerful filtering for large knowledge graphs (60+ nodes tested)
+- Interactive exploration with click/hover/drag interactions
+
 ## [1.14.0] - 2025-10-20
 
 ### Added

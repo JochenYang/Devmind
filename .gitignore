@@ -82,5 +82,6 @@ coverage/
 # AI Memory specific
 .ai-memory/
 memory.db*
+memory/
 
 .Claude
