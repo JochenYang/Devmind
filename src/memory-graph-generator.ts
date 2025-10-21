@@ -668,6 +668,54 @@ export class MemoryGraphGenerator {
     
     svg.call(zoom);
     
+    // 类型到区域的映射（将新类型归类到对应的基础区域）
+    const typeToZone = {
+      // 基础类型
+      conversation: 'conversation',
+      documentation: 'documentation',
+      solution: 'solution',
+      code: 'code',
+      test: 'code',  // test归类到code区域
+      error: 'error',
+      configuration: 'configuration',
+      commit: 'configuration',  // commit归类到configuration区域
+      
+      // 代码变更类型 → code区域
+      code_create: 'code',
+      code_modify: 'code',
+      code_delete: 'code',
+      code_refactor: 'code',
+      code_optimize: 'code',
+      code_review: 'code',
+      
+      // Bug相关 → error区域
+      bug_fix: 'error',
+      bug_report: 'error',
+      bug_analysis: 'error',
+      
+      // 功能相关 → solution区域
+      feature_add: 'solution',
+      feature_update: 'solution',
+      feature_remove: 'solution',
+      feature_request: 'solution',
+      feature_improvement: 'solution',
+      
+      // 调试测试 → code区域
+      debug_session: 'code',
+      test_add: 'code',
+      test_fix: 'code',
+      
+      // 文档 → documentation区域
+      docs_update: 'documentation',
+      
+      // 性能 → solution区域
+      performance_issue: 'solution',
+      performance_optimization: 'solution',
+      
+      // 依赖 → configuration区域
+      dependency_update: 'configuration'
+    };
+    
     // 颜色映射（支持新旧类型）
     const colorMap = {
       // 通用类型（向后兼容）
@@ -686,15 +734,19 @@ export class MemoryGraphGenerator {
       code_delete: "#60a5fa",
       code_refactor: "#60a5fa",
       code_optimize: "#60a5fa",
+      code_review: "#60a5fa",
       
       // Bug相关 → 红色系（与error同色）
       bug_fix: "#f87171",
       bug_report: "#f87171",
+      bug_analysis: "#f87171",
       
       // 功能相关 → 绿色系（与solution同色）
       feature_add: "#4ade80",
       feature_update: "#4ade80",
       feature_remove: "#4ade80",
+      feature_request: "#4ade80",
+      feature_improvement: "#4ade80",
       
       // 调试测试 → 蓝色系（与test同色）
       debug_session: "#60a5fa",
@@ -702,7 +754,14 @@ export class MemoryGraphGenerator {
       test_fix: "#60a5fa",
       
       // 文档 → 紫色系（与documentation同色）
-      docs_update: "#a78bfa"
+      docs_update: "#a78bfa",
+      
+      // 性能 → 绿色系
+      performance_issue: "#4ade80",
+      performance_optimization: "#4ade80",
+      
+      // 依赖 → 粉色系
+      dependency_update: "#f472b6"
     };
     
     // 统计每个类型的节点数量
@@ -745,13 +804,16 @@ export class MemoryGraphGenerator {
       default: { x: centerX, y: centerY }
     };
     
-    // 设置节点初始位置（按类型分组）
+    // 设置节点初始位置（按类型分组，使用映射）
     data.nodes.forEach(node => {
-      const center = typeCenter[node.type] || typeCenter.default;
-      const radius = Math.random() * (zoneRadii[node.type] || baseRadius) * 0.7;
+      const zone = typeToZone[node.type] || 'default';
+      const center = typeCenter[zone] || typeCenter.default;
+      const radius = Math.random() * (zoneRadii[zone] || baseRadius) * 0.7;
       const angle = Math.random() * Math.PI * 2;
       node.x = center.x + Math.cos(angle) * radius;
       node.y = center.y + Math.sin(angle) * radius;
+      // 保存zone信息供后续使用
+      node.zone = zone;
     });
     
     // 绘制类型区域背景圆圈
@@ -803,21 +865,29 @@ export class MemoryGraphGenerator {
         const labelSpace = 35; // 为标签预留的额外空间
         return nodeRadius + labelSpace;
       }).strength(0.9))
-      // 类型向心力（X轴）
+      // 类型向心力（X轴）- 使用zone映射
       .force("typeX", d3.forceX(d => {
-        const center = typeCenter[d.type] || typeCenter.default;
+        const zone = typeToZone[d.type] || 'default';
+        const center = typeCenter[zone] || typeCenter.default;
         return center.x;
       }).strength(0.5))
-      // 类型向心力（Y轴）
+      // 类型向心力（Y轴）- 使用zone映射
       .force("typeY", d3.forceY(d => {
-        const center = typeCenter[d.type] || typeCenter.default;
+        const zone = typeToZone[d.type] || 'default';
+        const center = typeCenter[zone] || typeCenter.default;
         return center.y;
       }).strength(0.5))
       // 微弱的径向力，让重要节点更靠近类型中心
       .force("radial", d3.forceRadial(
         d => (1 - d.importance) * 80,
-        d => typeCenter[d.type]?.x || width / 2,
-        d => typeCenter[d.type]?.y || height / 2
+        d => {
+          const zone = typeToZone[d.type] || 'default';
+          return typeCenter[zone]?.x || width / 2;
+        },
+        d => {
+          const zone = typeToZone[d.type] || 'default';
+          return typeCenter[zone]?.y || height / 2;
+        }
       ).strength(0.1));
     
     // 绘制连线

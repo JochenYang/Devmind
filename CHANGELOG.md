@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.2] - 2025-10-21
+
+### Enhanced
+- **Memory Graph Type-to-Zone Mapping**: New context types now automatically map to appropriate visualization zones
+  - Added `typeToZone` mapping system to categorize 22+ context types into 6 visual regions
+  - Code types (`code_create`, `code_modify`, `code_refactor`, etc.) → Blue Code/Test zone
+  - Bug types (`bug_fix`, `bug_report`, `bug_analysis`) → Red Error zone
+  - Feature types (`feature_add`, `feature_update`, `feature_improvement`) → Green Solution zone
+  - Documentation types (`docs_update`) → Purple Documentation zone
+  - Configuration types (`dependency_update`) → Pink Configuration zone
+  - All 14 new fine-grained types properly cluster in their semantic zones
+
+### Changed
+- Node positioning now uses zone mapping instead of direct type matching
+- Force simulation updated to pull nodes toward their mapped zone centers
+- Maintains visual clarity with 6 base zones while supporting unlimited type expansion
+
+### Technical
+- New `typeToZone` object maps all context types to base visualization zones
+- Node initialization respects zone mapping for consistent spatial distribution
+- Force-directed layout uses zone-based positioning (typeX, typeY, radial forces)
+- Each node stores its `zone` property for efficient force calculations
+
 ## [1.16.1] - 2025-10-21
 
 ### Fixed
