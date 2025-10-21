@@ -530,7 +530,7 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'update_quality_scores',
-          description: '🚀 [NEW] Recalculate multi-dimensional quality scores for contexts (freshness, relevance, usefulness). Run this periodically to update time-decayed scores.',
+          description: 'Recalculate multi-dimensional quality scores for contexts (freshness, relevance, usefulness). Run this periodically to update time-decayed scores.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -542,11 +542,11 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'export_memory_graph',
-          description: '📊 [NEW] Export project memory relationships as interactive HTML visualization with D3.js force-directed graph.',
+          description: 'Export project memory relationships as interactive HTML visualization with D3.js force-directed graph.',
           inputSchema: {
             type: 'object',
             properties: {
-              project_id: { type: 'string', description: 'Project ID to export graph for', required: true },
+              project_id: { type: 'string', description: 'Project ID to export graph for' },
               max_nodes: { type: 'number', description: 'Maximum number of nodes to include (default: 0 = all)' },
               focus_type: { 
                 type: 'string',

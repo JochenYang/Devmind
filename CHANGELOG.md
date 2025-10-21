@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.1] - 2025-10-21
+
+### Fixed
+- **Critical**: Fixed `export_memory_graph` tool schema error that caused tool registration failure
+  - Removed incorrect `required: true` from `project_id` property definition
+  - Tool now correctly registers and can be called by AI assistants
+- **UI Cleanup**: Removed emoji decorators from tool descriptions
+  - `update_quality_scores`: Removed 🚀 [NEW] prefix
+  - `export_memory_graph`: Removed 📊 [NEW] prefix
+  - Improves consistency and reduces visual clutter in tool listings
+
+### Technical
+- JSON Schema compliance: `required` field now only at `inputSchema` level
+- Tool descriptions now follow consistent plain-text format
+
 ## [1.16.0] - 2025-10-21
 
 ### Added
