@@ -5,6 +5,50 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0] - 2025-10-21
+
+### Added
+- **14 New Context Types**:
+  - Code: `code_create`, `code_modify`, `code_delete`, `code_refactor`, `code_optimize`
+  - Bug: `bug_fix`, `bug_report`
+  - Feature: `feature_add`, `feature_update`, `feature_remove`
+  - Debug: `debug_session`, `test_add`, `test_fix`
+  - Docs: `docs_update`
+  
+- **Enhanced Metadata Fields**:
+  - Change tracking: `change_type`, `change_reason`, `impact_level`
+  - Code analysis: `affected_functions`, `affected_classes` (auto-extracted)
+  - Relations: `related_files`, `related_issues`, `related_prs`
+  - Business: `business_domain`, `priority`
+  - Stats: `diff_stats`, `files_changed` array
+
+- **Auto-Extraction**:
+  - Detects change types from code comments
+  - Extracts function/class names (8 languages supported)
+  - Assesses impact levels automatically
+  - Parses issue/PR numbers from comments
+
+### Changed
+- Memory graph now includes all 22 context types in filter dropdown
+- Type filter organized into 6 groups: Core Types, Code Changes, Bug Related, Features, Debug & Test, Documentation
+- Added Chinese translations for all new types
+- Color mapping: new types inherit base type colors (blue/red/green/purple)
+
+### Fixed
+- **Multi-file Context Storage**: Fixed `file_path` field incorrectly storing single file path for multi-file changes
+  - When using `files_changed` array, `file_path`, `line_start`, and `line_end` are now correctly set to `null`
+  - Actual file information properly stored in `metadata.files_changed`
+  - Enhanced response message now shows all files in multi-file changes with individual diff stats
+  - Fixes issue where multi-file commits appeared to only touch one file
+
+### Technical
+- New `EnhancedContextMetadata` interface
+- Enhanced `ContentExtractor` module with 7 analysis methods
+- Zero schema changes (backward compatible)
+- Multi-file tracking via `files_changed` array
+- Auto-aggregation of diff stats across all files
+- Auto-population of `related_files` from `files_changed`
+
 ## [1.15.2] - 2025-10-20
 
 ### Enhanced

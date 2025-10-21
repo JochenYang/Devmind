@@ -405,7 +405,17 @@ export class SmartConfirmationSystem {
   }
 
   private getTypeDescription(type: ContextType): string {
-    const descriptions = {
+    const descriptions: Record<string, string> = {
+      [ContextType.CODE_CREATE]: '代码创建',
+      [ContextType.CODE_MODIFY]: '代码修改',
+      [ContextType.CODE_DELETE]: '代码删除',
+      [ContextType.CODE_REFACTOR]: '代码重构',
+      [ContextType.CODE_OPTIMIZE]: '代码优化',
+      [ContextType.BUG_FIX]: '修复Bug',
+      [ContextType.BUG_REPORT]: 'Bug报告',
+      [ContextType.FEATURE_ADD]: '功能新增',
+      [ContextType.FEATURE_UPDATE]: '功能更新',
+      [ContextType.FEATURE_REMOVE]: '功能移除',
       [ContextType.CODE]: '代码',
       [ContextType.CONVERSATION]: '对话',
       [ContextType.ERROR]: '错误信息',

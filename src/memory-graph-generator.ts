@@ -369,14 +369,40 @@ export class MemoryGraphGenerator {
       <label class="control-label" id="typeLabel">Filter by Type</label>
       <select id="typeFilter">
         <option value="all">All Types</option>
-        <option value="solution">Solution</option>
-        <option value="error">Error</option>
-        <option value="code">Code</option>
-        <option value="documentation">Documentation</option>
-        <option value="conversation">Conversation</option>
-        <option value="test">Test</option>
-        <option value="configuration">Configuration</option>
-        <option value="commit">Commit</option>
+        <optgroup label="Core Types" data-label-zh="核心类型">
+          <option value="solution" data-text-zh="解决方案">Solution</option>
+          <option value="error" data-text-zh="错误">Error</option>
+          <option value="code" data-text-zh="代码">Code</option>
+          <option value="documentation" data-text-zh="文档">Documentation</option>
+          <option value="conversation" data-text-zh="对话">Conversation</option>
+          <option value="test" data-text-zh="测试">Test</option>
+          <option value="configuration" data-text-zh="配置">Configuration</option>
+          <option value="commit" data-text-zh="提交">Commit</option>
+        </optgroup>
+        <optgroup label="Code Changes" data-label-zh="代码变更">
+          <option value="code_create" data-text-zh="代码创建">Code Create</option>
+          <option value="code_modify" data-text-zh="代码修改">Code Modify</option>
+          <option value="code_delete" data-text-zh="代码删除">Code Delete</option>
+          <option value="code_refactor" data-text-zh="代码重构">Code Refactor</option>
+          <option value="code_optimize" data-text-zh="代码优化">Code Optimize</option>
+        </optgroup>
+        <optgroup label="Bug Related" data-label-zh="Bug相关">
+          <option value="bug_fix" data-text-zh="修复Bug">Bug Fix</option>
+          <option value="bug_report" data-text-zh="Bug报告">Bug Report</option>
+        </optgroup>
+        <optgroup label="Features" data-label-zh="功能">
+          <option value="feature_add" data-text-zh="功能新增">Feature Add</option>
+          <option value="feature_update" data-text-zh="功能更新">Feature Update</option>
+          <option value="feature_remove" data-text-zh="功能移除">Feature Remove</option>
+        </optgroup>
+        <optgroup label="Debug & Test" data-label-zh="调试测试">
+          <option value="debug_session" data-text-zh="调试会话">Debug Session</option>
+          <option value="test_add" data-text-zh="添加测试">Test Add</option>
+          <option value="test_fix" data-text-zh="修复测试">Test Fix</option>
+        </optgroup>
+        <optgroup label="Documentation" data-label-zh="文档">
+          <option value="docs_update" data-text-zh="文档更新">Docs Update</option>
+        </optgroup>
       </select>
     </div>
     <div class="control-group">
@@ -534,15 +560,45 @@ export class MemoryGraphGenerator {
       document.getElementById('legendConfig').textContent = t.configCommit;
       
       const typeFilter = document.getElementById('typeFilter');
-      typeFilter.options[0].text = t.allTypes;
-      typeFilter.options[1].text = t.solution;
-      typeFilter.options[2].text = t.error;
-      typeFilter.options[3].text = t.code;
-      typeFilter.options[4].text = t.documentation;
-      typeFilter.options[5].text = t.conversation;
-      typeFilter.options[6].text = t.test;
-      typeFilter.options[7].text = t.configuration;
-      typeFilter.options[8].text = t.commit;
+      // 更新所有option的文本（支持data-text-zh属性）
+      Array.from(typeFilter.options).forEach(option => {
+        if (currentLang === 'zh' && option.dataset.textZh) {
+          option.text = option.dataset.textZh;
+        } else if (currentLang === 'en') {
+          // 恢复英文文本（从原始HTML中读取）
+          const value = option.value;
+          const textMap = {
+            'all': 'All Types',
+            'solution': 'Solution', 'error': 'Error', 'code': 'Code',
+            'documentation': 'Documentation', 'conversation': 'Conversation',
+            'test': 'Test', 'configuration': 'Configuration', 'commit': 'Commit',
+            'code_create': 'Code Create', 'code_modify': 'Code Modify',
+            'code_delete': 'Code Delete', 'code_refactor': 'Code Refactor',
+            'code_optimize': 'Code Optimize', 'bug_fix': 'Bug Fix',
+            'bug_report': 'Bug Report', 'feature_add': 'Feature Add',
+            'feature_update': 'Feature Update', 'feature_remove': 'Feature Remove',
+            'debug_session': 'Debug Session', 'test_add': 'Test Add',
+            'test_fix': 'Test Fix', 'docs_update': 'Docs Update'
+          };
+          option.text = textMap[value] || option.text;
+        }
+      });
+      // 更新optgroup标签
+      Array.from(typeFilter.querySelectorAll('optgroup')).forEach(group => {
+        if (currentLang === 'zh' && group.dataset.labelZh) {
+          group.label = group.dataset.labelZh;
+        } else if (currentLang === 'en') {
+          const labelMap = {
+            '代码变更': 'Code Changes',
+            'Bug相关': 'Bug Related',
+            '功能': 'Features',
+            '调试测试': 'Debug & Test',
+            '文档': 'Documentation',
+            '核心类型': 'Core Types'
+          };
+          group.label = labelMap[group.label] || group.label;
+        }
+      });
       
       const timeFilter = document.getElementById('timeFilter');
       timeFilter.options[0].text = t.allTime;
@@ -612,16 +668,41 @@ export class MemoryGraphGenerator {
     
     svg.call(zoom);
     
-    // 颜色映射
+    // 颜色映射（支持新旧类型）
     const colorMap = {
+      // 通用类型（向后兼容）
       solution: "#4ade80",
       error: "#f87171",
       code: "#60a5fa",
       documentation: "#a78bfa",
       conversation: "#fbbf24",
-      test: "#60a5fa",  // 与code相同颜色
+      test: "#60a5fa",
       configuration: "#f472b6",
-      commit: "#f472b6"  // 与configuration相同颜色
+      commit: "#f472b6",
+      
+      // 细化的代码变更类型 → 蓝色系（与code同色）
+      code_create: "#60a5fa",
+      code_modify: "#60a5fa",
+      code_delete: "#60a5fa",
+      code_refactor: "#60a5fa",
+      code_optimize: "#60a5fa",
+      
+      // Bug相关 → 红色系（与error同色）
+      bug_fix: "#f87171",
+      bug_report: "#f87171",
+      
+      // 功能相关 → 绿色系（与solution同色）
+      feature_add: "#4ade80",
+      feature_update: "#4ade80",
+      feature_remove: "#4ade80",
+      
+      // 调试测试 → 蓝色系（与test同色）
+      debug_session: "#60a5fa",
+      test_add: "#60a5fa",
+      test_fix: "#60a5fa",
+      
+      // 文档 → 紫色系（与documentation同色）
+      docs_update: "#a78bfa"
     };
     
     // 统计每个类型的节点数量

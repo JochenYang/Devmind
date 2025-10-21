@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from 'fs';
 import { extname, basename } from 'path';
-import { ContextType, RecordContextParams } from './types.js';
+import { ContextType, RecordContextParams, EnhancedContextMetadata } from './types.js';
 
 export interface ExtractedContext {
   type: ContextType;
@@ -44,7 +44,8 @@ export class ContentExtractor {
   };
 
   /**
-   * 从代码片段提取上下文
+   * 从代码片段提取上下文（增强版）
+   * 自动识别变更类型、提取函数/类名、分析影响范围
    */
   extractCodeContext(
     content: string, 
@@ -63,6 +64,10 @@ export class ContentExtractor {
       const langMetadata = this.extractLanguageSpecificMetadata(content, language);
       Object.assign(metadata, langMetadata);
     }
+    
+    // === 增强功能：智能识别变更信息 ===
+    const enhancedMeta = this.analyzeCodeChange(content, language);
+    Object.assign(metadata, enhancedMeta);
 
     return {
       type: ContextType.CODE,
@@ -75,6 +80,257 @@ export class ContentExtractor {
       quality_score: qualityScore,
       metadata
     };
+  }
+  
+  /**
+   * 🚀 智能分析代码变更
+   * 自动识别：变更类型、修改的函数/类、影响范围
+   */
+  private analyzeCodeChange(content: string, language?: string): Partial<EnhancedContextMetadata> {
+    const metadata: Partial<EnhancedContextMetadata> = {};
+    
+    // 1. 识别变更类型
+    metadata.change_type = this.detectChangeType(content);
+    
+    // 2. 提取修改的函数名
+    metadata.affected_functions = this.extractFunctionNames(content, language);
+    
+    // 3. 提取修改的类名
+    metadata.affected_classes = this.extractClassNames(content, language);
+    
+    // 4. 分析影响范围
+    if (metadata.affected_functions && metadata.affected_functions.length > 0 ||
+        metadata.affected_classes && metadata.affected_classes.length > 0) {
+      metadata.impact_level = this.assessImpactLevel(content, metadata);
+    }
+    
+    // 5. 提取相关文件（从import语句）
+    metadata.related_files = this.extractImportedFiles(content, language);
+    
+    // 6. 提取Issue/PR编号
+    const issuesAndPrs = this.extractIssuesAndPRs(content);
+    metadata.related_issues = issuesAndPrs.issues;
+    metadata.related_prs = issuesAndPrs.prs;
+    
+    return metadata;
+  }
+  
+  /**
+   * 检测变更类型
+   */
+  private detectChangeType(content: string): 'add' | 'modify' | 'delete' | 'refactor' | 'rename' {
+    const lowerContent = content.toLowerCase();
+    
+    // 检测删除标记
+    if (content.includes('// DELETE:') || content.includes('# DELETE:') || 
+        content.includes('TODO: remove') || lowerContent.includes('deprecated')) {
+      return 'delete';
+    }
+    
+    // 检测重命名标记
+    if (content.includes('renamed from') || content.includes('rename to')) {
+      return 'rename';
+    }
+    
+    // 检测重构标记
+    if (lowerContent.includes('refactor') || lowerContent.includes('restructure')) {
+      return 'refactor';
+    }
+    
+    // 检测新增标记
+    if (content.includes('// NEW:') || content.includes('# NEW:') || 
+        content.includes('// ADD:') || content.includes('# ADD:')) {
+      return 'add';
+    }
+    
+    // 默认为修改
+    return 'modify';
+  }
+  
+  /**
+   * 提取函数名（支持多种语言）
+   */
+  private extractFunctionNames(content: string, language?: string): string[] {
+    const functions: string[] = [];
+    
+    // JavaScript/TypeScript: function name() / const name = () => / name() {}
+    const jsFuncPatterns = [
+      /function\s+(\w+)\s*\(/g,
+      /const\s+(\w+)\s*=\s*\([^)]*\)\s*=>/g,
+      /let\s+(\w+)\s*=\s*\([^)]*\)\s*=>/g,
+      /(\w+)\s*\([^)]*\)\s*{/g,
+      /async\s+function\s+(\w+)/g,
+    ];
+    
+    // Python: def name()
+    const pyFuncPattern = /def\s+(\w+)\s*\(/g;
+    
+    // Go: func name()
+    const goFuncPattern = /func\s+(\w+)\s*\(/g;
+    
+    // Java/Kotlin/C#: public/private type name()
+    const javaFuncPattern = /(?:public|private|protected)?\s*\w+\s+(\w+)\s*\(/g;
+    
+    let patterns: RegExp[] = [];
+    
+    switch (language) {
+      case 'javascript':
+      case 'typescript':
+        patterns = jsFuncPatterns;
+        break;
+      case 'python':
+        patterns = [pyFuncPattern];
+        break;
+      case 'go':
+        patterns = [goFuncPattern];
+        break;
+      case 'java':
+      case 'kotlin':
+      case 'csharp':
+        patterns = [javaFuncPattern];
+        break;
+      default:
+        // 尝试所有模式
+        patterns = [...jsFuncPatterns, pyFuncPattern, goFuncPattern, javaFuncPattern];
+    }
+    
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        if (match[1] && !functions.includes(match[1])) {
+          functions.push(match[1]);
+        }
+      }
+    }
+    
+    return functions.slice(0, 20); // 限制数量
+  }
+  
+  /**
+   * 提取类名（支持多种语言）
+   */
+  private extractClassNames(content: string, language?: string): string[] {
+    const classes: string[] = [];
+    
+    // 通用类定义模式
+    const classPatterns = [
+      /class\s+(\w+)/g,
+      /interface\s+(\w+)/g,
+      /struct\s+(\w+)/g,
+      /type\s+(\w+)\s+struct/g,  // Go
+      /enum\s+(\w+)/g,
+    ];
+    
+    for (const pattern of classPatterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        if (match[1] && !classes.includes(match[1])) {
+          classes.push(match[1]);
+        }
+      }
+    }
+    
+    return classes.slice(0, 10); // 限制数量
+  }
+  
+  /**
+   * 评估影响级别
+   */
+  private assessImpactLevel(content: string, metadata: Partial<EnhancedContextMetadata>): 'breaking' | 'major' | 'minor' | 'patch' {
+    const lowerContent = content.toLowerCase();
+    
+    // Breaking changes 标记
+    if (lowerContent.includes('breaking') || lowerContent.includes('breaking change')) {
+      return 'breaking';
+    }
+    
+    // 检测API变更（接口、公共函数）
+    if (content.includes('export ') || content.includes('public ')) {
+      // 如果修改了多个导出的函数/类，可能是major
+      const affectedCount = (metadata.affected_functions?.length || 0) + (metadata.affected_classes?.length || 0);
+      if (affectedCount >= 3) return 'major';
+      if (affectedCount >= 1) return 'minor';
+    }
+    
+    // 检测内部实现变更
+    if (content.includes('private ') || content.includes('internal ')) {
+      return 'patch';
+    }
+    
+    // 默认为minor
+    return 'minor';
+  }
+  
+  /**
+   * 提取导入的文件
+   */
+  private extractImportedFiles(content: string, language?: string): string[] {
+    const files: string[] = [];
+    
+    // JavaScript/TypeScript: import ... from '...'
+    const jsImportPattern = /from\s+['"]([^'"]+)['"]/g;
+    
+    // Python: import ... / from ... import
+    const pyImportPattern = /(?:import|from)\s+([\w.]+)/g;
+    
+    // Go: import "..."
+    const goImportPattern = /import\s+"([^"]+)"/g;
+    
+    const patterns = [jsImportPattern, pyImportPattern, goImportPattern];
+    
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(content)) !== null) {
+        if (match[1] && !files.includes(match[1])) {
+          files.push(match[1]);
+        }
+      }
+    }
+    
+    return files.slice(0, 15); // 限制数量
+  }
+  
+  /**
+   * 提取Issue和PR编号
+   */
+  private extractIssuesAndPRs(content: string): { issues: string[], prs: string[] } {
+    const issues: string[] = [];
+    const prs: string[] = [];
+    
+    // 匹配 #123 格式
+    const issuePattern = /#(\d+)/g;
+    
+    // 匹配 fixes #123, closes #123, resolves #123
+    const fixPattern = /(?:fix(?:es)?|close(?:s)?|resolve(?:s)?)\s+#(\d+)/gi;
+    
+    // 匹配 PR #123
+    const prPattern = /pr\s+#(\d+)/gi;
+    
+    let match;
+    
+    // 提取修复的Issue
+    while ((match = fixPattern.exec(content)) !== null) {
+      const num = `#${match[1]}`;
+      if (!issues.includes(num)) issues.push(num);
+    }
+    
+    // 提取PR
+    while ((match = prPattern.exec(content)) !== null) {
+      const num = `#${match[1]}`;
+      if (!prs.includes(num)) prs.push(num);
+    }
+    
+    // 如果没有明确标记，收集所有 #数字 作为Issue
+    if (issues.length === 0 && prs.length === 0) {
+      while ((match = issuePattern.exec(content)) !== null) {
+        const num = `#${match[1]}`;
+        if (!issues.includes(num) && issues.length < 5) {
+          issues.push(num);
+        }
+      }
+    }
+    
+    return { issues, prs };
   }
 
   /**

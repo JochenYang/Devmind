@@ -801,7 +801,17 @@ export class ProjectMemoryOptimizer {
   }
 
   private getTypeDescription(type: ContextType): string {
-    const descriptions = {
+    const descriptions: Record<string, string> = {
+      [ContextType.CODE_CREATE]: 'code creation',
+      [ContextType.CODE_MODIFY]: 'code modification',
+      [ContextType.CODE_DELETE]: 'code deletion',
+      [ContextType.CODE_REFACTOR]: 'code refactoring',
+      [ContextType.CODE_OPTIMIZE]: 'code optimization',
+      [ContextType.BUG_FIX]: 'bug fix',
+      [ContextType.BUG_REPORT]: 'bug report',
+      [ContextType.FEATURE_ADD]: 'feature addition',
+      [ContextType.FEATURE_UPDATE]: 'feature update',
+      [ContextType.FEATURE_REMOVE]: 'feature removal',
       [ContextType.CODE]: 'code',
       [ContextType.CONVERSATION]: 'conversation',
       [ContextType.ERROR]: 'error',
@@ -889,15 +899,25 @@ export class ProjectMemoryOptimizer {
     let score = 0.5; // 基础分
 
     // 根据类型调整分数
-    const typeScores = {
+    const typeScores: Record<string, number> = {
+      [ContextType.BUG_FIX]: 0.95,
+      [ContextType.BUG_REPORT]: 0.9,
       [ContextType.ERROR]: 0.9,
       [ContextType.SOLUTION]: 0.85,
-      [ContextType.CODE]: 0.7,
+      [ContextType.FEATURE_ADD]: 0.8,
+      [ContextType.FEATURE_UPDATE]: 0.75,
       [ContextType.TEST]: 0.75,
-      [ContextType.DOCUMENTATION]: 0.6,
+      [ContextType.CODE_MODIFY]: 0.7,
+      [ContextType.CODE]: 0.7,
+      [ContextType.CODE_REFACTOR]: 0.65,
       [ContextType.CONFIGURATION]: 0.65,
+      [ContextType.CODE_OPTIMIZE]: 0.65,
+      [ContextType.DOCUMENTATION]: 0.6,
+      [ContextType.COMMIT]: 0.55,
       [ContextType.CONVERSATION]: 0.5,
-      [ContextType.COMMIT]: 0.55
+      [ContextType.CODE_CREATE]: 0.7,
+      [ContextType.CODE_DELETE]: 0.6,
+      [ContextType.FEATURE_REMOVE]: 0.6
     };
 
     score = typeScores[context.type] || score;

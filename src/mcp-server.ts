@@ -216,7 +216,7 @@ export class AiMemoryMcpServer {
         },
         {
           name: 'record_context',
-          description: 'Record development context (conversations, errors, solutions, code snippets) manually. Automatically handles session creation/retrieval if project_path is provided.',
+          description: '[ENHANCED] Record development context with rich metadata. Supports automatic change type detection, function/class extraction, and impact analysis.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -224,8 +224,17 @@ export class AiMemoryMcpServer {
               project_path: { type: 'string', description: 'Project path to auto-detect/create session (optional if session_id is provided)' },
               type: { 
                 type: 'string', 
-                enum: ['code', 'conversation', 'error', 'solution', 'documentation', 'test', 'configuration', 'commit'],
-                description: 'Type of context'
+                enum: [
+                  // === Code Changes (Detailed) ===
+                  'code_create', 'code_modify', 'code_delete', 'code_refactor', 'code_optimize',
+                  // === Bug Related ===
+                  'bug_fix', 'bug_report',
+                  // === Feature Related ===
+                  'feature_add', 'feature_update', 'feature_remove',
+                  // === General Types (Backward Compatible) ===
+                  'code', 'conversation', 'error', 'solution', 'documentation', 'test', 'configuration', 'commit'
+                ],
+                description: 'Type of context (use detailed types like code_modify, bug_fix for better categorization)'
               },
               content: { type: 'string', description: 'The context content' },
               file_path: { type: 'string', description: 'Optional file path' },
@@ -243,7 +252,90 @@ export class AiMemoryMcpServer {
               },
               language: { type: 'string', description: 'Optional programming language' },
               tags: { type: 'array', items: { type: 'string' }, description: 'Optional tags' },
-              metadata: { type: 'object', description: 'Optional metadata' },
+              
+              // === 增强字段 (New in v1.16.0) ===
+              change_type: { 
+                type: 'string', 
+                enum: ['add', 'modify', 'delete', 'refactor', 'rename'],
+                description: '🆕 Change type (auto-detected if not provided)'
+              },
+              change_reason: { type: 'string', description: '🆕 Reason for the change' },
+              impact_level: { 
+                type: 'string', 
+                enum: ['breaking', 'major', 'minor', 'patch'],
+                description: '🆕 Impact level (auto-assessed if not provided)' 
+              },
+              related_files: { 
+                type: 'array', 
+                items: { type: 'string' },
+                description: '🆕 Related file paths' 
+              },
+              related_issues: { 
+                type: 'array', 
+                items: { type: 'string' },
+                description: '🆕 Related issue numbers (e.g., ["#123", "#456"])' 
+              },
+              related_prs: { 
+                type: 'array', 
+                items: { type: 'string' },
+                description: '🆕 Related PR numbers (e.g., ["#789"])' 
+              },
+              business_domain: { 
+                type: 'array', 
+                items: { type: 'string' },
+                description: '🆕 Business domain tags (e.g., ["auth", "payment"])' 
+              },
+              priority: { 
+                type: 'string', 
+                enum: ['critical', 'high', 'medium', 'low'],
+                description: '🆕 Priority level' 
+              },
+              diff_stats: {
+                type: 'object',
+                properties: {
+                  additions: { type: 'number', description: 'Number of lines added' },
+                  deletions: { type: 'number', description: 'Number of lines deleted' },
+                  changes: { type: 'number', description: 'Number of lines changed' }
+                },
+                description: 'Code diff statistics'
+              },
+              
+              // === Multi-File Change Support ===
+              files_changed: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    file_path: { type: 'string', description: 'File path' },
+                    change_type: { 
+                      type: 'string',
+                      enum: ['add', 'modify', 'delete', 'rename'],
+                      description: 'File-level change type'
+                    },
+                    diff_stats: {
+                      type: 'object',
+                      properties: {
+                        additions: { type: 'number' },
+                        deletions: { type: 'number' },
+                        changes: { type: 'number' }
+                      }
+                    },
+                    line_ranges: {
+                      type: 'array',
+                      items: {
+                        type: 'array',
+                        items: { type: 'number' },
+                        minItems: 2,
+                        maxItems: 2
+                      }
+                    }
+                  },
+                  required: ['file_path']
+                },
+                description: 'Multiple files changed in a single commit/operation (merged into one memory record)'
+              },
+              
+              metadata: { type: 'object', description: 'Optional additional metadata' },
             },
             required: ['type', 'content'],
           },
@@ -821,10 +913,55 @@ export class AiMemoryMcpServer {
         finalLineEnd = args.line_ranges[args.line_ranges.length - 1][1];
       }
 
-      // 合并元数据
+      // 合并元数据（包括新增强字段）
+      const enhancedMetadata: any = {};
+      
+      // 从 RecordContextParams 中提取增强字段
+      if (args.change_type) enhancedMetadata.change_type = args.change_type;
+      if (args.change_reason) enhancedMetadata.change_reason = args.change_reason;
+      if (args.impact_level) enhancedMetadata.impact_level = args.impact_level;
+      if (args.related_files) enhancedMetadata.related_files = args.related_files;
+      if (args.related_issues) enhancedMetadata.related_issues = args.related_issues;
+      if (args.related_prs) enhancedMetadata.related_prs = args.related_prs;
+      if (args.business_domain) enhancedMetadata.business_domain = args.business_domain;
+      if (args.priority) enhancedMetadata.priority = args.priority;
+      if (args.diff_stats) enhancedMetadata.diff_stats = args.diff_stats;
+      
+      // 处理多文件变更（合并为一条记忆）
+      let isMultiFileContext = false;
+      if (args.files_changed && args.files_changed.length > 0) {
+        isMultiFileContext = true;
+        enhancedMetadata.files_changed = args.files_changed;
+        
+        // 自动汇总所有文件的diff统计
+        if (!enhancedMetadata.diff_stats) {
+          const totalStats = args.files_changed.reduce((acc, file) => {
+            if (file.diff_stats) {
+              acc.additions += file.diff_stats.additions || 0;
+              acc.deletions += file.diff_stats.deletions || 0;
+              acc.changes += file.diff_stats.changes || 0;
+            }
+            return acc;
+          }, { additions: 0, deletions: 0, changes: 0 });
+          enhancedMetadata.diff_stats = totalStats;
+        }
+        
+        // 自动收集所有相关文件路径
+        if (!enhancedMetadata.related_files) {
+          enhancedMetadata.related_files = args.files_changed.map(f => f.file_path);
+        }
+        
+        // 多文件场景：清空单一文件路径，使用特殊标记或留空
+        // 实际文件列表存储在 metadata.files_changed 中
+        detectedFilePath = undefined;
+        finalLineStart = undefined;
+        finalLineEnd = undefined;
+      }
+      
       const mergedMetadata = {
         ...(args.metadata || {}),
-        ...extractedContext.metadata,
+        ...extractedContext.metadata, // 包含自动提取的 affected_functions, affected_classes 等
+        ...enhancedMetadata,         // 用户提供的增强字段
         ...lineRangesData,
         ...(Object.keys(pathDetectionMeta).length > 0 ? { path_detection: pathDetectionMeta } : {}),
         ...(Object.keys(autoSessionMeta).length > 0 ? { session_info: autoSessionMeta } : {})
@@ -853,22 +990,46 @@ export class AiMemoryMcpServer {
         }
       }
 
+      // 构建响应消息
+      let responseText = `Recorded context: ${contextId}`;
+      
+      // 多文件信息
+      if (isMultiFileContext && args.files_changed) {
+        responseText += `\n📁 Multi-file change: ${args.files_changed.length} files`;
+        args.files_changed.forEach((file, idx) => {
+          responseText += `\n  ${idx + 1}. ${file.file_path}`;
+          if (file.change_type) responseText += ` (${file.change_type})`;
+          if (file.diff_stats) {
+            responseText += ` [+${file.diff_stats.additions}/-${file.diff_stats.deletions}]`;
+          }
+        });
+        if (enhancedMetadata.diff_stats) {
+          responseText += `\n📊 Total changes: +${enhancedMetadata.diff_stats.additions}/-${enhancedMetadata.diff_stats.deletions} (~${enhancedMetadata.diff_stats.changes} lines)`;
+        }
+      }
+      
+      // Session信息
+      if (autoSessionMeta.auto_session) {
+        responseText += `\n📋 Session: ${autoSessionMeta.session_source === 'existing_active' ? 'Reused active session' : 'Created new session'} (${sessionId})`;
+      }
+      
+      // 路径检测信息（仅单文件场景）
+      if (!isMultiFileContext && pathDetectionMeta.auto_detected) {
+        responseText += `\n🔍 Auto-detected file: ${pathDetectionMeta.all_suggestions?.[0]?.path || 'N/A'} (confidence: ${Math.round((pathDetectionMeta.confidence || 0) * 100)}%)`;
+      }
+      
       return {
         content: [{
           type: 'text',
-          text: `Recorded context: ${contextId}` + 
-                (autoSessionMeta.auto_session ? 
-                  `\n📋 Session: ${autoSessionMeta.session_source === 'existing_active' ? 'Reused active session' : 'Created new session'} (${sessionId})` : 
-                  '') +
-                (pathDetectionMeta.auto_detected ? 
-                  `\n🔍 Auto-detected file: ${pathDetectionMeta.all_suggestions?.[0]?.path || 'N/A'} (confidence: ${Math.round((pathDetectionMeta.confidence || 0) * 100)}%)` : 
-                  ''),
+          text: responseText,
         }],
         isError: false,
         _meta: {
           context_id: contextId,
           quality_score: extractedContext.quality_score,
           embedding_enabled: !!(this.vectorSearch && this.config.vector_search?.enabled),
+          is_multi_file: isMultiFileContext,
+          files_count: isMultiFileContext ? args.files_changed?.length : 1,
           ...pathDetectionMeta,
           ...autoSessionMeta,
         },
