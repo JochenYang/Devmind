@@ -4,6 +4,8 @@ import { Command } from 'commander';
 import { DatabaseManager } from './database.js';
 import { SessionManager } from './session-manager.js';
 import { ContentExtractor } from './content-extractor.js';
+import { MemoryGraphGenerator } from './memory-graph-generator.js';
+import { QualityScoreCalculator } from './quality-score-calculator.js';
 import { AiMemoryConfig } from './types.js';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
@@ -296,6 +298,136 @@ program
     } catch (error) {
       console.error(`Failed to extract from file: ${error}`);
     }
+  });
+
+// 记忆图谱导出命令
+program
+  .command('graph')
+  .description('Export memory graph visualization')
+  .argument('<project-id>', 'Project ID')
+  .option('--config <path>', 'Config file path', '.devmind.json')
+  .option('--output <path>', 'Output file path')
+  .option('--max-nodes <number>', 'Maximum number of nodes (0 = all)', '0')
+  .option('--type <type>', 'Filter by context type (all, solution, error, code, documentation, conversation)')
+  .action(async (projectId, options) => {
+    const config = loadConfig(options.config);
+    const db = new DatabaseManager(config.database_path!);
+    const graphGen = new MemoryGraphGenerator(db);
+    
+    try {
+      console.log(`\n🎨 Generating memory graph for project: ${projectId}`);
+      
+      const result = await graphGen.generateGraph(projectId, {
+        max_nodes: parseInt(options.maxNodes),
+        focus_type: options.type || 'all',
+        output_path: options.output
+      });
+      
+      console.log(`\n✅ HTML graph generated: ${result.file_path}`);
+      console.log(`\n🌐 Open in browser to view interactive visualization`);
+    } catch (error) {
+      console.error(`\n❌ Failed to generate graph: ${error}`);
+      process.exit(1);
+    }
+    
+    db.close();
+  });
+
+// 质量评分更新命令
+program
+  .command('quality')
+  .description('Update quality scores for contexts')
+  .option('--config <path>', 'Config file path', '.devmind.json')
+  .option('--project <id>', 'Project ID to filter')
+  .option('--limit <number>', 'Maximum contexts to update', '100')
+  .option('--force', 'Force update all contexts')
+  .action(async (options) => {
+    const config = loadConfig(options.config);
+    const db = new DatabaseManager(config.database_path!);
+    const calculator = new QualityScoreCalculator();
+    
+    try {
+      console.log('\n🚀 Updating quality scores...');
+      
+      // 获取需要更新的contexts
+      const limit = parseInt(options.limit);
+      const contexts = options.project 
+        ? db.getContextsByProject(options.project)
+        : db.searchContexts('*', undefined, limit > 0 ? limit : 1000);
+      
+      let updated = 0;
+      let failed = 0;
+      let totalQuality = 0;
+      
+      contexts.forEach((context: any) => {
+        try {
+          const metrics = calculator.calculateQualityMetrics(context);
+          const updatedMetadata = calculator.updateContextQualityMetrics(context);
+          
+          db.updateContext(context.id, {
+            quality_score: metrics.overall,
+            metadata: updatedMetadata
+          });
+          
+          updated++;
+          totalQuality += metrics.overall;
+        } catch (err) {
+          failed++;
+          console.error(`   Failed to update context ${context.id}: ${err}`);
+        }
+      });
+      
+      console.log(`\n✅ Updated ${updated} contexts`);
+      console.log(`   Failed: ${failed}`);
+      
+      if (updated > 0) {
+        const avgQuality = totalQuality / updated;
+        console.log(`\n📊 Average quality score: ${avgQuality.toFixed(3)}`);
+      }
+    } catch (error) {
+      console.error(`\n❌ Failed to update quality scores: ${error}`);
+      process.exit(1);
+    }
+    
+    db.close();
+  });
+
+// 项目内存优化命令
+program
+  .command('optimize')
+  .description('Optimize project memory storage')
+  .argument('<project-id>', 'Project ID')
+  .option('--config <path>', 'Config file path', '.devmind.json')
+  .option('--strategies <list>', 'Comma-separated strategies: clustering,compression,deduplication,summarization,ranking,archiving')
+  .option('--dry-run', 'Preview without applying changes')
+  .action(async (projectId, options) => {
+    const config = loadConfig(options.config);
+    const db = new DatabaseManager(config.database_path!);
+    
+    try {
+      const strategies = options.strategies ? options.strategies.split(',') : undefined;
+      const dryRun = options.dryRun || false;
+      
+      console.log(`\n🔧 ${dryRun ? 'Analyzing' : 'Optimizing'} project memory...`);
+      console.log(`   Project: ${projectId}`);
+      if (strategies) {
+        console.log(`   Strategies: ${strategies.join(', ')}`);
+      }
+      
+      // TODO: Implement optimization logic when MemoryOptimizer is available
+      console.log('\n⚠️  Optimization feature coming soon!');
+      console.log('   This will include:');
+      console.log('   - Context clustering and deduplication');
+      console.log('   - Compression of old contexts');
+      console.log('   - Automatic summarization');
+      console.log('   - Quality-based ranking and archiving');
+      
+    } catch (error) {
+      console.error(`\n❌ Failed to optimize: ${error}`);
+      process.exit(1);
+    }
+    
+    db.close();
   });
 
 // 数据库维护命令
