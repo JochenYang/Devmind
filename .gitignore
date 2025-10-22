@@ -84,4 +84,6 @@ coverage/
 memory.db*
 memory/
 
+#vibe coding 
 .Claude
+.kiro

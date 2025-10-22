@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.0] - 2025-10-22
+
+### Added
+- **CLI Optimize Command**: Implemented memory optimization to clean up duplicate and low-quality contexts
+  - `devmind optimize <project-id>` - Remove duplicates and low-quality contexts
+  - `--dry-run` flag to preview changes without applying
+  - Automatic detection of duplicate contexts (95%+ similarity)
+  - Removal of low-quality contexts (score < 0.3, older than 60 days)
+- **CLI Backup/Restore Commands**: Full database backup and restore functionality
+  - `devmind maintenance backup` - Export database to JSON
+  - `devmind maintenance restore <file>` - Import database from JSON backup
+  - `--output` flag to specify custom backup location
+  - `--force` flag to skip confirmation prompts
+  - Automatic user confirmation before overwriting data
+- **Enhanced Git Monitoring**: Improved daemon Git operation tracking
+  - Real-time monitoring of `.git/refs/heads` directory
+  - Automatic recording of commit messages, hashes, and changed files
+  - Records author information and commit metadata
+- **Terminal Command Monitoring**: Basic shell history tracking
+  - Monitors `.bash_history` and `.zsh_history` files
+  - Whitelist filtering (npm, git, node, python, docker, etc.)
+  - Automatic sensitive information filtering (passwords, tokens, API keys)
+  - `--no-terminal` flag to disable terminal monitoring
+  - 5-second polling interval for new commands
+
+### Changed
+- Database methods extended with optimization and export capabilities
+- Daemon monitoring now includes both Git and terminal activity
+- CLI commands now provide more detailed output and statistics
+
+### Technical
+- Added `findDuplicateContexts()` method to DatabaseManager
+- Added `getLowQualityContexts()` method to DatabaseManager
+- Added `deleteContextsBatch()` method for efficient bulk deletion
+- Added `getAllProjects/Sessions/Contexts/Relationships()` export methods
+- Added `clearAllData()` method for database reset
+- Enhanced daemon with configurable monitoring options
+
 ## [1.16.2] - 2025-10-21
 
 ### Enhanced

@@ -227,17 +227,17 @@ DevMind provides **17 powerful tools** and **1 professional prompt** for your AI
 
 #### Project Analysis
 
-| Tool                        | Purpose                                  | Example Use                |
-|-----------------------------|------------------------------------------|----------------------------|
-| `project_analysis_engineer` | [PRIMARY] Comprehensive project analysis | Generate DEVMIND.md docs   |
+| Tool                        | Purpose                                  | Example Use              |
+|-----------------------------|------------------------------------------|--------------------------|
+| `project_analysis_engineer` | [PRIMARY] Comprehensive project analysis | Generate DEVMIND.md docs |
 
 *Note: This tool is also available as a Prompt for manual triggering.*
 
 #### Project Management
 
-| Tool             | Purpose                              | Example Use             |
-|------------------|--------------------------------------|-------------------------|
-| `list_projects`  | [RECOMMENDED] List all projects with stats | Overview tracked projects |
+| Tool            | Purpose                                    | Example Use               |
+|-----------------|--------------------------------------------|---------------------------|
+| `list_projects` | [RECOMMENDED] List all projects with stats | Overview tracked projects |
 
 #### Session Management
 
@@ -270,18 +270,31 @@ DevMind provides **17 powerful tools** and **1 professional prompt** for your AI
 
 #### Memory Optimization
 
-| Tool                      | Purpose                                 | Example Use                         |
-|---------------------------|-----------------------------------------|-------------------------------------|
-| `optimize_project_memory` | Optimize memory storage and performance | Cleanup, compression, deduplication |
-| `update_quality_scores` 🆕 | 🚀 Recalculate multi-dimensional quality scores | Refresh time-decayed scores |
+| Tool                      | Purpose                                      | Example Use                         |
+|---------------------------|----------------------------------------------|-------------------------------------|
+| `optimize_project_memory` | Optimize memory storage and performance      | Cleanup, compression, deduplication |
+| `update_quality_scores`   | Recalculate multi-dimensional quality scores | Refresh time-decayed scores         |
 
 #### Visualization
 
-| Tool                      | Purpose                                 | Example Use                         |
-|---------------------------|-----------------------------------------|-------------------------------------|
-| `export_memory_graph` 🆕    | 📊 Export interactive HTML graph with D3.js | Visualize project memory relationships |
+| Tool                  | Purpose                                  | Example Use                            |
+|-----------------------|------------------------------------------|----------------------------------------|
+| `export_memory_graph` | Export interactive HTML graph with D3.js | Visualize project memory relationships |
 
-### CLI Commands
+### CLI Commands Reference
+
+| Category     | Command                              | Description                              | Options                |
+|--------------|--------------------------------------|------------------------------------------|------------------------|
+| **Project**  | `devmind init`                       | Initialize DevMind in current project    | -                      |
+|              | `devmind start`                      | Start monitoring daemon                  | `--no-terminal`        |
+|              | `devmind status`                     | Check daemon status                      | -                      |
+|              | `devmind stop`                       | Stop monitoring                          | -                      |
+| **Search**   | `devmind search <query>`             | Search contexts                          | `--project`, `--limit` |
+| **Optimize** | `devmind optimize <project-id>`      | Remove duplicates & low-quality contexts | `--dry-run`            |
+| **Backup**   | `devmind maintenance backup`         | Create database backup                   | `--output <path>`      |
+|              | `devmind maintenance restore <file>` | Restore from backup                      | `--force`              |
+
+#### Quick Examples
 
 **Project Management:**
 
@@ -291,6 +304,9 @@ devmind init
 
 # Start monitoring daemon
 devmind start
+
+# Start daemon without terminal monitoring
+devmind start --no-terminal
 
 # Check daemon status
 devmind status
@@ -308,6 +324,8 @@ devmind search "authentication implementation"
 # Search with filters
 devmind search "database" --project myproject --limit 5
 ```
+
+For advanced operations like memory optimization and backup/restore, see [Advanced CLI Operations](#advanced-cli-operations) below.
 
 ### Usage Examples
 
@@ -351,6 +369,64 @@ const results = await semantic_search({
   timeRange: { days: 7 }
 });
 ```
+
+### Advanced CLI Operations
+
+#### Memory Optimization
+
+The `optimize` command helps maintain database health by removing duplicate and low-quality contexts:
+
+```bash
+# Optimize a specific project
+devmind optimize <project-id>
+
+# Preview what would be deleted (recommended first)
+devmind optimize <project-id> --dry-run
+```
+
+**What gets optimized:**
+- **Duplicate contexts**: Removes contexts with >95% content similarity
+- **Low-quality contexts**: Removes contexts with quality_score < 0.3 that haven't been accessed in 60+ days
+
+**Example output:**
+```
+Found 15 duplicate contexts
+Found 8 low-quality contexts
+Deleted 23 contexts
+Saved approximately 2.3 MB
+```
+
+#### Backup & Restore
+
+Protect your development memory with database backup and restore:
+
+```bash
+# Create a backup
+devmind maintenance backup
+# Output: Backup created: devmind-backup-1729612345678.json (5.2 MB)
+
+# Create backup with custom name
+devmind maintenance backup --output ./backups/before-refactor.json
+
+# Restore from backup
+devmind maintenance restore ./backups/before-refactor.json
+# Prompts: "This will overwrite existing data. Continue? (yes/no):"
+
+# Force restore without confirmation
+devmind maintenance restore ./backups/before-refactor.json --force
+```
+
+**Backup contents:**
+- All projects and sessions
+- All contexts with embeddings
+- All relationships between contexts
+- Complete metadata and quality scores
+
+**Use cases:**
+- Before major refactoring or cleanup operations
+- Regular backups for data safety
+- Migrating DevMind data between machines
+- Testing optimization strategies safely
 
 ---
 
