@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2025-10-24
+
+### Added
+- **Multi-file Context Support**: Record and track contexts spanning multiple files
+  - New `context_files` table for storing file associations
+  - Support for tracking change types, line ranges, and diff statistics per file
+  - Automatic migration of existing single-file contexts to new system
+  - Backward compatible with single `file_path` parameter
+- **Enhanced Search Performance**: Multi-dimensional scoring and intelligent caching
+  - Hybrid scoring combining semantic similarity (40%), keyword matching (30%), quality (20%), and freshness (10%)
+  - LRU cache with 5-minute TTL for repeated searches
+  - File-based filtering with new `file_path` parameter in `semantic_search`
+  - Search result caching with `use_cache` parameter (default: true)
+- **Parallel Embedding Generation**: Significantly faster vector embedding processing
+  - Configurable concurrency with `concurrency` parameter (default: 5)
+  - Batch processing with automatic error handling
+  - Performance statistics including processing speed (embeddings/sec)
+  - Up to 5x speed improvement for large context sets
+- **Intelligent Language Detection**: Automatic project language detection for localized auto-recording
+  - Analyzes code comments to determine project language (Chinese/English)
+  - Falls back to README detection if comments are insufficient
+  - Daemon auto-recording messages now use detected language
+  - Supports bilingual projects with smart detection
+
+### Changed
+- `record_context` tool now supports `files_changed` array parameter for multi-file recording
+- `semantic_search` tool enhanced with `file_path` and `use_cache` parameters
+- `generate_embeddings` tool now supports parallel processing with `concurrency` parameter
+- Database schema extended with `context_files` table and indexes
+- `DatabaseManager.createContext()` now automatically creates file associations when `file_path` is provided
+
+### Fixed
+- Data migration now handles contexts with NULL `file_path` correctly
+- File watcher initialization fixed for ES modules (replaced `require` with dynamic `import`)
+- CLI and daemon now properly record file associations in `context_files` table
+- CLI `extract` command now correctly records line number information for documentation files
+
+### Technical
+- Added `SearchCache` class with LRU eviction and TTL support
+- Added `ContextFileManager` for managing file-context relationships
+- Added `LanguageDetector` utility for intelligent project language detection
+- Implemented multi-dimensional scoring algorithm in `VectorSearchEngine`
+- Added parallel embedding generation methods: `batchGenerateEmbeddingsParallel()` and `batchUpdateEmbeddings()`
+- Database migration system for seamless upgrade from v1.17.0
+- Lazy initialization pattern for `ContextFileManager` to avoid circular dependencies
+
 ## [1.17.0] - 2025-10-22
 
 ### Added

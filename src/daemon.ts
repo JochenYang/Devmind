@@ -9,6 +9,7 @@ import { AiMemoryMcpServer } from "./mcp-server.js";
 import { ContextType } from "./types.js";
 import { ContentExtractor } from "./content-extractor.js";
 import { createGitDiffParser, GitDiffParser } from "./utils/git-diff-parser.js";
+import { languageDetector } from "./utils/language-detector.js";
 
 const execAsync = promisify(exec);
 
@@ -21,11 +22,18 @@ export class DevMindDaemon {
   private watchers: any[] = [];
   private isRunning = false;
   private enableTerminalMonitoring: boolean;
+  private projectLanguage: "zh" | "en";
 
   constructor(projectPath: string, options?: { noTerminal?: boolean }) {
     this.projectPath = projectPath;
     this.contentExtractor = new ContentExtractor();
     this.enableTerminalMonitoring = !options?.noTerminal;
+
+    // 检测项目语言
+    this.projectLanguage = languageDetector.detectProjectLanguage(projectPath);
+    console.log(
+      `📝 检测到项目语言: ${this.projectLanguage === "zh" ? "中文" : "English"}`
+    );
 
     // 初始化 Git Diff 解析器
     try {
@@ -194,10 +202,18 @@ export class DevMindDaemon {
             contextType = ContextType.DOCUMENTATION;
           }
         } catch (readError) {
-          content = `无法读取文件内容: ${readError}`;
+          const errorMsg = languageDetector.getLocalizedText(
+            this.projectLanguage,
+            "cannot_read_file"
+          );
+          content = `${errorMsg}: ${readError}`;
         }
       } else {
-        content = `文件已删除: ${filePath}`;
+        const deletedMsg = languageDetector.getLocalizedText(
+          this.projectLanguage,
+          "file_deleted"
+        );
+        content = `${deletedMsg}: ${filePath}`;
       }
 
       // 记录上下文（包含行范围）

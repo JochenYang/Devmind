@@ -7,6 +7,7 @@ import {
   ContextType,
   RelationType,
 } from "./types.js";
+import { ContextFileManager } from "./context-file-manager.js";
 import { readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -16,11 +17,27 @@ const __dirname = dirname(__filename);
 
 export class DatabaseManager {
   private db: Database.Database;
+  private _contextFileManager?: ContextFileManager;
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
     this.initializeTables();
     this.createIndexes();
+
+    // 自动迁移到多文件支持
+    if (this.needsContextFilesMigration()) {
+      console.error("[DevMind] Migrating to multi-file support...");
+      this.migrateToContextFiles();
+      console.error("[DevMind] Migration completed successfully");
+    }
+  }
+
+  // 延迟初始化 ContextFileManager
+  private get contextFileManager(): ContextFileManager {
+    if (!this._contextFileManager) {
+      this._contextFileManager = new ContextFileManager(this);
+    }
+    return this._contextFileManager;
   }
 
   private initializeTables() {
@@ -91,6 +108,20 @@ export class DatabaseManager {
         UNIQUE(from_context_id, to_context_id, type)
       )
     `);
+
+    // Context Files table (多文件关联)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS context_files (
+        id TEXT PRIMARY KEY,
+        context_id TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        change_type TEXT CHECK(change_type IN ('add', 'modify', 'delete', 'refactor', 'rename')),
+        line_ranges TEXT,
+        diff_stats TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (context_id) REFERENCES contexts (id) ON DELETE CASCADE
+      )
+    `);
   }
 
   private createIndexes() {
@@ -127,6 +158,12 @@ export class DatabaseManager {
     );
     this.db.exec(
       `CREATE INDEX IF NOT EXISTS idx_relationships_to ON relationships (to_context_id)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_context_files_context ON context_files (context_id)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_context_files_path ON context_files (file_path)`
     );
 
     // 全文搜索索引
@@ -401,6 +438,23 @@ export class DatabaseManager {
       context.embedding_version || "v1.0",
       context.metadata || "{}"
     );
+
+    // 如果有 file_path，自动创建文件关联
+    if (context.file_path && this.contextFileManager) {
+      const lineRanges =
+        context.line_start && context.line_end
+          ? [[context.line_start, context.line_end]]
+          : undefined;
+
+      this.contextFileManager.addFiles(id, [
+        {
+          file_path: context.file_path,
+          change_type: undefined,
+          line_ranges: lineRanges,
+          diff_stats: undefined,
+        },
+      ]);
+    }
 
     return id;
   }
@@ -1008,5 +1062,154 @@ export class DatabaseManager {
       total_contexts: contextCount.count,
       active_sessions: activeSessionCount.count,
     };
+  }
+
+  /**
+   * 按文件路径搜索 contexts
+   */
+  searchContextsByFile(
+    filePath: string,
+    projectId?: string,
+    limit: number = 50
+  ): Context[] {
+    let query = `
+      SELECT DISTINCT c.* 
+      FROM contexts c
+      INNER JOIN context_files cf ON c.id = cf.context_id
+      WHERE cf.file_path = ?
+    `;
+
+    const params: any[] = [filePath];
+
+    if (projectId) {
+      query += ` AND c.session_id IN (SELECT id FROM sessions WHERE project_id = ?)`;
+      params.push(projectId);
+    }
+
+    query += ` ORDER BY c.created_at DESC LIMIT ?`;
+    params.push(limit);
+
+    return this.db.prepare(query).all(...params) as Context[];
+  }
+
+  /**
+   * 获取文件修改历史
+   */
+  getFileHistory(filePath: string): Array<{
+    context_id: string;
+    change_type: string;
+    created_at: string;
+    content_preview: string;
+  }> {
+    const query = `
+      SELECT 
+        cf.context_id,
+        cf.change_type,
+        cf.created_at,
+        SUBSTR(c.content, 1, 200) as content_preview
+      FROM context_files cf
+      INNER JOIN contexts c ON cf.context_id = c.id
+      WHERE cf.file_path = ?
+      ORDER BY cf.created_at DESC
+      LIMIT 50
+    `;
+
+    return this.db.prepare(query).all(filePath) as Array<{
+      context_id: string;
+      change_type: string;
+      created_at: string;
+      content_preview: string;
+    }>;
+  }
+
+  /**
+   * 检查是否需要迁移到 context_files 表
+   */
+  private needsContextFilesMigration(): boolean {
+    try {
+      const result = this.db
+        .prepare("SELECT COUNT(*) as count FROM context_files")
+        .get() as { count: number };
+
+      // 如果 context_files 表为空，检查是否有需要迁移的数据
+      if (result.count === 0) {
+        const contextsResult = this.db
+          .prepare(
+            "SELECT COUNT(*) as count FROM contexts WHERE file_path IS NOT NULL OR metadata LIKE '%files_changed%'"
+          )
+          .get() as { count: number };
+        return contextsResult.count > 0;
+      }
+
+      return false;
+    } catch (error) {
+      // 表不存在或其他错误，不需要迁移
+      return false;
+    }
+  }
+
+  /**
+   * 迁移现有数据到 context_files 表
+   */
+  private migrateToContextFiles(): void {
+    const contexts = this.db
+      .prepare("SELECT id, file_path, metadata, created_at FROM contexts")
+      .all() as Array<{
+      id: string;
+      file_path: string | null;
+      metadata: string;
+      created_at: string;
+    }>;
+
+    const insertStmt = this.db.prepare(`
+      INSERT INTO context_files (id, context_id, file_path, change_type, line_ranges, diff_stats, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    // 使用事务批量插入
+    const transaction = this.db.transaction((contexts) => {
+      for (const context of contexts) {
+        try {
+          const metadata = JSON.parse(context.metadata || "{}");
+
+          // 1. 迁移 metadata.files_changed
+          if (metadata.files_changed && Array.isArray(metadata.files_changed)) {
+            for (const file of metadata.files_changed) {
+              // 跳过没有 file_path 的条目
+              if (!file.file_path) continue;
+
+              insertStmt.run(
+                this.generateId(),
+                context.id,
+                file.file_path,
+                file.change_type || null,
+                file.line_ranges ? JSON.stringify(file.line_ranges) : null,
+                file.diff_stats ? JSON.stringify(file.diff_stats) : null,
+                context.created_at
+              );
+            }
+          }
+          // 2. 迁移单个 file_path（如果没有 files_changed）
+          else if (context.file_path) {
+            insertStmt.run(
+              this.generateId(),
+              context.id,
+              context.file_path,
+              metadata.change_type || null,
+              null,
+              null,
+              context.created_at
+            );
+          }
+        } catch (error) {
+          console.error(
+            `[DevMind] Failed to migrate context ${context.id}:`,
+            error
+          );
+        }
+      }
+    });
+
+    transaction(contexts);
   }
 }
