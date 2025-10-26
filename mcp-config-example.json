@@ -2,9 +2,16 @@
   "mcpServers": {
     "devmind": {
       "command": "npx",
-      "args": [
-        "-y",
-        "devmind-mcp@latest"
+      "args": ["-y", "devmind-mcp@latest"],
+      "disabled": false,
+      "autoApprove": [
+        "create_session",
+        "get_current_session",
+        "list_projects",
+        "list_contexts",
+        "semantic_search",
+        "record_context",
+        "delete_context"
       ]
     }
   }
