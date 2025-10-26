@@ -813,15 +813,6 @@ npm run build:dev
 npm run clean
 ```
 
----
-
-## 📋 Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
-
-**Latest version**: v1.11.0 (2025-10-15)
-
----
 
 ## 🤝 Contributing
 
