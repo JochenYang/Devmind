@@ -254,7 +254,7 @@ export class AiMemoryMcpServer {
         {
           name: "record_context",
           description:
-            "[ENHANCED] Record development context with rich metadata. Supports automatic change type detection, function/class extraction, and impact analysis.",
+            "[ENHANCED] Record development context with rich metadata. Supports multi-file tracking, automatic change detection, and impact analysis. Use 'files_changed' for refactoring/features spanning multiple files, or 'file_path' for single-file changes.",
           inputSchema: {
             type: "object",
             properties: {
@@ -424,7 +424,7 @@ export class AiMemoryMcpServer {
                   required: ["file_path"],
                 },
                 description:
-                  "Multiple files changed in a single commit/operation (merged into one memory record)",
+                  "Track multiple files in one context (ideal for refactoring, feature development, or bug fixes spanning multiple files). Each file can have its own change_type, line_ranges, and diff_stats. Use this instead of 'file_path' when changes involve 2+ files.",
               },
 
               metadata: {
@@ -529,7 +529,7 @@ export class AiMemoryMcpServer {
         {
           name: "semantic_search",
           description:
-            "[RECOMMENDED] Intelligent search across project memory using AI embeddings. Use this to find relevant past contexts, similar problems, or related code.",
+            "[RECOMMENDED] Multi-dimensional AI search (semantic 40% + keyword 30% + quality 20% + freshness 10%). Results cached for 5min. Use file_path to search within specific files.",
           inputSchema: {
             type: "object",
             properties: {
@@ -542,18 +542,28 @@ export class AiMemoryMcpServer {
                 type: "string",
                 description: "Optional session ID to search within",
               },
+              file_path: {
+                type: "string",
+                description:
+                  "Filter to specific file (e.g., 'src/auth/login.ts')",
+              },
               limit: {
                 type: "number",
                 description: "Maximum number of results (default: 10)",
               },
               similarity_threshold: {
                 type: "number",
-                description: "Similarity threshold (default: 0.5)",
+                description: "Minimum similarity 0-1 (default: 0.5)",
               },
               hybrid_weight: {
                 type: "number",
                 description:
-                  "Weight for semantic vs keyword search (0-1, default: 0.7)",
+                  "Semantic vs keyword weight 0-1 (default: 0.7, higher=more semantic)",
+              },
+              use_cache: {
+                type: "boolean",
+                description:
+                  "Use LRU cache for faster repeated searches (default: true)",
               },
             },
             required: ["query"],
@@ -599,7 +609,7 @@ export class AiMemoryMcpServer {
         {
           name: "update_context",
           description:
-            "Update existing context metadata, content, or file associations. Rarely needed in normal development.",
+            "Update context content, metadata, tags, quality_score, or file associations (file_path/files_changed). Use to correct mistakes or add missing file associations.",
           inputSchema: {
             type: "object",
             properties: {
@@ -659,7 +669,8 @@ export class AiMemoryMcpServer {
         },
         {
           name: "generate_embeddings",
-          description: "Generate embeddings for contexts without them",
+          description:
+            "Generate vector embeddings with parallel processing (5x faster). Use concurrency parameter to control speed (default: 5 parallel).",
           inputSchema: {
             type: "object",
             properties: {

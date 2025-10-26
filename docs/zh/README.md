@@ -522,6 +522,9 @@ const analysis = await project_analysis_engineer({
 DevMind 智能记录规则:
 
 1. 查询优先: 回答技术问题前先使用 semantic_search 搜索已有知识
+   - 结果使用多维度评分（语义+关键词+质量+新鲜度）
+   - 使用 file_path 参数在特定文件中搜索
+   - 搜索结果自动缓存5分钟，重复查询更快
 
 2. 立即记录 (无需确认):
    - 用户明确说"记住这个"或"记录这个"
@@ -536,7 +539,9 @@ DevMind 智能记录规则:
 
 4. 记录格式要求:
    - 必需字段: content、type、session_id、tags
-   - 推荐字段: file_path、line_ranges [[起始,结束],...]
+   - 单文件: file_path、line_ranges [[起始,结束],...]
+   - 多文件: files_changed [{file_path, change_type, line_ranges, diff_stats}]
+   - 涉及2个以上文件时使用 files_changed（重构/功能开发）
    - Tags 格式: ["技术栈", "模块名", "功能类型", "状态"]
 
 5. 会话管理: 每个项目自动创建/复用唯一主会话
@@ -561,11 +566,37 @@ DevMind 智能记录规则:
 
 #### 推荐记录格式
 
+**单文件变更:**
 ```typescript
 {
   content: "具体的技术内容,包含背景和解决方案",
   type: "solution|code|error|documentation|test|configuration",
+  file_path: "src/auth/login.ts",
+  line_ranges: [[10, 50], [80, 100]],
   tags: ["技术栈", "模块", "重要性", "状态"],
+  session_id: "当前会话ID"
+}
+```
+
+**多文件变更（重构/功能开发）:**
+```typescript
+{
+  content: "重构认证模块，拆分为多个文件",
+  type: "code_refactor",
+  files_changed: [
+    {
+      file_path: "src/auth/login.ts",
+      change_type: "modify",
+      line_ranges: [[10, 50]],
+      diff_stats: {additions: 15, deletions: 8, changes: 23}
+    },
+    {
+      file_path: "src/auth/utils.ts",
+      change_type: "add",
+      line_ranges: [[1, 60]]
+    }
+  ],
+  tags: ["重构", "认证", "多文件"],
   session_id: "当前会话ID"
 }
 ```

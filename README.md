@@ -521,7 +521,10 @@ Add this rule to your MCP client's system prompt for intelligent memory manageme
 ```
 DevMind Smart Recording Rules:
 
-1. Query First: Use semantic_search before answering technical questions to leverage existing knowledge
+1. Query First: Use semantic_search before answering technical questions
+   - Results use multi-dimensional scoring (semantic + keyword + quality + freshness)
+   - Use file_path parameter to search within specific files
+   - Searches are cached for 5 minutes for faster repeated queries
 
 2. Record Immediately (no confirmation needed):
    - User explicitly says "remember this" or "record this"
@@ -536,7 +539,9 @@ DevMind Smart Recording Rules:
 
 4. Recording Format Requirements:
    - Required fields: content, type, session_id, tags
-   - Recommended fields: file_path, line_ranges [[start,end],...]
+   - Single file: file_path, line_ranges [[start,end],...]
+   - Multiple files: files_changed [{file_path, change_type, line_ranges, diff_stats}]
+   - Use files_changed for refactoring/features spanning 2+ files
    - Tags format: ["tech-stack", "module", "feature-type", "status"]
 
 5. Session Management: Auto-creates/reuses one main session per project
@@ -561,11 +566,37 @@ IMPORTANT: NPX mode has no background monitoring. AI must actively record all im
 
 #### Recording Format Best Practice
 
+**Single File Change:**
 ```typescript
 {
   content: "Specific technical content including background and solution",
   type: "solution|code|error|documentation|test|configuration",
+  file_path: "src/auth/login.ts",
+  line_ranges: [[10, 50], [80, 100]],
   tags: ["tech-stack", "module", "importance", "status"],
+  session_id: "current-session-id"
+}
+```
+
+**Multi-File Change (Refactoring/Feature):**
+```typescript
+{
+  content: "Refactored authentication module across multiple files",
+  type: "code_refactor",
+  files_changed: [
+    {
+      file_path: "src/auth/login.ts",
+      change_type: "modify",
+      line_ranges: [[10, 50]],
+      diff_stats: {additions: 15, deletions: 8, changes: 23}
+    },
+    {
+      file_path: "src/auth/utils.ts",
+      change_type: "add",
+      line_ranges: [[1, 60]]
+    }
+  ],
+  tags: ["refactor", "auth", "multi-file"],
   session_id: "current-session-id"
 }
 ```
