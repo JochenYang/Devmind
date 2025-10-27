@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.5] - 2025-10-27
+
+### Fixed
+- **project_analysis_engineer Prompt Clarity**: Fixed ambiguous file naming instructions
+  - Changed from "generate DEVMIND.md style document" to "generate or update DEVMIND.md file"
+  - Added explicit instructions: file name MUST be `DEVMIND.md` (no version suffixes)
+  - Specified incremental update behavior: update existing file instead of creating new ones
+  - Added instruction to preserve valuable existing content
+  - Applied same fixes to both DEVMIND.md and CLAUDE.md generation
+  - Prevents AI from creating duplicate files like `DEVMIND-v2.md`
+
+### Technical Details
+- Enhanced prompt instructions with clear file naming rules
+- Added bilingual support (Chinese/English) for all instructions
+- Improved documentation generation consistency
+
 ## [1.18.4] - 2025-10-27
 
 ### Enhanced

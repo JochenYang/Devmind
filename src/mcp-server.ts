@@ -3583,9 +3583,19 @@ Happy coding! 🚀`;
     if (docStyle === "devmind") {
       if (isChineseDoc) {
         prompt.push(
-          "生成一份全面的 **DEVMIND.md** 风格的开发文档，包含以下内容："
+          "生成或更新项目根目录的 **DEVMIND.md** 文件，包含以下内容："
         );
         prompt.push("");
+        prompt.push("**重要说明**：");
+        prompt.push(
+          "- 文件名必须是 `DEVMIND.md`（固定名称，不要添加版本号或其他后缀）"
+        );
+        prompt.push(
+          "- 如果文件已存在，请在现有内容基础上进行增量更新，而不是完全重写"
+        );
+        prompt.push("- 保留有价值的现有内容，只更新过时或需要补充的部分");
+        prompt.push("");
+        prompt.push("**文档结构**：");
         prompt.push("1. **项目概述** - 项目的核心功能和价值主张");
         prompt.push(
           "2. **主要功能** - 详细列出项目提供的核心功能特性，每个功能包含简短说明"
@@ -3599,9 +3609,21 @@ Happy coding! 🚀`;
         prompt.push("9. **常见开发任务** - 典型的工作流程和过程");
       } else {
         prompt.push(
-          "Generate a comprehensive **DEVMIND.md** style development guide that includes:"
+          "Generate or update the **DEVMIND.md** file in the project root with the following content:"
         );
         prompt.push("");
+        prompt.push("**Important Instructions**:");
+        prompt.push(
+          "- File name MUST be `DEVMIND.md` (fixed name, do not add version numbers or suffixes)"
+        );
+        prompt.push(
+          "- If the file already exists, perform incremental updates based on existing content instead of complete rewrite"
+        );
+        prompt.push(
+          "- Preserve valuable existing content, only update outdated or missing sections"
+        );
+        prompt.push("");
+        prompt.push("**Document Structure**:");
         prompt.push(
           "1. **Project Overview** - What this project does and its core value proposition"
         );
@@ -3633,14 +3655,37 @@ Happy coding! 🚀`;
     } else if (docStyle === "claude") {
       if (isChineseDoc) {
         prompt.push(
-          "生成一份全面的 **CLAUDE.md** 风格的开发指南，包含以下内容："
+          "生成或更新项目根目录的 **CLAUDE.md** 文件，包含以下内容："
         );
+        prompt.push("");
+        prompt.push("**重要说明**：");
+        prompt.push(
+          "- 文件名必须是 `CLAUDE.md`（固定名称，不要添加版本号或其他后缀）"
+        );
+        prompt.push(
+          "- 如果文件已存在，请在现有内容基础上进行增量更新，而不是完全重写"
+        );
+        prompt.push("- 保留有价值的现有内容，只更新过时或需要补充的部分");
+        prompt.push("");
+        prompt.push("**文档结构**：");
       } else {
         prompt.push(
-          "Generate a comprehensive **CLAUDE.md** style development guide that includes:"
+          "Generate or update the **CLAUDE.md** file in the project root with the following content:"
         );
+        prompt.push("");
+        prompt.push("**Important Instructions**:");
+        prompt.push(
+          "- File name MUST be `CLAUDE.md` (fixed name, do not add version numbers or suffixes)"
+        );
+        prompt.push(
+          "- If the file already exists, perform incremental updates based on existing content instead of complete rewrite"
+        );
+        prompt.push(
+          "- Preserve valuable existing content, only update outdated or missing sections"
+        );
+        prompt.push("");
+        prompt.push("**Document Structure**:");
       }
-      prompt.push("");
       prompt.push(
         "1. **Project Overview** - What this project does and its core value proposition"
       );
