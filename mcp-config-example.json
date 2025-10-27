@@ -5,13 +5,11 @@
       "args": ["-y", "devmind-mcp@latest"],
       "disabled": false,
       "autoApprove": [
-        "create_session",
-        "get_current_session",
-        "list_projects",
-        "list_contexts",
         "semantic_search",
-        "record_context",
-        "delete_context"
+        "list_contexts",
+        "list_projects",
+        "get_current_session",
+        "record_context"
       ]
     }
   }

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.6] - 2025-10-27
+
+### Enhanced
+- **Intelligent Recording Guidance**: Enhanced `record_context` tool with smart usage guidelines
+  - Added "When to Record" section: record after user confirmation, successful solutions, completed features
+  - Added "When NOT to Record" section: avoid recording during exploration, failed attempts, temporary states
+  - Emphasized automatic quality filtering (quality_score < 0.6)
+  - Helps AI make better decisions about when to record context
+  - Reduces noise and improves memory quality
+
+### Changed
+- **MCP Config Example**: Updated autoApprove list to include `record_context`
+  - Enables automatic memory recording for MCP client users (who don't have daemon)
+  - Balances convenience with quality through prompt-based guidance
+  - Users can manually remove from autoApprove if they prefer manual approval
+
+### Technical Details
+- Implemented combination approach: Prompt guidance + Quality filtering
+- No code logic changes, only tool description enhancement
+- Maintains backward compatibility
+
 ## [1.18.5] - 2025-10-27
 
 ### Fixed
