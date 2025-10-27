@@ -468,12 +468,21 @@ export class DevMindDaemon {
 
     console.log("🛑 停止DevMind守护进程...");
 
-    // 关闭所有监控器
-    this.watchers.forEach((watcher) => {
-      if (watcher.close) {
-        watcher.close();
+    // 关闭所有监控器 - 强制清理
+    console.log(`📦 正在关闭 ${this.watchers.length} 个监控器...`);
+    for (const watcher of this.watchers) {
+      try {
+        if (watcher && typeof watcher.close === 'function') {
+          await watcher.close();
+        } else if (watcher && typeof watcher.unwatch === 'function') {
+          // chokidar watcher的备用关闭方法
+          await watcher.unwatch();
+        }
+      } catch (error) {
+        console.error('关闭监控器出错:', error);
       }
-    });
+    }
+    this.watchers = []; // 清空监控器数组
 
     // 结束会话
     if (this.sessionId) {
@@ -483,6 +492,14 @@ export class DevMindDaemon {
       } catch (error) {
         console.error("结束会话失败:", error);
       }
+    }
+    
+    // 关闭数据库连接
+    try {
+      await this.server.close();
+      console.log("📄 数据库连接已关闭");
+    } catch (error) {
+      console.error("关闭数据库连接失败:", error);
     }
 
     // 删除 PID 文件
@@ -497,18 +514,25 @@ export class DevMindDaemon {
   }
 }
 
-// 命令行启动
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const args = process.argv.slice(2);
-  const projectPath =
-    args.find((arg) => !arg.startsWith("--")) || process.cwd();
-  const noTerminal = args.includes("--no-terminal");
+// 命令行启动 - 只有直接运行此文件时才启动
+// 修复判断逻辑，避免作为模块导入时意外启动
+if (import.meta.url.startsWith('file:')) {
+  const modulePath = import.meta.url.slice(7).replace(/\\/g, '/');
+  const scriptPath = process.argv[1]?.replace(/\\/g, '/');
+  
+  // 只有当前文件是直接执行的入口点时才启动
+  if (scriptPath && modulePath.endsWith(scriptPath.split('/').pop() || '')) {
+    const args = process.argv.slice(2);
+    const projectPath =
+      args.find((arg) => !arg.startsWith("--")) || process.cwd();
+    const noTerminal = args.includes("--no-terminal");
 
-  const daemon = new DevMindDaemon(projectPath, { noTerminal });
-  daemon.start().catch((error) => {
-    console.error("守护进程启动失败:", error);
-    process.exit(1);
-  });
+    const daemon = new DevMindDaemon(projectPath, { noTerminal });
+    daemon.start().catch((error) => {
+      console.error("守护进程启动失败:", error);
+      process.exit(1);
+    });
+  }
 }
 
 export default DevMindDaemon;

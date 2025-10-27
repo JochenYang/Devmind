@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.9] - 2025-10-27
+
+### Fixed
+- **Process Management**: Enhanced graceful shutdown mechanism for MCP server
+  - Added comprehensive signal handlers (SIGINT, SIGTERM, SIGHUP)
+  - Added Windows-specific shutdown message handling
+  - Added uncaught exception and unhandled rejection handlers
+  - Improved resource cleanup on server termination
+  - Prevents orphaned processes when IDE closes unexpectedly
+
+- **Daemon Module Loading**: Fixed potential unintended daemon startup
+  - Improved module execution detection logic in `daemon.ts`
+  - More strict validation to prevent daemon startup when imported as module
+  - Only starts when explicitly executed as entry point
+  - Prevents accidental daemon spawning in edge cases
+
+- **Resource Cleanup**: Enhanced daemon watcher cleanup mechanism
+  - Added fallback method for chokidar watcher cleanup (`unwatch`)
+  - Improved watcher array cleanup with proper iteration
+  - Added explicit database connection closure in daemon stop
+  - Better cleanup logging for debugging
+  - Resolves potential file watcher leaks on Windows
+
+### Added
+- **CLI Tool**: New `cleanup` command for process management
+  - `devmind cleanup` - Lists all DevMind-related Node.js processes
+  - `devmind cleanup --dry-run` - Preview processes without killing
+  - `devmind cleanup --force` - Kill processes without confirmation
+  - Cross-platform support (Windows and Unix/Linux/Mac)
+  - Interactive confirmation for safety
+  - Emergency tool for resolving orphaned process issues
+
+### Technical Details
+- Improved Windows platform compatibility for process lifecycle management
+- Enhanced error handling in daemon resource cleanup
+- Added defensive programming patterns to prevent edge-case process leaks
+- All changes are backward compatible
+
+### Why This Update?
+While the architecture was already correct (MCP server doesn't start daemon), these improvements:
+1. Add defense-in-depth for process management on Windows
+2. Provide users with emergency cleanup tools
+3. Improve system robustness under abnormal termination scenarios
+4. Ensure clean shutdown even when IDE crashes or kills processes
+
 ## [1.18.8] - 2025-10-27
 
 ### Fixed

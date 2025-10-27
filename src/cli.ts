@@ -905,6 +905,146 @@ program
     }
   });
 
+// 清理残留进程
+program
+  .command("cleanup")
+  .description("Cleanup orphaned DevMind and MCP processes")
+  .option("--force", "Force kill all related processes")
+  .option("--dry-run", "Show processes without killing them")
+  .action(async (options) => {
+    try {
+      console.log("\n🗑️  检查残留的 Node.js 进程...\n");
+
+      const { exec } = await import("child_process");
+      const { promisify } = await import("util");
+      const execAsync = promisify(exec);
+
+      let processes: any[] = [];
+
+      // Windows和Unix/Linux不同的命令
+      if (process.platform === "win32") {
+        // Windows: 使用 wmic 查找进程
+        const { stdout } = await execAsync(
+          'wmic process where "name=\'node.exe\'" get ProcessId,CommandLine /format:csv',
+          { maxBuffer: 1024 * 1024 * 10 }
+        );
+
+        const lines = stdout.split("\n").filter((line) => line.trim());
+        for (const line of lines.slice(1)) {
+          // 跳过标题行
+          const parts = line.split(",");
+          if (parts.length >= 3) {
+            const commandLine = parts.slice(1, -1).join(",").trim();
+            const pid = parts[parts.length - 1].trim();
+
+            if (
+              commandLine.includes("devmind-mcp") ||
+              commandLine.includes("daemon.js") ||
+              commandLine.includes(".devmind")
+            ) {
+              processes.push({
+                pid: parseInt(pid),
+                command: commandLine.substring(0, 120),
+              });
+            }
+          }
+        }
+      } else {
+        // Unix/Linux/Mac: 使用 ps
+        const { stdout } = await execAsync(
+          "ps aux | grep -E 'node.*devmind|node.*daemon.js|node.*.devmind' | grep -v grep"
+        );
+
+        const lines = stdout.split("\n").filter((line) => line.trim());
+        for (const line of lines) {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length >= 11) {
+            const pid = parseInt(parts[1]);
+            const command = parts.slice(10).join(" ");
+
+            processes.push({
+              pid,
+              command: command.substring(0, 120),
+            });
+          }
+        }
+      }
+
+      if (processes.length === 0) {
+        console.log("✅ 没有发现残留的 DevMind 进程");
+        return;
+      }
+
+      console.log(`🔍 发现 ${processes.length} 个 DevMind 相关进程:\n`);
+
+      processes.forEach((proc, index) => {
+        console.log(`${index + 1}. PID: ${proc.pid}`);
+        console.log(`   命令: ${proc.command}`);
+        console.log("");
+      });
+
+      if (options.dryRun) {
+        console.log("💡 这是模拟运行，使用 --force 来实际杀死进程");
+        return;
+      }
+
+      // 询问用户确认（除非使用 --force）
+      if (!options.force) {
+        const readline = await import("readline");
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
+
+        const answer = await new Promise<string>((resolve) => {
+          rl.question(
+            "⚠️  是否终止这些进程? (输入 'yes' 确认): ",
+            (ans) => {
+              rl.close();
+              resolve(ans);
+            }
+          );
+        });
+
+        if (answer.toLowerCase() !== "yes") {
+          console.log("\n❌ 操作已取消");
+          return;
+        }
+      }
+
+      console.log("\n🛑 正在终止进程...\n");
+
+      let killed = 0;
+      let failed = 0;
+
+      for (const proc of processes) {
+        try {
+          if (process.platform === "win32") {
+            await execAsync(`taskkill /F /PID ${proc.pid}`);
+          } else {
+            await execAsync(`kill -9 ${proc.pid}`);
+          }
+          console.log(`✅ 已终止 PID: ${proc.pid}`);
+          killed++;
+        } catch (error) {
+          console.error(`❌ 无法终止 PID ${proc.pid}: ${error}`);
+          failed++;
+        }
+      }
+
+      console.log(`\n📊 清理结果:`);
+      console.log(`   已终止: ${killed}`);
+      console.log(`   失败: ${failed}`);
+
+      if (killed > 0) {
+        console.log("\n✅ 进程清理完成");
+      }
+    } catch (error) {
+      console.error("❌ 清理进程失败:", error);
+      process.exit(1);
+    }
+  });
+
 // 如果没有提供任何命令或参数，启动MCP服务器
 if (process.argv.length <= 2) {
   // 启动MCP服务器
