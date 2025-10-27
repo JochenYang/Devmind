@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.8] - 2025-10-27
+
+### Fixed
+- **Critical**: Fixed incorrect bin configuration causing CLI to run instead of MCP Server
+  - Changed `devmind-mcp` bin entry from `dist/cli.js` to `dist/index.js`
+  - This was causing multiple CLI processes when MCP clients connected
+  - Each CLI process was potentially running daemon functionality
+  - Explains why there were 35+ devmind processes running simultaneously
+  - **BREAKING**: Users need to restart their IDEs after this update
+
+### Impact
+- Resolves excessive process spawning issue
+- Eliminates unintended daemon processes from MCP connections
+- Proper separation between CLI tool (`devmind`) and MCP Server (`devmind-mcp`)
+- Should significantly reduce duplicate recording issues
+
 ## [1.18.7] - 2025-10-27
 
 ### Fixed
