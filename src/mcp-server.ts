@@ -3019,12 +3019,17 @@ Happy coding! 🚀`;
    * 处理项目分析工程师 Tool（直接调用，返回分析文档）
    */
   private async handleProjectAnalysisEngineerTool(args: any) {
+    // Debug logging to help diagnose parameter issues
+    console.log("[DEBUG] project_analysis_engineer Tool called");
+    console.log("[DEBUG] Raw args type:", typeof args);
+    console.log("[DEBUG] Raw args value:", JSON.stringify(args));
+    
     try {
-      // Handle case where args might be undefined
-      if (!args) {
+      // Handle case where args might be undefined or empty
+      if (!args || typeof args !== 'object') {
         throw new McpError(
           ErrorCode.InvalidParams,
-          "Arguments are required. Please provide at least project_path parameter."
+          "Arguments object is required. Please provide project_path parameter. Example: {\"project_path\": \"/path/to/project\"}"
         );
       }
 
@@ -3036,8 +3041,11 @@ Happy coding! 🚀`;
         language,
       } = args;
 
-      if (!project_path) {
-        throw new McpError(ErrorCode.InvalidParams, "project_path is required");
+      if (!project_path || typeof project_path !== 'string' || project_path.trim() === '') {
+        throw new McpError(
+          ErrorCode.InvalidParams, 
+          `project_path is required and must be a non-empty string. Received: ${JSON.stringify(args)}`
+        );
       }
 
       console.log(`🔍 Starting project analysis for: ${project_path}`);
@@ -3123,12 +3131,17 @@ Happy coding! 🚀`;
    * 处理项目分析工程师Prompt
    */
   private async handleProjectAnalysisEngineer(args: any) {
+    // Debug logging to help diagnose parameter issues
+    console.log("[DEBUG] project_analysis_engineer Prompt called");
+    console.log("[DEBUG] Raw args type:", typeof args);
+    console.log("[DEBUG] Raw args value:", JSON.stringify(args));
+    
     try {
-      // Handle case where args might be undefined
-      if (!args) {
+      // Handle case where args might be undefined or empty
+      if (!args || typeof args !== 'object') {
         throw new McpError(
           ErrorCode.InvalidParams,
-          "Arguments are required. Please provide at least project_path parameter."
+          "Arguments object is required for Prompt. Please provide project_path parameter. Example: {\"project_path\": \"/path/to/project\"}"
         );
       }
 
@@ -3140,8 +3153,11 @@ Happy coding! 🚀`;
         language, // 新增语言参数
       } = args;
 
-      if (!project_path) {
-        throw new McpError(ErrorCode.InvalidParams, "project_path is required");
+      if (!project_path || typeof project_path !== 'string' || project_path.trim() === '') {
+        throw new McpError(
+          ErrorCode.InvalidParams, 
+          `project_path is required and must be a non-empty string for Prompt. Received: ${JSON.stringify(args)}`
+        );
       }
 
       console.log(`🔍 Starting project analysis for: ${project_path}`);

@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.10] - 2025-10-27
+
+### Fixed
+- **Parameter Validation**: Enhanced `project_analysis_engineer` tool/prompt parameter validation
+  - Added strict type checking for arguments object
+  - Added validation for empty strings and whitespace-only paths
+  - Improved error messages to show actual received parameters
+  - Added debug logging to help diagnose parameter passing issues
+  - Error messages now include examples of correct parameter format
+
+### Added
+- **Debug Logging**: Added detailed debug logs for `project_analysis_engineer` calls
+  - Logs parameter type and value for both Tool and Prompt modes
+  - Helps diagnose which IDE/client is passing incorrect parameters
+  - Useful for troubleshooting MCP integration issues
+
+- **Test Script**: Added `test-project-analysis.mjs` for local testing
+  - Simulates MCP client calls with various parameter scenarios
+  - Tests edge cases: empty object, missing fields, null values, empty strings
+  - Provides immediate feedback without needing IDE restart
+
+### Changed
+- **Error Messages**: More descriptive error messages with actual parameter values
+  - Before: `"project_path is required"`
+  - After: `"project_path is required and must be a non-empty string. Received: {}"`
+  - Includes usage examples in error messages
+
+### Technical Details
+- Enhanced validation in both `handleProjectAnalysisEngineerTool` and `handleProjectAnalysisEngineer`
+- All validations applied consistently across Tool and Prompt invocation modes
+- Debug logs use `[DEBUG]` prefix for easy filtering
+- Test script uses official MCP SDK client for accurate simulation
+
+### Why This Update?
+Users reported `"project_path is required"` errors when calling `project_analysis_engineer` from certain IDEs. Investigation revealed that some MCP clients may pass empty objects or malformed parameters. This update:
+1. Provides clearer error messages showing what was actually received
+2. Adds debug logging to identify which client is causing issues
+3. Includes comprehensive validation for all edge cases
+4. Provides a test script for local verification
+
 ## [1.18.9] - 2025-10-27
 
 ### Fixed
