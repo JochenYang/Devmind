@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.4] - 2025-10-27
+
+### Enhanced
+- **Memory Graph Tooltip Interaction**: Significantly improved tooltip usability
+  - Added hover state tracking to prevent accidental tooltip triggers
+  - Tooltip only appears when mouse is truly over a node
+  - Mouse can smoothly move from node to tooltip for scrolling long content
+  - Intelligent positioning to prevent tooltip from going off-screen
+  - Added custom scrollbar styling for better visual experience
+  - Fixed tooltip disappearing immediately when trying to scroll
+
+### Improved
+- **Memory Graph Layout Optimization**: Better handling of large node counts
+  - Dynamic link distance based on node importance (80-180px range)
+  - Stronger repulsion force for important nodes (-300 to -500)
+  - Adaptive label spacing based on node importance
+  - Zone attraction strength decreases as node count increases
+  - Larger radial distance for zones with many nodes
+  - Significantly reduced node overlap in dense graphs
+
+### Fixed
+- **Critical**: Fixed JavaScript syntax error in generated HTML
+  - Removed duplicate `}, 500);` in setTimeout closure
+  - HTML files now load correctly in all browsers
+- **Tooltip Interaction**: Fixed tooltip disappearing when mouse moves to it
+  - Added `isMouseOverTooltip` flag to track tooltip hover state
+  - Tooltip stays visible when mouse transitions from node to tooltip
+  - Only hides after mouse leaves both node and tooltip areas
+
+### Technical Details
+- Added `currentHoverNode` variable to track active node hover
+- Added `isMouseOverTooltip` flag for tooltip interaction state
+- Enhanced collision detection with importance-based spacing
+- Dynamic force parameters based on zone node density
+- Improved tooltip positioning algorithm with boundary detection
+
 ## [1.18.3] - 2025-10-27
 
 ### Enhanced
