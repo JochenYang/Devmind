@@ -828,36 +828,45 @@ export class AiMemoryMcpServer {
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
+      // Ensure args is at least an empty object to prevent destructuring errors
+      const safeArgs = args || {};
+
       switch (name) {
         case "create_session":
           return await this.handleCreateSession(
-            args as unknown as SessionCreateParams
+            safeArgs as unknown as SessionCreateParams
           );
         case "record_context":
           return await this.handleRecordContext(
-            args as unknown as RecordContextParams
+            safeArgs as unknown as RecordContextParams
           );
         case "end_session":
-          return await this.handleEndSession(args as { session_id: string });
+          return await this.handleEndSession(
+            safeArgs as { session_id: string }
+          );
         case "get_current_session":
           return await this.handleGetCurrentSession(
-            args as { project_path: string }
+            safeArgs as { project_path: string }
           );
         case "list_projects":
           return await this.handleListProjects(
-            args as { include_stats?: boolean; limit?: number }
+            safeArgs as { include_stats?: boolean; limit?: number }
           );
         case "extract_file_context":
           return await this.handleExtractFileContext(
-            args as { file_path: string; session_id?: string; record?: boolean }
+            safeArgs as {
+              file_path: string;
+              session_id?: string;
+              record?: boolean;
+            }
           );
         case "get_related_contexts":
           return await this.handleGetRelatedContexts(
-            args as { context_id: string; relation_type?: string }
+            safeArgs as { context_id: string; relation_type?: string }
           );
         case "semantic_search":
           return await this.handleSemanticSearch(
-            args as {
+            safeArgs as {
               query: string;
               project_id?: string;
               session_id?: string;
@@ -868,7 +877,7 @@ export class AiMemoryMcpServer {
           );
         case "generate_embeddings":
           return await this.handleGenerateEmbeddings(
-            args as {
+            safeArgs as {
               limit?: number;
               force_update?: boolean;
               project_id?: string;
@@ -876,17 +885,19 @@ export class AiMemoryMcpServer {
           );
         case "list_contexts":
           return await this.handleListContexts(
-            args as {
+            safeArgs as {
               session_id?: string;
               project_id?: string;
               limit?: number;
             }
           );
         case "delete_context":
-          return await this.handleDeleteContext(args as { context_id: string });
+          return await this.handleDeleteContext(
+            safeArgs as { context_id: string }
+          );
         case "update_context":
           return await this.handleUpdateContext(
-            args as {
+            safeArgs as {
               context_id: string;
               content?: string;
               tags?: string[];
@@ -895,10 +906,12 @@ export class AiMemoryMcpServer {
             }
           );
         case "delete_session":
-          return await this.handleDeleteSession(args as { session_id: string });
+          return await this.handleDeleteSession(
+            safeArgs as { session_id: string }
+          );
         case "project_analysis_engineer":
           return await this.handleProjectAnalysisEngineerTool(
-            args as {
+            safeArgs as {
               project_path: string;
               analysis_focus?: string;
               doc_style?: string;
@@ -908,7 +921,7 @@ export class AiMemoryMcpServer {
           );
         case "optimize_project_memory":
           return await this.handleOptimizeProjectMemory(
-            args as {
+            safeArgs as {
               project_id: string;
               strategies?: string[];
               dry_run?: boolean;
@@ -916,7 +929,7 @@ export class AiMemoryMcpServer {
           );
         case "update_quality_scores":
           return await this.handleUpdateQualityScores(
-            args as {
+            safeArgs as {
               project_id?: string;
               limit?: number;
               force_all?: boolean;
@@ -924,7 +937,7 @@ export class AiMemoryMcpServer {
           );
         case "export_memory_graph":
           return await this.handleExportMemoryGraph(
-            args as {
+            safeArgs as {
               project_id: string;
               max_nodes?: number;
               focus_type?: string;
@@ -981,9 +994,12 @@ export class AiMemoryMcpServer {
     this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
       const { name, arguments: args } = request.params;
 
+      // Ensure args is at least an empty object to prevent destructuring errors
+      const safeArgs = args || {};
+
       switch (name) {
         case "project_analysis_engineer":
-          return await this.handleProjectAnalysisEngineer(args);
+          return await this.handleProjectAnalysisEngineer(safeArgs);
         default:
           throw new McpError(
             ErrorCode.MethodNotFound,
@@ -3004,6 +3020,14 @@ Happy coding! 🚀`;
    */
   private async handleProjectAnalysisEngineerTool(args: any) {
     try {
+      // Handle case where args might be undefined
+      if (!args) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "Arguments are required. Please provide at least project_path parameter."
+        );
+      }
+
       const {
         project_path,
         analysis_focus = "architecture,entities,apis,business_logic",
@@ -3100,6 +3124,14 @@ Happy coding! 🚀`;
    */
   private async handleProjectAnalysisEngineer(args: any) {
     try {
+      // Handle case where args might be undefined
+      if (!args) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "Arguments are required. Please provide at least project_path parameter."
+        );
+      }
+
       const {
         project_path,
         analysis_focus = "architecture,entities,apis,business_logic",
