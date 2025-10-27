@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.7] - 2025-10-27
+
+### Fixed
+- **Critical**: Fixed duplicate recording when multiple MCP clients are running simultaneously
+  - Added deduplication check in database layer (5-second time window)
+  - Prevents concurrent writes from multiple IDE instances (Kiro + Claude + Cursor)
+  - Uses atomic SQLite query to check for existing records before insertion
+  - Logs skipped duplicates for debugging
+
+### Technical Details
+- Deduplication logic checks: session_id + type + content within 5 seconds
+- Returns existing context ID if duplicate detected
+- No impact on normal repeated recordings (beyond 5-second window)
+
+### Important Note
+**Configuration files are NOT automatically updated when upgrading:**
+- `mcp-config-example.json` is only a reference file in the npm package
+- Your actual config is in `~/.kiro/settings/mcp.json` (Kiro) or similar for other IDEs
+- To enable auto-recording, manually add `"record_context"` to your `autoApprove` list
+- See README for detailed configuration instructions
+
 ## [1.18.6] - 2025-10-27
 
 ### Enhanced

@@ -410,6 +410,30 @@ export class DatabaseManager {
 
   // Context operations
   createContext(context: Omit<Context, "id" | "created_at">): string {
+    // 防止并发重复记录：检查最近5秒内是否有相同内容
+    const dedupeCheck = this.db.prepare(`
+      SELECT id FROM contexts
+      WHERE session_id = ?
+        AND type = ?
+        AND content = ?
+        AND created_at > datetime('now', '-5 seconds')
+      LIMIT 1
+    `);
+
+    const existing = dedupeCheck.get(
+      context.session_id,
+      context.type,
+      context.content
+    ) as { id: string } | undefined;
+
+    if (existing) {
+      // 已存在相同记录，返回现有ID，避免重复
+      console.log(
+        `[Database] Skipped duplicate context (existing: ${existing.id})`
+      );
+      return existing.id;
+    }
+
     const id = this.generateId();
     const now = new Date().toISOString();
 
