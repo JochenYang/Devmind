@@ -283,49 +283,78 @@ DevMind provides **17 powerful tools** and **1 professional prompt** for your AI
 
 ### CLI Commands Reference
 
-| Category     | Command                              | Description                              | Options                |
-|--------------|--------------------------------------|------------------------------------------|------------------------|
-| **Project**  | `devmind init`                       | Initialize DevMind in current project    | -                      |
-|              | `devmind start`                      | Start monitoring daemon                  | `--no-terminal`        |
-|              | `devmind status`                     | Check daemon status                      | -                      |
-|              | `devmind stop`                       | Stop monitoring                          | -                      |
-| **Search**   | `devmind search <query>`             | Search contexts                          | `--project`, `--limit` |
-| **Optimize** | `devmind optimize <project-id>`      | Remove duplicates & low-quality contexts | `--dry-run`            |
-| **Backup**   | `devmind maintenance backup`         | Create database backup                   | `--output <path>`      |
-|              | `devmind maintenance restore <file>` | Restore from backup                      | `--force`              |
+📖 **[Complete CLI Reference](./CLI-REFERENCE-EN.md)** - Detailed documentation for all commands
 
-#### Quick Examples
+| Category     | Command                              | Description                            | Options                                   |
+|--------------|--------------------------------------|----------------------------------------|-------------------------------------------|
+| **Project**  | `devmind init`                       | Initialize DevMind in current project  | `--config-path`                           |
+|              | `devmind project <action>`           | Manage projects (list/create/info)     | `--config`                                |
+|              | `devmind stats`                      | Show database statistics               | `--config`                                |
+| **Daemon**   | `devmind start`                      | Start monitoring daemon                | `--no-terminal`, `--project`              |
+|              | `devmind status`                     | Check daemon status                    | `--project`                               |
+|              | `devmind stop`                       | Stop monitoring daemon                 | `--project`                               |
+| **Session**  | `devmind session <action>`           | Manage sessions (create/end/list/info) | `--name`, `--tool`                        |
+| **Search**   | `devmind search <query>`             | Semantic search contexts               | `--project`, `--limit`, `--threshold`     |
+|              | `devmind extract <file>`             | Extract context from file              | `--record`, `--session`                   |
+| **Optimize** | `devmind optimize <project-id>`      | Optimize memory storage                | `--strategies`, `--dry-run`               |
+|              | `devmind quality`                    | Update quality scores                  | `--project`, `--force-all`                |
+| **Maintain** | `devmind maintenance vacuum`         | Compact database                       | `--config`                                |
+|              | `devmind maintenance backup`         | Create database backup                 | `--output`                                |
+|              | `devmind maintenance restore <file>` | Restore from backup                    | `--force`                                 |
+| **Visual**   | `devmind graph <project-id>`         | Export interactive memory graph        | `--output`, `--max-nodes`, `--focus-type` |
 
-**Project Management:**
+#### Quick Start
+
+**Initialize and Start Monitoring:**
 
 ```bash
-# Initialize DevMind in current project
+# 1. Initialize configuration
 devmind init
 
-# Start monitoring daemon
+# 2. Start monitoring daemon
 devmind start
 
-# Start daemon without terminal monitoring
-devmind start --no-terminal
-
-# Check daemon status
+# 3. Check daemon status
 devmind status
-
-# Stop monitoring
-devmind stop
 ```
 
-**Search & Retrieval:**
+**Search and Query:**
 
 ```bash
-# Search contexts
+# Semantic search
 devmind search "authentication implementation"
 
 # Search with filters
-devmind search "database" --project myproject --limit 5
+devmind search "database" --project myproject --limit 5 --threshold 0.7
+
+# Extract file context
+devmind extract src/app.ts --record
 ```
 
-For advanced operations like memory optimization and backup/restore, see [Advanced CLI Operations](#advanced-cli-operations) below.
+**Maintenance:**
+
+```bash
+# Optimize storage
+devmind optimize <project-id>
+
+# Create backup
+devmind maintenance backup --output ./backups/
+
+# Update quality scores
+devmind quality --force-all
+```
+
+**Stop Monitoring:**
+
+```bash
+# Stop daemon
+devmind stop
+
+# Verify stopped
+devmind status
+```
+
+For detailed documentation including all options, examples, and troubleshooting, see the **[Complete CLI Reference](./CLI-REFERENCE-EN.md)**.
 
 ### Usage Examples
 

@@ -283,49 +283,78 @@ DevMind为您的AI助手提供 **17个强大工具** 和 **1个专业提示**:
 
 ### CLI命令参考
 
-| 类别     | 命令                                 | 描述                    | 选项                   |
-|----------|--------------------------------------|-------------------------|------------------------|
-| **项目** | `devmind init`                       | 在当前项目初始化DevMind | -                      |
-|          | `devmind start`                      | 启动监控守护进程        | `--no-terminal`        |
-|          | `devmind status`                     | 检查守护进程状态        | -                      |
-|          | `devmind stop`                       | 停止监控                | -                      |
-| **搜索** | `devmind search <query>`             | 搜索上下文              | `--project`, `--limit` |
-| **优化** | `devmind optimize <project-id>`      | 移除重复和低质量上下文  | `--dry-run`            |
-| **备份** | `devmind maintenance backup`         | 创建数据库备份          | `--output <path>`      |
-|          | `devmind maintenance restore <file>` | 从备份恢复              | `--force`              |
+📖 **[完整 CLI 参考文档](./CLI-REFERENCE.md)** - 所有命令的详细说明
 
-#### 快速示例
+| 类别         | 命令                                 | 描述                            | 选项                                      |
+|--------------|--------------------------------------|---------------------------------|-------------------------------------------|
+| **项目**     | `devmind init`                       | 初始化 DevMind 配置             | `--config-path`                           |
+|              | `devmind project <action>`           | 管理项目 (list/create/info)     | `--config`                                |
+|              | `devmind stats`                      | 显示数据库统计信息              | `--config`                                |
+| **守护进程** | `devmind start`                      | 启动文件监控守护进程            | `--no-terminal`, `--project`              |
+|              | `devmind status`                     | 查看守护进程状态                | `--project`                               |
+|              | `devmind stop`                       | 停止守护进程                    | `--project`                               |
+| **会话**     | `devmind session <action>`           | 管理会话 (create/end/list/info) | `--name`, `--tool`                        |
+| **搜索**     | `devmind search <query>`             | 语义搜索上下文                  | `--project`, `--limit`, `--threshold`     |
+|              | `devmind extract <file>`             | 从文件提取上下文                | `--record`, `--session`                   |
+| **优化**     | `devmind optimize <project-id>`      | 优化内存存储                    | `--strategies`, `--dry-run`               |
+|              | `devmind quality`                    | 更新质量评分                    | `--project`, `--force-all`                |
+| **维护**     | `devmind maintenance vacuum`         | 压缩数据库                      | `--config`                                |
+|              | `devmind maintenance backup`         | 创建数据库备份                  | `--output`                                |
+|              | `devmind maintenance restore <file>` | 从备份恢复                      | `--force`                                 |
+| **可视化**   | `devmind graph <project-id>`         | 导出交互式记忆图谱              | `--output`, `--max-nodes`, `--focus-type` |
 
-**项目管理:**
+#### 快速开始
+
+**初始化并启动监控:**
 
 ```bash
-# 在当前项目初始化DevMind
+# 1. 初始化配置
 devmind init
 
-# 启动监控守护进程
+# 2. 启动守护进程
 devmind start
 
-# 启动守护进程但不监控终端
-devmind start --no-terminal
-
-# 检查守护进程状态
+# 3. 查看状态
 devmind status
-
-# 停止监控
-devmind stop
 ```
 
-**搜索与检索:**
+**搜索与查询:**
 
 ```bash
-# 搜索上下文
+# 语义搜索
 devmind search "身份验证实现"
 
 # 带过滤条件搜索
-devmind search "数据库" --project myproject --limit 5
+devmind search "数据库" --project myproject --limit 5 --threshold 0.7
+
+# 提取文件上下文
+devmind extract src/app.ts --record
 ```
 
-关于内存优化和备份恢复的高级操作，请参见下方的[高级CLI操作](#高级cli操作)部分。
+**维护操作:**
+
+```bash
+# 优化存储
+devmind optimize <project-id>
+
+# 创建备份
+devmind maintenance backup --output ./backups/
+
+# 更新质量评分
+devmind quality --force-all
+```
+
+**停止监控:**
+
+```bash
+# 停止守护进程
+devmind stop
+
+# 确认已停止
+devmind status
+```
+
+详细文档包括所有选项、示例和故障排除，请查看 **[完整 CLI 参考文档](./CLI-REFERENCE.md)**。
 
 ### 使用示例
 

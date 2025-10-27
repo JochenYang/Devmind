@@ -780,6 +780,131 @@ function loadConfig(configPath: string): AiMemoryConfig {
   return defaultConfig;
 }
 
+// Daemon 管理命令
+program
+  .command("start")
+  .description("Start DevMind monitoring daemon")
+  .option("--no-terminal", "Disable terminal command monitoring")
+  .option("--project <path>", "Project path", process.cwd())
+  .action(async (options) => {
+    try {
+      const { PidManager } = await import("./utils/pid-manager.js");
+      const pidManager = new PidManager(options.project);
+
+      // 检查是否已在运行
+      const status = pidManager.getStatus();
+      if (status.running) {
+        console.log(`⚠️  守护进程已在运行`);
+        console.log(`   PID: ${status.pid}`);
+        console.log(`   运行时间: ${status.uptime}`);
+        console.log(`   启动时间: ${status.startedAt}`);
+        console.log(`\n   使用 'devmind stop' 停止守护进程`);
+        process.exit(1);
+      }
+
+      console.log("🚀 启动 DevMind 守护进程...\n");
+
+      // 使用 spawn 启动守护进程（后台运行）
+      const { spawn } = await import("child_process");
+      const { fileURLToPath } = await import("url");
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+
+      const daemonPath = join(__dirname, "daemon.js");
+      const args = [daemonPath, options.project];
+      if (options.noTerminal) {
+        args.push("--no-terminal");
+      }
+
+      const daemon = spawn("node", args, {
+        detached: true,
+        stdio: "ignore",
+        cwd: options.project,
+      });
+
+      daemon.unref(); // 允许父进程退出
+
+      // 等待一下确保守护进程启动
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // 检查是否成功启动
+      const newStatus = pidManager.getStatus();
+      if (newStatus.running) {
+        console.log("✅ 守护进程启动成功");
+        console.log(`   PID: ${newStatus.pid}`);
+        console.log(`   项目: ${options.project}`);
+        console.log(`\n   使用 'devmind status' 查看状态`);
+        console.log(`   使用 'devmind stop' 停止守护进程`);
+      } else {
+        console.error("❌ 守护进程启动失败");
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error("❌ 启动守护进程失败:", error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("stop")
+  .description("Stop DevMind monitoring daemon")
+  .option("--project <path>", "Project path", process.cwd())
+  .action(async (options) => {
+    try {
+      const { PidManager } = await import("./utils/pid-manager.js");
+      const pidManager = new PidManager(options.project);
+
+      const status = pidManager.getStatus();
+      if (!status.running) {
+        console.log("ℹ️  没有运行中的守护进程");
+        process.exit(0);
+      }
+
+      console.log(`🛑 停止守护进程 (PID: ${status.pid})...`);
+
+      const killed = pidManager.killProcess();
+      if (killed) {
+        console.log("✅ 守护进程已停止");
+      } else {
+        console.error("❌ 停止守护进程失败");
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error("❌ 停止守护进程失败:", error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("status")
+  .description("Check DevMind daemon status")
+  .option("--project <path>", "Project path", process.cwd())
+  .action(async (options) => {
+    try {
+      const { PidManager } = await import("./utils/pid-manager.js");
+      const pidManager = new PidManager(options.project);
+
+      const status = pidManager.getStatus();
+
+      console.log("\n📊 DevMind 守护进程状态\n");
+      console.log(`   项目: ${options.project}`);
+
+      if (status.running) {
+        console.log(`   状态: ✅ 运行中`);
+        console.log(`   PID: ${status.pid}`);
+        console.log(`   运行时间: ${status.uptime}`);
+        console.log(`   启动时间: ${status.startedAt}`);
+      } else {
+        console.log(`   状态: ⭕ 未运行`);
+      }
+
+      console.log("");
+    } catch (error) {
+      console.error("❌ 检查状态失败:", error);
+      process.exit(1);
+    }
+  });
+
 // 如果没有提供任何命令或参数，启动MCP服务器
 if (process.argv.length <= 2) {
   // 启动MCP服务器

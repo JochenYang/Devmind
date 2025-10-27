@@ -10,6 +10,7 @@ import { ContextType } from "./types.js";
 import { ContentExtractor } from "./content-extractor.js";
 import { createGitDiffParser, GitDiffParser } from "./utils/git-diff-parser.js";
 import { languageDetector } from "./utils/language-detector.js";
+import { PidManager } from "./utils/pid-manager.js";
 
 const execAsync = promisify(exec);
 
@@ -23,11 +24,13 @@ export class DevMindDaemon {
   private isRunning = false;
   private enableTerminalMonitoring: boolean;
   private projectLanguage: "zh" | "en";
+  private pidManager: PidManager;
 
   constructor(projectPath: string, options?: { noTerminal?: boolean }) {
     this.projectPath = projectPath;
     this.contentExtractor = new ContentExtractor();
     this.enableTerminalMonitoring = !options?.noTerminal;
+    this.pidManager = new PidManager(projectPath);
 
     // 检测项目语言
     this.projectLanguage = languageDetector.detectProjectLanguage(projectPath);
@@ -68,7 +71,20 @@ export class DevMindDaemon {
       return;
     }
 
+    // 检查是否已有守护进程在运行
+    const status = this.pidManager.getStatus();
+    if (status.running) {
+      console.log(
+        `⚠️  守护进程已在运行 (PID: ${status.pid}, 运行时间: ${status.uptime})`
+      );
+      console.log("   使用 'devmind stop' 停止现有守护进程");
+      process.exit(1);
+    }
+
     console.log(`🚀 启动DevMind守护进程: ${this.projectPath}`);
+
+    // 写入 PID 文件
+    this.pidManager.writePid(process.pid);
 
     try {
       // 创建或获取会话
@@ -468,6 +484,9 @@ export class DevMindDaemon {
         console.error("结束会话失败:", error);
       }
     }
+
+    // 删除 PID 文件
+    this.pidManager.removePid();
 
     this.isRunning = false;
     console.log("✅ DevMind守护进程已停止");

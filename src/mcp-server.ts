@@ -254,7 +254,7 @@ export class AiMemoryMcpServer {
         {
           name: "record_context",
           description:
-            "[ENHANCED] Record development context with rich metadata. Supports multi-file tracking, automatic change detection, and impact analysis. Use 'files_changed' for refactoring/features spanning multiple files, or 'file_path' for single-file changes.",
+            "[ENHANCED] Record development context with rich metadata. Supports multi-file tracking, automatic change detection, and impact analysis. Use 'files_changed' for refactoring/features spanning multiple files, or 'file_path' for single-file changes.\n\n**IMPORTANT**: Always format the 'content' parameter using Markdown syntax for better readability in database and knowledge graph visualization. Use headings (##), code blocks (```), lists, and other Markdown formatting.",
           inputSchema: {
             type: "object",
             properties: {

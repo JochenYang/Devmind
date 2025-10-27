@@ -1,13 +1,12 @@
-import { Context, Relationship, Project } from './types.js';
-import { DatabaseManager } from './database.js';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
-
+import { Context, Relationship, Project } from "./types.js";
+import { DatabaseManager } from "./database.js";
+import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { join, dirname } from "path";
 
 export interface GraphNode {
   id: string;
   label: string;
-  content: string;        // 完整内容
+  content: string; // 完整内容
   type: string;
   importance: number;
   tags: string[];
@@ -70,8 +69,8 @@ export class MemoryGraphGenerator {
     let contexts = this.db.getContextsByProject(projectId);
 
     // 过滤类型
-    if (options.focus_type && options.focus_type !== 'all') {
-      contexts = contexts.filter(c => c.type === options.focus_type);
+    if (options.focus_type && options.focus_type !== "all") {
+      contexts = contexts.filter((c) => c.type === options.focus_type);
     }
 
     // 限制节点数量（选择最重要的）
@@ -84,22 +83,22 @@ export class MemoryGraphGenerator {
     }
 
     // 构建节点
-    const nodes: GraphNode[] = contexts.map(context => ({
+    const nodes: GraphNode[] = contexts.map((context) => ({
       id: context.id,
       label: this.truncateLabel(context.content),
-      content: context.content,  // 保存完整内容
+      content: context.content, // 保存完整内容
       type: context.type,
       importance: context.quality_score,
-      tags: context.tags ? context.tags.split(',').filter(t => t) : [],
+      tags: context.tags ? context.tags.split(",").filter((t) => t) : [],
       created_at: context.created_at,
-      file_path: context.file_path
+      file_path: context.file_path,
     }));
 
     // 获取关系
-    const contextIds = new Set(contexts.map(c => c.id));
+    const contextIds = new Set(contexts.map((c) => c.id));
     const edges: GraphEdge[] = [];
 
-    contexts.forEach(context => {
+    contexts.forEach((context) => {
       const related = this.db.getRelatedContexts(context.id);
       related.forEach((rel: any) => {
         // 只包含在节点集合中的关系
@@ -108,7 +107,7 @@ export class MemoryGraphGenerator {
             from: rel.from_context_id,
             to: rel.to_context_id,
             relation: rel.type,
-            strength: rel.strength
+            strength: rel.strength,
           });
         }
       });
@@ -121,8 +120,8 @@ export class MemoryGraphGenerator {
         project_name: project.name,
         total_contexts: contexts.length,
         total_relationships: edges.length,
-        generated_at: new Date().toISOString()
-      }
+        generated_at: new Date().toISOString(),
+      },
     };
   }
 
@@ -321,27 +320,93 @@ export class MemoryGraphGenerator {
       border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 8px;
       padding: 12px 16px;
-      pointer-events: none;
+      pointer-events: auto; /* 允许鼠标交互 */
       opacity: 0;
       transition: opacity 0.2s;
       z-index: 2000;
-      max-width: 400px;
+      max-width: 600px;
+      max-height: 500px;
+      overflow-y: auto;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      /* 添加滚动条样式 */
+      scrollbar-width: thin;
+      scrollbar-color: rgba(148, 163, 184, 0.5) transparent;
+    }
+    .custom-tooltip::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-tooltip::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-tooltip::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.5);
+      border-radius: 3px;
+    }
+    .custom-tooltip::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.7);
     }
     .custom-tooltip.visible {
       opacity: 1;
+    }
+    .custom-tooltip.pinned {
+      pointer-events: auto;
+      border: 2px solid #60a5fa;
+      box-shadow: 0 12px 48px rgba(96, 165, 250, 0.3);
+    }
+    .custom-tooltip.pinned .tooltip-title::after {
+      content: ' 📌';
+      font-size: 11px;
+      opacity: 0.8;
+      margin-left: 8px;
     }
     .tooltip-title {
       font-weight: 600;
       color: #60a5fa;
       margin-bottom: 8px;
       font-size: 13px;
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.95);
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .tooltip-close {
+      background: rgba(248, 113, 113, 0.2);
+      border: 1px solid rgba(248, 113, 113, 0.4);
+      color: #f87171;
+      border-radius: 4px;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      transition: all 0.2s;
+    }
+    .tooltip-close:hover {
+      background: rgba(248, 113, 113, 0.4);
+      border-color: #f87171;
+    }
+    .tooltip-hint {
+      font-size: 10px;
+      color: #94a3b8;
+      text-align: center;
+      padding: 6px 0 0 0;
+      border-top: 1px solid rgba(148, 163, 184, 0.1);
+      margin-top: 6px;
+    }
+    .custom-tooltip.pinned .tooltip-hint {
+      display: none;
     }
     .tooltip-content {
       color: #cbd5e1;
       font-size: 12px;
-      line-height: 1.5;
+      line-height: 1.6;
       margin-bottom: 8px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     }
     .tooltip-meta {
       font-size: 11px;
@@ -422,9 +487,12 @@ export class MemoryGraphGenerator {
   </div>
 
   <div class="custom-tooltip" id="customTooltip">
-    <div class="tooltip-title" id="tooltipTitle"></div>
+    <div class="tooltip-title" id="tooltipTitle">
+      <button class="tooltip-close" id="tooltipClose" style="display: none;">✕</button>
+    </div>
     <div class="tooltip-content" id="tooltipContent"></div>
     <div class="tooltip-meta" id="tooltipMeta"></div>
+    <div class="tooltip-hint" id="tooltipHint">💡 点击节点固定此窗口以滚动查看</div>
   </div>
 
   <div class="legend">
@@ -457,15 +525,21 @@ export class MemoryGraphGenerator {
 
   <div class="stats">
     <div><strong>${data.metadata.project_name}</strong></div>
-    <div id="statsNodes">📊 Nodes: <span id="statsNodesCount">${data.metadata.total_contexts}</span></div>
-    <div id="statsRels">🔗 Relationships: <span id="statsRelsCount">${data.metadata.total_relationships}</span></div>
-    <div id="statsGenerated">📅 Generated: ${new Date(data.metadata.generated_at).toLocaleString()}</div>
+    <div id="statsNodes">📊 Nodes: <span id="statsNodesCount">${
+      data.metadata.total_contexts
+    }</span></div>
+    <div id="statsRels">🔗 Relationships: <span id="statsRelsCount">${
+      data.metadata.total_relationships
+    }</span></div>
+    <div id="statsGenerated">📅 Generated: ${new Date(
+      data.metadata.generated_at
+    ).toLocaleString()}</div>
   </div>
 
   <svg id="graph"></svg>
 
   <script>
-    const data = ${JSON.stringify(data, null, 2)};
+    const data = ${JSON.stringify(data, null, 2).replace(/<\//g, "<\\/")};
     
     // 多语言支持
     let currentLang = 'en';
@@ -775,7 +849,14 @@ export class MemoryGraphGenerator {
     const baseRadius = Math.min(width, height) * 0.12;
     const zoneRadii = {};
     Object.keys(typeCounts).forEach(type => {
-      const count = typeCounts[type] + (typeCounts[type === 'code' ? 'test' : type === 'test' ? 'code' : type === 'configuration' ? 'commit' : type === 'commit' ? 'configuration' : null] || 0);
+      // 合并相关类型的计数
+      let relatedType = null;
+      if (type === 'code') relatedType = 'test';
+      else if (type === 'test') relatedType = 'code';
+      else if (type === 'configuration') relatedType = 'commit';
+      else if (type === 'commit') relatedType = 'configuration';
+      
+      const count = typeCounts[type] + (relatedType ? (typeCounts[relatedType] || 0) : 0);
       // 根据节点数量动态调整半径
       zoneRadii[type] = baseRadius + Math.sqrt(count) * 15;
     });
@@ -855,31 +936,52 @@ export class MemoryGraphGenerator {
         .text(i18n[currentLang][zone.type === 'code' ? 'codeTest' : zone.type === 'configuration' ? 'configCommit' : zone.type]);
     });
     
-    // 力导向布局 - 增强碰撞防止重叠（包含标签空间）
+    // 力导向布局 - 优化大量节点的布局
     const simulation = d3.forceSimulation(data.nodes)
-      .force("link", d3.forceLink(data.edges).id(d => d.id).distance(120))
-      .force("charge", d3.forceManyBody().strength(-400))
+      .force("link", d3.forceLink(data.edges).id(d => d.id).distance(d => {
+        // 根据节点重要性调整连线距离
+        const avgImportance = (d.source.importance + d.target.importance) / 2;
+        return 80 + avgImportance * 100;
+      }))
+      .force("charge", d3.forceManyBody().strength(d => {
+        // 重要节点有更强的排斥力
+        return -300 - d.importance * 200;
+      }))
       .force("collision", d3.forceCollide().radius(d => {
-        // 节点半径 + 标签预留空间
+        // 节点半径 + 标签预留空间 + 重要性加成
         const nodeRadius = 5 + d.importance * 15;
-        const labelSpace = 35; // 为标签预留的额外空间
+        const labelSpace = 40 + d.importance * 20; // 重要节点需要更多空间
         return nodeRadius + labelSpace;
-      }).strength(0.9))
-      // 类型向心力（X轴）- 使用zone映射
+      }).strength(1.0).iterations(3)) // 增加碰撞检测强度和迭代次数
+      // 类型向心力（X轴）- 使用zone映射，强度根据节点数量调整
       .force("typeX", d3.forceX(d => {
         const zone = typeToZone[d.type] || 'default';
         const center = typeCenter[zone] || typeCenter.default;
         return center.x;
-      }).strength(0.5))
+      }).strength(d => {
+        // 节点越多，向心力越弱，避免过度聚集
+        const zone = typeToZone[d.type] || 'default';
+        const zoneNodeCount = data.nodes.filter(n => (typeToZone[n.type] || 'default') === zone).length;
+        return Math.max(0.2, 0.8 - zoneNodeCount * 0.01);
+      }))
       // 类型向心力（Y轴）- 使用zone映射
       .force("typeY", d3.forceY(d => {
         const zone = typeToZone[d.type] || 'default';
         const center = typeCenter[zone] || typeCenter.default;
         return center.y;
-      }).strength(0.5))
-      // 微弱的径向力，让重要节点更靠近类型中心
+      }).strength(d => {
+        const zone = typeToZone[d.type] || 'default';
+        const zoneNodeCount = data.nodes.filter(n => (typeToZone[n.type] || 'default') === zone).length;
+        return Math.max(0.2, 0.8 - zoneNodeCount * 0.01);
+      }))
+      // 径向力，重要节点更靠近中心，普通节点分散
       .force("radial", d3.forceRadial(
-        d => (1 - d.importance) * 80,
+        d => {
+          const zone = typeToZone[d.type] || 'default';
+          const zoneNodeCount = data.nodes.filter(n => (typeToZone[n.type] || 'default') === zone).length;
+          // 节点多的区域，径向距离更大
+          return (1 - d.importance) * (60 + Math.sqrt(zoneNodeCount) * 20);
+        },
         d => {
           const zone = typeToZone[d.type] || 'default';
           return typeCenter[zone]?.x || width / 2;
@@ -888,7 +990,7 @@ export class MemoryGraphGenerator {
           const zone = typeToZone[d.type] || 'default';
           return typeCenter[zone]?.y || height / 2;
         }
-      ).strength(0.1));
+      ).strength(0.15));
     
     // 绘制连线
     const link = g.append("g")
@@ -920,15 +1022,44 @@ export class MemoryGraphGenerator {
       .attr("dy", -15)
       .text(d => d.label.substring(0, 30) + (d.label.length > 30 ? "..." : ""));
     
-    // 自定义tooltip
+    // 自定义tooltip with improved interaction
     const tooltip = d3.select('#customTooltip');
+    let tooltipPinned = false;
+    let pinnedNode = null;
+    let tooltipTimeout;
+    let currentHoverNode = null; // 跟踪当前悬停的节点
+    let isMouseOverTooltip = false; // 跟踪鼠标是否在 tooltip 上
     
-    node.on('mouseenter', function(event, d) {
+    // 鼠标进入 tooltip 区域时保持显示
+    tooltip.on('mouseenter', function() {
+      isMouseOverTooltip = true;
+      clearTimeout(tooltipTimeout);
+      tooltip.classed('visible', true);
+    })
+    .on('mouseleave', function() {
+      isMouseOverTooltip = false;
+      if (!tooltipPinned) {
+        tooltipTimeout = setTimeout(() => {
+          tooltip.classed('visible', false);
+          currentHoverNode = null; // 完全离开后清除节点记录
+        }, 300);
+      }
+    });
+    
+    function showTooltip(d, event) {
+      clearTimeout(tooltipTimeout);
       const t = i18n[currentLang];
-      const contentPreview = d.content.length > 300 ? d.content.substring(0, 300) + '...' : d.content;
+      // 增加显示长度到 1000 字符，并保留换行
+      const contentPreview = d.content.length > 1000 ? d.content.substring(0, 1000) + '\\n\\n...(truncated)' : d.content;
       
       tooltip.select('#tooltipTitle').text(d.label);
-      tooltip.select('#tooltipContent').text(contentPreview);
+      // 使用 html 并转换换行符为 <br>，保留 Markdown 格式的可读性
+      const formattedContent = contentPreview
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\\n/g, '<br>');
+      tooltip.select('#tooltipContent').html(formattedContent);
       
       let metaHTML = '<div><strong>' + t.type + ':</strong> ' + d.type + '</div>';
       metaHTML += '<div><strong>' + t.importance + ':</strong> ' + (d.importance * 100).toFixed(0) + '%</div>';
@@ -942,14 +1073,94 @@ export class MemoryGraphGenerator {
       
       tooltip.select('#tooltipMeta').html(metaHTML);
       tooltip.classed('visible', true);
+      
+      if (event) {
+        // 限制 tooltip 位置，避免超出屏幕
+        const tooltipWidth = 600;
+        const tooltipHeight = 500;
+        let left = event.pageX + 15;
+        let top = event.pageY + 15;
+        
+        // 防止超出右边界
+        if (left + tooltipWidth > window.innerWidth) {
+          left = event.pageX - tooltipWidth - 15;
+        }
+        // 防止超出下边界
+        if (top + tooltipHeight > window.innerHeight) {
+          top = event.pageY - tooltipHeight - 15;
+        }
+        
+        tooltip
+          .style('left', left + 'px')
+          .style('top', top + 'px');
+      }
+    }
+    
+    node.on('mouseenter', function(event, d) {
+      currentHoverNode = d; // 记录当前悬停的节点
+      if (!tooltipPinned) {
+        showTooltip(d, event);
+      }
     })
     .on('mousemove', function(event) {
-      tooltip
-        .style('left', (event.pageX + 15) + 'px')
-        .style('top', (event.pageY + 15) + 'px');
+      if (!tooltipPinned) {
+        // 限制 tooltip 位置，避免超出屏幕
+        const tooltipWidth = 600;
+        const tooltipHeight = 500;
+        let left = event.pageX + 15;
+        let top = event.pageY + 15;
+        
+        // 防止超出右边界
+        if (left + tooltipWidth > window.innerWidth) {
+          left = event.pageX - tooltipWidth - 15;
+        }
+        // 防止超出下边界
+        if (top + tooltipHeight > window.innerHeight) {
+          top = event.pageY - tooltipHeight - 15;
+        }
+        
+        tooltip
+          .style('left', left + 'px')
+          .style('top', top + 'px');
+      }
     })
     .on('mouseleave', function() {
-      tooltip.classed('visible', false);
+      if (!tooltipPinned) {
+        // 延迟隐藏，给用户时间移动到 tooltip
+        tooltipTimeout = setTimeout(() => {
+          // 只有当鼠标不在 tooltip 上时才隐藏
+          if (!isMouseOverTooltip) {
+            tooltip.classed('visible', false);
+            currentHoverNode = null;
+          }
+        }, 500);
+      }
+    })
+    .on('click', function(event, d) {
+      event.stopPropagation();
+      if (tooltipPinned && pinnedNode === d) {
+        // 取消固定
+        tooltipPinned = false;
+        pinnedNode = null;
+        tooltip.classed('pinned', false);
+        tooltip.classed('visible', false);
+      } else {
+        // 固定tooltip
+        tooltipPinned = true;
+        pinnedNode = d;
+        tooltip.classed('pinned', true);
+        showTooltip(d, event);
+      }
+    });
+    
+    // 点击背景取消固定
+    svg.on('click', () => {
+      if (tooltipPinned) {
+        tooltipPinned = false;
+        pinnedNode = null;
+        tooltip.classed('pinned', false);
+        tooltip.classed('visible', false);
+      }
     });
     
     // 更新位置
@@ -1162,15 +1373,17 @@ export class MemoryGraphGenerator {
 
     // 保存文件 - 使用项目路径下的memory目录
     const projectPath = this.getProjectPath(data.metadata.project_name);
-    const filePath = outputPath || join(projectPath || process.cwd(), 'memory', 'memory-graph.html');
-    
+    const filePath =
+      outputPath ||
+      join(projectPath || process.cwd(), "memory", "memory-graph.html");
+
     // 确保目录存在
     const dir = dirname(filePath);
     if (!existsSync(dir)) {
       mkdirSync(dir, { recursive: true });
     }
-    
-    writeFileSync(filePath, html, 'utf-8');
+
+    writeFileSync(filePath, html, "utf-8");
 
     return { content: html, file_path: filePath };
   }
@@ -1179,8 +1392,10 @@ export class MemoryGraphGenerator {
    * 辅助方法：截断标签
    */
   private truncateLabel(text: string, maxLength: number = 40): string {
-    text = text.replace(/\n/g, ' ').trim();
-    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+    text = text.replace(/\n/g, " ").trim();
+    return text.length > maxLength
+      ? text.substring(0, maxLength) + "..."
+      : text;
   }
 
   /**
@@ -1190,11 +1405,10 @@ export class MemoryGraphGenerator {
     try {
       // 从数据库查找项目路径
       const projects = this.db.getAllProjects(100);
-      const project = projects.find(p => p.name === projectName);
+      const project = projects.find((p) => p.name === projectName);
       return project ? project.path : null;
     } catch {
       return null;
     }
   }
-
 }
