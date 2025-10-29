@@ -4,7 +4,7 @@ import { Command } from "commander";
 import { DatabaseManager } from "./database.js";
 import { SessionManager } from "./session-manager.js";
 import { ContentExtractor } from "./content-extractor.js";
-import { MemoryGraphGenerator } from "./memory-graph-generator.js";
+import { MemoryGraphGenerator } from "./memory-graph/index.js";
 import { QualityScoreCalculator } from "./quality-score-calculator.js";
 import { AiMemoryConfig } from "./types.js";
 import { join, dirname } from "path";
@@ -925,7 +925,7 @@ program
       if (process.platform === "win32") {
         // Windows: 使用 wmic 查找进程
         const { stdout } = await execAsync(
-          'wmic process where "name=\'node.exe\'" get ProcessId,CommandLine /format:csv',
+          "wmic process where \"name='node.exe'\" get ProcessId,CommandLine /format:csv",
           { maxBuffer: 1024 * 1024 * 10 }
         );
 
@@ -997,13 +997,10 @@ program
         });
 
         const answer = await new Promise<string>((resolve) => {
-          rl.question(
-            "⚠️  是否终止这些进程? (输入 'yes' 确认): ",
-            (ans) => {
-              rl.close();
-              resolve(ans);
-            }
-          );
+          rl.question("⚠️  是否终止这些进程? (输入 'yes' 确认): ", (ans) => {
+            rl.close();
+            resolve(ans);
+          });
         });
 
         if (answer.toLowerCase() !== "yes") {
@@ -1019,10 +1016,21 @@ program
 
       for (const proc of processes) {
         try {
+          // 验证PID格式 - 只允许数字，防止命令注入
+          const pidPattern = /^[0-9]+$/;
+          if (!pidPattern.test(proc.pid.toString())) {
+            console.error(`❌ 无效的PID格式: ${proc.pid}`);
+            failed++;
+            continue;
+          }
+
+          // 使用execFile替代exec，避免命令注入
+          const { execFile } = await import("child_process");
+
           if (process.platform === "win32") {
-            await execAsync(`taskkill /F /PID ${proc.pid}`);
+            await execFile("taskkill", ["/F", "/PID", proc.pid.toString()]);
           } else {
-            await execAsync(`kill -9 ${proc.pid}`);
+            await execFile("kill", ["-9", proc.pid.toString()]);
           }
           console.log(`✅ 已终止 PID: ${proc.pid}`);
           killed++;

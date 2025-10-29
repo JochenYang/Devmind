@@ -104,7 +104,6 @@ devmind-mcp/
 │   ├── content-extractor.ts         # Code analysis & extraction
 │   ├── content-quality-assessor.ts  # Content quality scoring
 │   ├── quality-score-calculator.ts  # Multi-dimensional quality scoring
-│   ├── memory-graph-generator.ts    # Memory graph visualization (Mermaid/HTML/JSON)
 │   ├── auto-record-filter.ts        # Smart deduplication
 │   ├── daemon.ts                    # Background file monitoring
 │   ├── cli.ts                       # Command-line interface
@@ -112,6 +111,16 @@ devmind-mcp/
 │   ├── performance-optimizer.ts     # Performance tuning
 │   ├── types.ts                     # Type definitions
 │   ├── index.ts                     # Main entry point
+│   │
+│   ├── memory-graph/                # 🆕 Memory graph visualization (v1.19.0)
+│   │   ├── index.ts                 # Main graph generator
+│   │   ├── types.ts                 # Graph type definitions
+│   │   ├── data/
+│   │   │   ├── GraphDataExtractor.ts  # Data extraction from database
+│   │   │   ├── NodeBuilder.ts         # Node construction & labeling
+│   │   │   └── EdgeBuilder.ts         # Edge/relationship building
+│   │   └── templates/
+│   │       └── HTMLGenerator.ts       # HTML visualization generator
 │   │
 │   ├── utils/
 │   │   ├── file-path-detector.ts    # Intelligent file detection
@@ -277,9 +286,11 @@ DevMind provides **17 powerful tools** and **1 professional prompt** for your AI
 
 #### Visualization
 
-| Tool                  | Purpose                                  | Example Use                            |
-|-----------------------|------------------------------------------|----------------------------------------|
-| `export_memory_graph` | Export interactive HTML graph with D3.js | Visualize project memory relationships |
+| Tool                  | Purpose                                        | Example Use                                               |
+|-----------------------|------------------------------------------------|-----------------------------------------------------------|
+| `export_memory_graph` | 🆕 Export interactive timeline graph (v1.19.0) | Visualize memory in vertical timeline with 6 type columns |
+
+**New in v1.19.0**: Memory graph now features a clean vertical timeline layout with fixed node positioning, beautiful gradients, and optimized performance. No more force-simulation chaos!
 
 ### CLI Commands Reference
 
@@ -301,7 +312,7 @@ DevMind provides **17 powerful tools** and **1 professional prompt** for your AI
 | **Maintain** | `devmind maintenance vacuum`         | Compact database                       | `--config`                                |
 |              | `devmind maintenance backup`         | Create database backup                 | `--output`                                |
 |              | `devmind maintenance restore <file>` | Restore from backup                    | `--force`                                 |
-| **Visual**   | `devmind graph <project-id>`         | Export interactive memory graph        | `--output`, `--max-nodes`, `--focus-type` |
+| **Visual**   | `devmind graph <project-id>`         | Export timeline graph (v1.19.0)        | `--output`, `--max-nodes`, `--focus-type` |
 
 #### Quick Start
 

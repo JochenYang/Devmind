@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2025-10-29
+
+### Added
+- **Memory Graph Refactor**: Complete rewrite of memory graph visualization
+  - New modular architecture with separate data extraction, node building, and HTML generation
+  - Vertical timeline layout with 6 type-specific columns
+  - Fixed node positioning (80px spacing) for clarity - no more force simulation chaos
+  - Beautiful gradient background with radial glows and grid pattern
+  - Improved performance with optimized rendering and zoom behavior
+  - Enhanced UI with glassmorphism effects and better spacing
+
+### Changed
+- **Graph Layout**: Switched from force-directed to static timeline layout
+  - Nodes arranged vertically by time (newest at top) within type columns
+  - Each type (conversation, solution, code, documentation, error, configuration) has its own column
+  - Fixed 80px spacing between nodes prevents overlap
+  - Type labels positioned with proper spacing above first node
+
+### Improved
+- **File Monitoring**: Enhanced daemon file watcher with better filtering
+  - Now ignores cache directories (`.cache`, `.next`, `.nuxt`, `.vite`, `.turbo`)
+  - Excludes lock files (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`)
+  - Prevents recording of tool installation artifacts (npx cache files)
+  - Reduces noise in memory recordings
+
+### Technical Details
+- Refactored into modular structure: `src/memory-graph/`
+  - `data/`: GraphDataExtractor, NodeBuilder, EdgeBuilder
+  - `templates/`: HTMLGenerator with inline styles and scripts
+  - `types.ts`: Shared type definitions
+- Removed deprecated `memory-graph-generator.ts`
+- All graph generation now uses new `MemoryGraphGenerator` class
+- Performance optimizations: will-change hints, reduced transitions, optimized zoom
+
 ## [1.18.10] - 2025-10-27
 
 ### Fixed

@@ -149,9 +149,20 @@ export class DevMindDaemon {
         "**/dist/**",
         "**/build/**",
         "**/.git/**",
+        "**/.cache/**", // 缓存目录
+        "**/.next/**", // Next.js缓存
+        "**/.nuxt/**", // Nuxt.js缓存
+        "**/.vite/**", // Vite缓存
+        "**/.turbo/**", // Turbo缓存
+        "**/coverage/**", // 测试覆盖率
+        "**/.devmind/**", // DevMind自己的目录
         "**/.*", // 隐藏文件
         "**/*.log",
         "**/*.tmp",
+        "**/*.lock", // 锁文件
+        "**/package-lock.json", // npm锁文件
+        "**/yarn.lock", // yarn锁文件
+        "**/pnpm-lock.yaml", // pnpm锁文件
       ],
       persistent: true,
       ignoreInitial: true,
@@ -276,16 +287,29 @@ export class DevMindDaemon {
 
         const [hash, message, author, email, date] = logOutput.split("|");
 
-        // 获取变更文件列表
-        const { stdout: filesOutput } = await execAsync(
-          `git diff-tree --no-commit-id --name-only -r ${hash}`,
+        // 验证hash格式 - Git commit hash是40位十六进制
+        const hashPattern = /^[0-9a-f]{7,40}$/i;
+        if (!hashPattern.test(hash)) {
+          console.error(`[DevMind] 无效的Git hash格式: ${hash}`);
+          return;
+        }
+
+        // 获取变更文件列表 - 使用execFile避免命令注入
+        const { execFile } = await import("child_process");
+        const { promisify } = await import("util");
+        const execFileAsync = promisify(execFile);
+
+        const { stdout: filesOutput } = await execFileAsync(
+          "git",
+          ["diff-tree", "--no-commit-id", "--name-only", "-r", hash],
           { cwd: this.projectPath }
         );
 
-        const changedFiles = filesOutput
-          .trim()
-          .split("\n")
-          .filter((f) => f);
+        const changedFiles =
+          filesOutput
+            ?.trim()
+            .split("\n")
+            .filter((f: string) => f) || [];
 
         // 构建 commit 内容
         const commitContent = [
@@ -472,14 +496,14 @@ export class DevMindDaemon {
     console.log(`📦 正在关闭 ${this.watchers.length} 个监控器...`);
     for (const watcher of this.watchers) {
       try {
-        if (watcher && typeof watcher.close === 'function') {
+        if (watcher && typeof watcher.close === "function") {
           await watcher.close();
-        } else if (watcher && typeof watcher.unwatch === 'function') {
+        } else if (watcher && typeof watcher.unwatch === "function") {
           // chokidar watcher的备用关闭方法
           await watcher.unwatch();
         }
       } catch (error) {
-        console.error('关闭监控器出错:', error);
+        console.error("关闭监控器出错:", error);
       }
     }
     this.watchers = []; // 清空监控器数组
@@ -493,7 +517,7 @@ export class DevMindDaemon {
         console.error("结束会话失败:", error);
       }
     }
-    
+
     // 关闭数据库连接
     try {
       await this.server.close();
@@ -516,12 +540,12 @@ export class DevMindDaemon {
 
 // 命令行启动 - 只有直接运行此文件时才启动
 // 修复判断逻辑，避免作为模块导入时意外启动
-if (import.meta.url.startsWith('file:')) {
-  const modulePath = import.meta.url.slice(7).replace(/\\/g, '/');
-  const scriptPath = process.argv[1]?.replace(/\\/g, '/');
-  
+if (import.meta.url.startsWith("file:")) {
+  const modulePath = import.meta.url.slice(7).replace(/\\/g, "/");
+  const scriptPath = process.argv[1]?.replace(/\\/g, "/");
+
   // 只有当前文件是直接执行的入口点时才启动
-  if (scriptPath && modulePath.endsWith(scriptPath.split('/').pop() || '')) {
+  if (scriptPath && modulePath.endsWith(scriptPath.split("/").pop() || "")) {
     const args = process.argv.slice(2);
     const projectPath =
       args.find((arg) => !arg.startsWith("--")) || process.cwd();

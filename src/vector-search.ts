@@ -10,10 +10,61 @@ export interface VectorSearchConfig {
   cache_embeddings: boolean;
 }
 
+/**
+ * LRU缓存实现 - 限制内存使用
+ */
+class LRUCache<K, V> {
+  private cache = new Map<K, V>();
+  constructor(private maxSize: number) {}
+
+  get(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // 移动到末尾（最近使用）
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+
+  getSafe(key: K): V | undefined {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      // 移动到末尾（最近使用）
+      this.cache.delete(key);
+      this.cache.set(key, value);
+    }
+    return value;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.maxSize) {
+      // 删除最久未使用的项（第一个）
+      const firstKey = this.cache.keys().next().value as K;
+      this.cache.delete(firstKey);
+    }
+    this.cache.set(key, value);
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+
+  size(): number {
+    return this.cache.size;
+  }
+}
+
 export class VectorSearchEngine {
   private embeddingPipeline: any = null;
   private config: VectorSearchConfig;
-  private embeddingCache: Map<string, number[]> = new Map();
+  private embeddingCache: LRUCache<string, number[]>; // 使用LRU缓存
   private queryEnhancer: QueryEnhancer;
 
   constructor(config: Partial<VectorSearchConfig> = {}) {
@@ -26,6 +77,8 @@ export class VectorSearchEngine {
       ...config,
     };
     this.queryEnhancer = new QueryEnhancer();
+    // 限制缓存大小为1000个嵌入向量（约1.5MB）
+    this.embeddingCache = new LRUCache<string, number[]>(1000);
   }
 
   /**
@@ -64,7 +117,10 @@ export class VectorSearchEngine {
     // 检查缓存
     const cacheKey = text.trim().toLowerCase();
     if (this.config.cache_embeddings && this.embeddingCache.has(cacheKey)) {
-      return this.embeddingCache.get(cacheKey)!;
+      const cached = this.embeddingCache.get(cacheKey);
+      if (cached) {
+        return cached;
+      }
     }
 
     try {
@@ -559,7 +615,7 @@ export class VectorSearchEngine {
     });
 
     // 重新排序
-    results.sort((a, b) => (b.hybrid_score || 0) - (a.hybrid_score || 0));
+    results.sort((a: any, b: any) => (b.hybrid_score || 0) - (a.hybrid_score || 0));
 
     return results;
   }
@@ -576,7 +632,7 @@ export class VectorSearchEngine {
    */
   getCacheStats(): { size: number; model: string; dimensions: number } {
     return {
-      size: this.embeddingCache.size,
+      size: this.embeddingCache.size(),
       model: this.config.model_name,
       dimensions: this.config.dimensions,
     };

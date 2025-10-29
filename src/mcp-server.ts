@@ -16,7 +16,7 @@ import { ContentExtractor } from "./content-extractor.js";
 import { VectorSearchEngine } from "./vector-search.js";
 import { AutoRecordFilter } from "./auto-record-filter.js";
 import { QualityScoreCalculator } from "./quality-score-calculator.js";
-import { MemoryGraphGenerator } from "./memory-graph-generator.js";
+import { MemoryGraphGenerator } from "./memory-graph/index.js";
 import { ContextFileManager } from "./context-file-manager.js";
 import {
   createFilePathDetector,
@@ -30,9 +30,10 @@ import {
   SessionCreateParams,
   ContextType,
 } from "./types.js";
-import { join, dirname } from "path";
+import { join, dirname, resolve } from "path";
 import { homedir } from "os";
 import { existsSync, mkdirSync, readFileSync } from "fs";
+import { normalizeProjectPath } from "./utils/path-normalizer.js";
 
 export class AiMemoryMcpServer {
   private server: Server;
@@ -47,6 +48,7 @@ export class AiMemoryMcpServer {
   private autoMonitoringInitialized: boolean = false;
   private autoRecordFilter: AutoRecordFilter;
   private fileWatcher: any = null;
+  private lastNotifiedFiles: Map<string, number> = new Map(); // 记录已提示的文件和时间
 
   // 真实日期记录函数
   private getCurrentRealDate(): string {
@@ -822,6 +824,21 @@ export class AiMemoryMcpServer {
             required: ["project_id"],
           },
         },
+        {
+          name: "get_memory_status",
+          description:
+            "获取记忆系统状态信息，包括监控状态、已记录上下文数量、缓存统计等",
+          inputSchema: {
+            type: "object",
+            properties: {
+              project_path: {
+                type: "string",
+                description: "项目路径（可选，默认当前项目）",
+              },
+            },
+            required: [],
+          },
+        },
       ],
     }));
 
@@ -942,6 +959,12 @@ export class AiMemoryMcpServer {
               max_nodes?: number;
               focus_type?: string;
               output_path?: string;
+            }
+          );
+        case "get_memory_status":
+          return await this.handleGetMemoryStatus(
+            safeArgs as {
+              project_path?: string;
             }
           );
         default:
@@ -2132,6 +2155,92 @@ export class AiMemoryMcpServer {
     }
   }
 
+  /**
+   * 向用户发送自动记录提示（仅首次或重要文件时）
+   */
+  private async notifyUserContextRecorded(
+    filePath: string,
+    action: string
+  ): Promise<void> {
+    try {
+      // 记录文件路径，避免重复提示
+      const key = `${action}:${filePath}`;
+      const now = Date.now();
+
+      // 如果最近5分钟内已经提示过相同文件，则跳过
+      if (this.lastNotifiedFiles.has(key)) {
+        const lastTime = this.lastNotifiedFiles.get(key)!;
+        if (now - lastTime < 5 * 60 * 1000) {
+          // 5分钟
+          return;
+        }
+      }
+
+      this.lastNotifiedFiles.set(key, now);
+
+      // 清理超过1小时的记录
+      if (this.lastNotifiedFiles.size > 100) {
+        for (const [k, v] of this.lastNotifiedFiles.entries()) {
+          if (now - v > 60 * 60 * 1000) {
+            // 1小时
+            this.lastNotifiedFiles.delete(k);
+          }
+        }
+      }
+
+      const actionText = action === "add" ? "创建" : "修改";
+      const fileName = filePath.split("/").pop() || filePath;
+
+      console.error(
+        `[DevMind] 📝 已自动记录开发上下文
+
+📂 文件: ${fileName}
+🔄 操作: ${actionText}
+💡 使用 'list_contexts' 查看所有记录
+        `
+      );
+    } catch (error) {
+      // 静默失败，不影响记录流程
+    }
+  }
+
+  /**
+   * 向用户发送记忆系统启动提示
+   */
+  private async notifyUserMemoryStarted(
+    projectPath: string,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      // 获取项目信息和已记录的上下文数量
+      const project = this.db.getProjectByPath(projectPath);
+      if (project) {
+        const contexts = this.db.getContextsByProject(project.id);
+        const contextCount = contexts.length;
+
+        // 通过MCP协议发送启动提示（使用工具响应机制）
+        console.error(
+          `[DevMind] 🚀 智能记忆系统已启动！
+
+📂 项目: ${project.name}
+🔍 监控范围: 代码文件 (.js, .ts, .py, .go, .rs, .java)
+📝 已记录上下文: ${contextCount} 条
+💡 使用说明:
+   - 修改文件时会自动记录开发上下文
+   - 使用 'list_contexts' 工具查看所有记录
+   - 使用 'semantic_search' 工具搜索记忆内容
+   - 使用 'export_memory_graph' 工具查看知识图谱
+
+🛡️ 隐私保护: 所有数据本地存储在SQLite中
+          `
+        );
+      }
+    } catch (error) {
+      // 静默失败，不影响MCP服务器启动
+      console.error("[DevMind] Failed to send startup notification:", error);
+    }
+  }
+
   private async startFileWatcher(
     projectPath: string,
     sessionId: string
@@ -2145,6 +2254,9 @@ export class AiMemoryMcpServer {
 
     try {
       const chokidar = await import("chokidar");
+
+      // 🚀 添加用户友好的启动提示（MCP协议响应）
+      await this.notifyUserMemoryStarted(projectPath, sessionId);
 
       this.fileWatcher = chokidar.watch(patterns, {
         cwd: projectPath,
@@ -2183,18 +2295,33 @@ export class AiMemoryMcpServer {
     projectPath: string
   ): Promise<void> {
     try {
-      const fullPath = join(projectPath, filePath);
+      // 路径验证 - 防止路径穿越攻击
+      const normalizedProjectPath = normalizeProjectPath(projectPath);
+      const normalizedFilePath = normalizeProjectPath(filePath);
 
-      if (!existsSync(fullPath)) {
+      // 检查文件路径是否在项目目录内
+      const fullPath = join(normalizedProjectPath, normalizedFilePath);
+      const resolvedFullPath = resolve(fullPath);
+      const resolvedProjectPath = resolve(normalizedProjectPath);
+
+      if (!resolvedFullPath.startsWith(resolvedProjectPath)) {
+        console.error(`[DevMind] 路径穿越攻击检测: ${filePath}`);
+        return; // 拒绝访问项目目录外的文件
+      }
+
+      if (!existsSync(resolvedFullPath)) {
         return; // 文件不存在，跳过
       }
 
-      const fileContent = readFileSync(fullPath, "utf8");
+      const fileContent = readFileSync(resolvedFullPath, "utf8");
 
       // ✅ 智能过滤检查
       if (!this.autoRecordFilter.shouldRecord(filePath, fileContent)) {
         return; // 未通过智能过滤，跳过记录
       }
+
+      // ✅ 添加自动记录提示 - 仅在首次记录时提示用户
+      await this.notifyUserContextRecorded(filePath, action);
 
       // 使用 ContentExtractor 分析内容
       const extractedContext = this.contentExtractor.extractCodeContext(
@@ -2735,6 +2862,142 @@ Happy coding! 🚀`;
   }
 
   /**
+   * 📊 获取记忆系统状态信息
+   */
+  private async handleGetMemoryStatus(args: { project_path?: string }) {
+    try {
+      const projectPath = args.project_path || process.cwd();
+
+      // 获取或创建项目
+      const project = this.db.getProjectByPath(projectPath);
+      if (!project) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Project not found at path: ${projectPath}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // 获取项目统计信息
+      const contexts = this.db.getContextsByProject(project.id);
+      const sessions = this.db.getSessionsByProject(project.id);
+      const activeSession = sessions.find((s) => s.status === "active");
+
+      // 统计上下文类型分布
+      const typeStats = contexts.reduce((acc, ctx) => {
+        acc[ctx.type] = (acc[ctx.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      // 计算平均质量分数
+      const avgQuality =
+        contexts.length > 0
+          ? contexts.reduce((sum, ctx) => sum + ctx.quality_score, 0) /
+            contexts.length
+          : 0;
+
+      // 文件监控状态
+      const fileMonitoringStatus = this.fileWatcher ? "Active" : "Inactive";
+
+      // 获取缓存统计（如果有向量搜索引擎）
+      let cacheStats = null;
+      if (this.vectorSearch) {
+        cacheStats = this.vectorSearch.getCacheStats();
+      }
+
+      // 格式化状态信息
+      const statusText = `# 📊 DevMind Memory System Status
+
+## 📂 Project Information
+- **Name**: ${project.name}
+- **Path**: ${projectPath}
+- **Language**: ${project.language}
+- **Framework**: ${project.framework || "N/A"}
+- **Created**: ${this.formatDateForUser(new Date(project.created_at))}
+
+## 📝 Memory Statistics
+- **Total Contexts**: ${contexts.length}
+- **Average Quality**: ${(avgQuality * 100).toFixed(1)}%
+- **Active Session**: ${activeSession ? "Yes" : "No"}
+
+### 📈 Context Types Distribution
+${Object.entries(typeStats)
+  .map(([type, count]) => `- **${type}**: ${count}`)
+  .join("\n")}
+
+## 🔍 Monitoring Status
+- **File Monitoring**: ${fileMonitoringStatus}
+- **Monitored Patterns**:
+  - Code files: .js, .ts, .jsx, .tsx, .py, .go, .rs, .java, .kt
+  - Config files: package.json
+  - Documentation: .md files
+- **Ignored Directories**: node_modules, dist, build, .git, *.log
+
+## 💾 Storage Information
+${
+  cacheStats
+    ? `
+### 🔧 Cache Statistics
+- **Cache Size**: ${cacheStats.size} embeddings
+- **Model**: ${cacheStats.model}
+- **Dimensions**: ${cacheStats.dimensions}
+- **Memory Usage**: ~${(cacheStats.size * 1.5).toFixed(1)}KB
+`
+    : "- **Cache**: Not initialized"
+}
+
+### 💿 Database
+- **Storage**: SQLite (local file)
+- **Privacy**: 100% local, no cloud sync
+
+## 🚀 Quick Actions
+- Use \`list_contexts\` to view all recorded contexts
+- Use \`semantic_search\` to search your memory
+- Use \`export_memory_graph\` to visualize memory relationships
+- Use \`record_context\` to manually add important context
+
+---
+💡 **Tip**: DevMind automatically monitors your file changes and records development contexts. Check your IDE console for automatic recording notifications!`;
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: statusText,
+          },
+        ],
+        isError: false,
+        _meta: {
+          project_id: project.id,
+          context_count: contexts.length,
+          session_count: sessions.length,
+          active_session: !!activeSession,
+          file_monitoring: fileMonitoringStatus,
+          avg_quality: avgQuality,
+          type_distribution: typeStats,
+          cache_stats: cacheStats,
+        },
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Failed to get memory status: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  /**
    * 🚀 更新context的多维度质量评分
    */
   private async handleUpdateQualityScores(args: {
@@ -3023,13 +3286,13 @@ Happy coding! 🚀`;
     console.log("[DEBUG] project_analysis_engineer Tool called");
     console.log("[DEBUG] Raw args type:", typeof args);
     console.log("[DEBUG] Raw args value:", JSON.stringify(args));
-    
+
     try {
       // Handle case where args might be undefined or empty
-      if (!args || typeof args !== 'object') {
+      if (!args || typeof args !== "object") {
         throw new McpError(
           ErrorCode.InvalidParams,
-          "Arguments object is required. Please provide project_path parameter. Example: {\"project_path\": \"/path/to/project\"}"
+          'Arguments object is required. Please provide project_path parameter. Example: {"project_path": "/path/to/project"}'
         );
       }
 
@@ -3041,10 +3304,16 @@ Happy coding! 🚀`;
         language,
       } = args;
 
-      if (!project_path || typeof project_path !== 'string' || project_path.trim() === '') {
+      if (
+        !project_path ||
+        typeof project_path !== "string" ||
+        project_path.trim() === ""
+      ) {
         throw new McpError(
-          ErrorCode.InvalidParams, 
-          `project_path is required and must be a non-empty string. Received: ${JSON.stringify(args)}`
+          ErrorCode.InvalidParams,
+          `project_path is required and must be a non-empty string. Received: ${JSON.stringify(
+            args
+          )}`
         );
       }
 
@@ -3135,13 +3404,13 @@ Happy coding! 🚀`;
     console.log("[DEBUG] project_analysis_engineer Prompt called");
     console.log("[DEBUG] Raw args type:", typeof args);
     console.log("[DEBUG] Raw args value:", JSON.stringify(args));
-    
+
     try {
       // Handle case where args might be undefined or empty
-      if (!args || typeof args !== 'object') {
+      if (!args || typeof args !== "object") {
         throw new McpError(
           ErrorCode.InvalidParams,
-          "Arguments object is required for Prompt. Please provide project_path parameter. Example: {\"project_path\": \"/path/to/project\"}"
+          'Arguments object is required for Prompt. Please provide project_path parameter. Example: {"project_path": "/path/to/project"}'
         );
       }
 
@@ -3153,10 +3422,16 @@ Happy coding! 🚀`;
         language, // 新增语言参数
       } = args;
 
-      if (!project_path || typeof project_path !== 'string' || project_path.trim() === '') {
+      if (
+        !project_path ||
+        typeof project_path !== "string" ||
+        project_path.trim() === ""
+      ) {
         throw new McpError(
-          ErrorCode.InvalidParams, 
-          `project_path is required and must be a non-empty string for Prompt. Received: ${JSON.stringify(args)}`
+          ErrorCode.InvalidParams,
+          `project_path is required and must be a non-empty string for Prompt. Received: ${JSON.stringify(
+            args
+          )}`
         );
       }
 

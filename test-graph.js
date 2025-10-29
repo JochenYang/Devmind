@@ -1,5 +1,5 @@
 import { DatabaseManager } from "./dist/database.js";
-import { MemoryGraphGenerator } from "./dist/memory-graph-generator.js";
+import { MemoryGraphGenerator } from "./dist/memory-graph/index.js";
 import { join } from "path";
 import { homedir } from "os";
 import { execSync } from "child_process";
@@ -80,15 +80,33 @@ db.close();
 console.log("\n🌐 正在打开HTML图谱...");
 try {
   execSync(`start "" "${htmlResult.file_path}"`, { shell: true });
-  console.log("\n✨ 测试检查清单:");
+  console.log("\n✨ 测试检查清单 (v1.18.10 时间分层版):");
   console.log("  1. ✓ 查看渐变背景和毛玻璃效果");
   console.log("  2. ✓ 测试搜索功能");
   console.log("  3. ✓ 测试类型筛选下拉框");
   console.log('  4. ✓ 点击"中文"按钮切换语言');
-  console.log("  5. ✓ 悬停节点查看自定义tooltip（现在显示更多内容！）");
-  console.log("  6. ✓ 检查tooltip是否显示完整的Markdown格式内容");
-  console.log('  7. ✓ 点击"Export JSON"按钮导出数据');
-  console.log("  8. ✓ 测试拖拽和缩放功能\n");
+  console.log("  5. ✓ 🎨 验证节点标签完整显示:");
+  console.log("      • 图标 (💻📚✅🐛✨💬❌🧪)");
+  console.log("      • 质量分数 (75% 85% 92%)");
+  console.log("      • 文件信息 (📄 src/auth.ts) 或 内容预览 (💬 Use JWT...)");
+  console.log("      • 无空白标签问题 - 所有标签都有意义");
+  console.log("  6. ✓ 🕐 验证垂直时间轴布局:");
+  console.log("      • 时间轴在页面中央垂直排列");
+  console.log("      • 节点按时间顺序从上到下排列（最新在上）");
+  console.log("      • 左侧区域：代码/解决方案/对话");
+  console.log("      • 右侧区域：文档/错误/配置");
+  console.log("      • 时间轴上显示刻度和标签（今天、昨天、X天前等）");
+  console.log("      • 真正的按时间排序知识图谱");
+  console.log("  7. ✓ 检查tooltip显示完整内容和快捷操作按钮");
+  console.log("  8. ✓ 🖱️ 验证tooltip悬停逻辑:");
+  console.log("      • 鼠标悬停300ms后才显示tooltip");
+  console.log("      • 鼠标离开立即取消显示");
+  console.log("      • 只有稳定悬停才触发tooltip");
+  console.log("      • 避免意外显示和频繁切换");
+  console.log('  9. ✓ 点击"🔍 查找相关"按钮测试标签搜索');
+  console.log('  10. ✓ 点击"📋 复制内容"按钮测试内容复制');
+  console.log('  11. ✓ 点击"Export JSON"按钮导出数据');
+  console.log("  12. ✓ 测试拖拽和缩放功能\n");
 } catch (error) {
   console.log(`\n手动打开文件: ${htmlResult.file_path}`);
 }
