@@ -17,33 +17,29 @@
 
 ## Why DevMind MCP?
 
-**Auto-Memory** - Monitors file changes & Git operations automatically
-**Smart Search** - Vector-based semantic search that understands code meaning
-**100% Private** - All data stored locally in SQLite, no cloud transmission
-**Real-time** - Instant context retrieval during AI conversations
-**Cross-tool** - Works seamlessly with Claude Desktop, Cursor, and more
-**Project Intelligence** - Comprehensive project documentation & intelligent indexing
+- **Auto-Memory** - Monitors file changes and Git operations automatically
+- **Hybrid Search** - Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
+- **100% Private** - All data stored locally in SQLite, zero cloud transmission
+- **18 MCP Tools** - Complete toolkit for memory management and project analysis
+- **Cross-Platform** - Works with Claude Desktop, Cursor, and all MCP-compatible clients
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 
-- [Overview](#-overview)
-- [Quick Start](#-quick-start)
-- [Usage Guide](#-usage-guide)
-- [Smart Project Indexing](#-smart-project-indexing)
-- [Configuration](#-configuration)
-- [API Reference](#-api-reference)
-- [Use Cases](#-use-cases)
-- [Development](#-development)
-- [Contributing](#-contributing)
-- [Changelog](#-changelog)
-- [License](#-license)
-- [Support](#-support)
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Usage Guide](#usage-guide)
+- [Configuration](#configuration)
+- [API Reference](#api-reference)
+- [Use Cases](#use-cases)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
 
 ---
 
-## 🎯 Overview
+## Overview
 
 ### What is DevMind MCP?
 
@@ -76,21 +72,38 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 ### Architecture
 
 ```text
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   AI Assistant  │────│   DevMind MCP   │────│  SQLite Storage │
-│   (MCP Client)  │    │     Server      │    │   (Local DB)    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-    MCP Protocol          Context Processing        Persistent Data
-    Communications        & Vector Search            Management
+┌──────────────────────────────────────────────────────────────┐
+│                      AI Assistant                            │
+│               (Claude Desktop / Cursor / etc.)               │
+└────────────────────────┬─────────────────────────────────────┘
+                         │ MCP Protocol (stdio)
+                         ▼
+┌──────────────────────────────────────────────────────────────┐
+│                   DevMind MCP Server                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐│
+│  │  18 MCP Tools   │  │  Auto Monitor   │  │ Hybrid Search││
+│  │                 │  │                 │  │              ││
+│  │ • Session (4)   │  │ • File Watch    │  │ • Semantic   ││
+│  │ • Context (7)   │  │ • Git Hooks     │  │ • Keyword    ││
+│  │ • Project (2)   │  │ • Auto Record   │  │ • Quality    ││
+│  │ • Optimize (4)  │  │                 │  │ • Freshness  ││
+│  │ • Status (1)    │  │                 │  │              ││
+│  └─────────────────┘  └─────────────────┘  └──────────────┘│
+└────────────────────────┬─────────────────────────────────────┘
+                         │
+                         ▼
+┌──────────────────────────────────────────────────────────────┐
+│                  SQLite Local Storage                        │
+│  Projects • Sessions • Contexts • Relationships • Embeddings │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-**Components:**
+**Key Components:**
 
-- **MCP Server** - Protocol handling, request routing, session management
-- **Context Engine** - Content analysis, vector embeddings, relevance scoring
-- **Storage Layer** - SQLite database with optimized schema and vector indexing
-- **Project Analyzer** - Intelligent project analysis and memory optimization
+- **18 MCP Tools** - Session management, context operations, project analysis, optimization, system status
+- **Auto Monitor** - Background file watching and Git operation tracking
+- **Hybrid Search** - Multi-dimensional scoring: Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
+- **Local Storage** - SQLite database with vector embeddings and full-text search indexes
 
 ## Project Structure
 
@@ -149,7 +162,7 @@ devmind-mcp/
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -162,13 +175,13 @@ Choose the method that fits your needs:
 
 | Method             | Command                      | Best For                      | Auto-update |
 |:-------------------|:-----------------------------|:------------------------------|:-----------:|
-| **NPX** ⭐          | `npx -y devmind-mcp@latest`  | Quick testing, first-time use |      ✅      |
-| **Global Install** | `npm install -g devmind-mcp` | Daily development             |      ❌      |
-| **From Source**    | `git clone + npm install`    | Contributing, customization   |      ❌      |
+| **NPX**            | `npx -y devmind-mcp@latest`  | Quick testing, first-time use |     Yes     |
+| **Global Install** | `npm install -g devmind-mcp` | Daily development             |     No      |
+| **From Source**    | `git clone + npm install`    | Contributing, customization   |     No      |
 
 ### Step-by-Step Setup
 
-#### 1️⃣ Add to MCP Client
+#### Step 1: Add to MCP Client
 
 Edit your MCP client configuration file:
 
@@ -193,11 +206,11 @@ Edit your MCP client configuration file:
 
 **Using Global Install?** Replace with: `{"command": "devmind-mcp"}`
 
-#### 2️⃣ Restart Your MCP Client
+#### Step 2: Restart Your MCP Client
 
 Restart Claude Desktop or your MCP client to load DevMind.
 
-#### 3️⃣ Initialize DevMind (Optional for CLI)
+#### Step 3: Initialize DevMind (Optional for CLI)
 
 If you want to use CLI features:
 
@@ -212,7 +225,7 @@ devmind init
 devmind start
 ```
 
-#### 4️⃣ Try Your First Command
+#### Step 4: Try Your First Command
 
 In your AI assistant, try:
 
@@ -222,17 +235,17 @@ In your AI assistant, try:
 
 ### Next Steps
 
-- 📖 Read [Usage Guide](#-usage-guide) for available tools
-- ⚙️ Check [Configuration](#%EF%B8%8F-configuration) for smart recording rules
-- 🎨 Explore [Use Cases](#-use-cases) for inspiration
+- Read [Usage Guide](#usage-guide) for available tools
+- Check [Configuration](#configuration) for smart recording rules
+- Explore [Use Cases](#use-cases) for inspiration
 
 ---
 
-## 💡 Usage Guide
+## Usage Guide
 
 ### MCP Tools Quick Reference
 
-DevMind provides **17 powerful tools** and **1 professional prompt** for your AI assistant:
+DevMind provides **18 powerful tools** and **1 professional prompt** for your AI assistant:
 
 #### Project Analysis
 
@@ -255,7 +268,7 @@ DevMind provides **17 powerful tools** and **1 professional prompt** for your AI
 | `create_session`      | Start new development session   | Beginning a new feature |
 | `get_current_session` | Get active session info         | Check current context   |
 | `end_session`         | End development session         | Finishing work          |
-| `delete_session` ⚠️   | Delete session and all contexts | Clean up old sessions   |
+| `delete_session`      | Delete session and all contexts | Clean up old sessions   |
 
 **Note**: DevMind automatically manages one main session per project. Sessions are created automatically when needed and reactivated across conversations.
 
@@ -286,15 +299,15 @@ DevMind provides **17 powerful tools** and **1 professional prompt** for your AI
 
 #### Visualization
 
-| Tool                  | Purpose                                        | Example Use                                               |
-|-----------------------|------------------------------------------------|-----------------------------------------------------------|
-| `export_memory_graph` | 🆕 Export interactive timeline graph (v1.19.0) | Visualize memory in vertical timeline with 6 type columns |
+| Tool                  | Purpose                                   | Example Use                                               |
+|-----------------------|-------------------------------------------|-----------------------------------------------------------|
+| `export_memory_graph` | Export interactive timeline graph (v1.19) | Visualize memory in vertical timeline with 6 type columns |
 
-**New in v1.19.0**: Memory graph now features a clean vertical timeline layout with fixed node positioning, beautiful gradients, and optimized performance. No more force-simulation chaos!
+**New in v1.19**: Memory graph features a clean vertical timeline layout with fixed node positioning and optimized performance.
 
 ### CLI Commands Reference
 
-📖 **[Complete CLI Reference](./CLI-REFERENCE-EN.md)** - Detailed documentation for all commands
+**[Complete CLI Reference](./CLI-REFERENCE-EN.md)** - Detailed documentation for all commands
 
 | Category     | Command                              | Description                            | Options                                   |
 |--------------|--------------------------------------|----------------------------------------|-------------------------------------------|
@@ -470,7 +483,7 @@ devmind maintenance restore ./backups/before-refactor.json --force
 
 ---
 
-## 🚀 Professional Documentation Generation
+## Professional Documentation Generation
 
 ### Overview
 
@@ -528,7 +541,7 @@ const analysis = await project_analysis_engineer({
 
 ---
 
-## ⚡ Configuration
+## Configuration
 
 ### Basic Configuration
 
@@ -598,11 +611,11 @@ IMPORTANT: NPX mode has no background monitoring. AI must actively record all im
 
 #### Auto-Recording Triggers
 
-| Priority      | When to Record | Example Scenarios                                                      |
-|---------------|----------------|------------------------------------------------------------------------|
-| 🔴 **High**   | Must record    | User says "remember", bug fixes, new features, architectural decisions |
-| 🟡 **Medium** | Should record  | Code reviews, optimizations, config changes, best practices            |
-| 🟢 **Low**    | Optional       | General discussions, simple explanations, repetitive content           |
+| Priority   | When to Record | Example Scenarios                                                      |
+|------------|----------------|------------------------------------------------------------------------|
+| **High**   | Must record    | User says "remember", bug fixes, new features, architectural decisions |
+| **Medium** | Should record  | Code reviews, optimizations, config changes, best practices            |
+| **Low**    | Optional       | General discussions, simple explanations, repetitive content           |
 
 #### Recording Format Best Practice
 
@@ -668,11 +681,11 @@ IMPORTANT: NPX mode has no background monitoring. AI must actively record all im
 }
 ```
 
-> ⚠️ **Important**: Restart your MCP client after configuration changes.
+> **Important**: Restart your MCP client after configuration changes.
 
 ---
 
-## 📚 API Reference
+## API Reference
 
 ### Core Methods
 
@@ -805,7 +818,7 @@ Export all contexts to specified format.
 
 ---
 
-## 🎨 Use Cases
+## Use Cases
 
 ### Software Development
 - Track implementation decisions and technical choices
@@ -833,7 +846,7 @@ Export all contexts to specified format.
 
 ---
 
-## 🛠️ Development
+## Development
 
 ### Setup
 
@@ -885,7 +898,7 @@ npm run clean
 ```
 
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions to DevMind MCP! Please follow these steps:
 
