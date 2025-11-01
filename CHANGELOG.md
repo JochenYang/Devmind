@@ -9,22 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **MCP Tool Descriptions**: Unified `get_memory_status` tool description to English for consistency
-  - All 17 MCP tools now use English descriptions
+  - All 18 MCP tools now use English descriptions
   - Improved clarity for AI model consumption
-
-### Added
-- **AI Rules Optimization**: Enhanced steering rules for better AI interaction
-  - Added Quick Mode for simple tasks (typo fixes, formatting)
-  - Softened warning language to be more constructive
-  - Added Chinese version of AI rules (`ai rules-zh.md`)
-  - Improved DevMind recording guidelines with clearer examples
-  - Reduced token consumption by ~600 tokens (~28% reduction)
-
-### Improved
-- **Documentation**: Clarified project directory creation guidelines
-  - Emphasize asking user first before creating `.project-docs/`
-  - Respect existing project structure conventions
-  - Better guidance on relative paths usage
 
 ## [1.19.0] - 2025-10-29
 
