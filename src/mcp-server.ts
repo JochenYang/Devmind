@@ -827,13 +827,14 @@ export class AiMemoryMcpServer {
         {
           name: "get_memory_status",
           description:
-            "获取记忆系统状态信息，包括监控状态、已记录上下文数量、缓存统计等",
+            "Get memory system status information, including monitoring state, recorded context count, cache statistics, and more",
           inputSchema: {
             type: "object",
             properties: {
               project_path: {
                 type: "string",
-                description: "项目路径（可选，默认当前项目）",
+                description:
+                  "Project path (optional, defaults to current project)",
               },
             },
             required: [],
