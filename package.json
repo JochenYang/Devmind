@@ -33,7 +33,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
     "@xenova/transformers": "^2.17.2",
-    "better-sqlite3": "^9.2.2",
+    "better-sqlite3": "^12.4.1",
     "chokidar": "^3.5.3",
     "commander": "^11.1.0",
     "crypto": "^1.0.1",
@@ -53,6 +53,6 @@
     "vitest": "^1.1.0"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   }
 }
