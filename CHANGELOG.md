@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.2] - 2025-11-02
+
+### Changed
+- **Dependencies**: Upgraded better-sqlite3 from v9.2.2 to v12.4.1
+  - Improved compatibility with newer Node.js versions (20.x, 22.x, 23.x+)
+  - Better native module support and performance improvements
+  - Updated minimum Node.js requirement to >=20.0.0
+
 ## [1.19.1] - 2025-11-01
 
 ### Changed
