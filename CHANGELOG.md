@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.3] - 2025-11-03
+
+### Fixed
+- **semantic_search Tool**: Fixed return format to include full context content
+  - Previously only returned statistics ("Found X contexts"), AI couldn't read actual content
+  - Now returns formatted results with complete context content, similar to list_contexts
+  - Includes all metadata: ID, type, content, tags, quality score, similarity score, etc.
+  - Significantly improves AI's ability to retrieve and use stored memories
+
 ## [1.19.2] - 2025-11-02
 
 ### Changed

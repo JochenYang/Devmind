@@ -1879,22 +1879,58 @@ export class AiMemoryMcpServer {
         this.db.recordContextSearch(context.id);
       });
 
+      // 格式化显示结果
+      const formattedResults = results.map((ctx) => ({
+        id: ctx.id,
+        type: ctx.type,
+        content_preview:
+          ctx.content.substring(0, 200) +
+          (ctx.content.length > 200 ? "..." : ""),
+        full_content: ctx.content, // Include full content for AI to read
+        tags: ctx.tags
+          ? ctx.tags.split(",").filter((t: string) => t.trim())
+          : [],
+        quality_score: ctx.quality_score,
+        created_at: ctx.created_at,
+        file_path: ctx.file_path,
+        similarity: ctx.similarity,
+        hybrid_score: ctx.hybrid_score,
+      }));
+
       return {
         content: [
           {
             type: "text",
-            text: `Found ${results.length} semantically relevant contexts for query: "${args.query}"`,
+            text:
+              `Found ${formattedResults.length} semantically relevant contexts for query: "${args.query}"\n\n` +
+              formattedResults
+                .map(
+                  (ctx, i) =>
+                    `${i + 1}. **ID**: ${ctx.id}\n` +
+                    `   **Type**: ${ctx.type}\n` +
+                    `   **Content**: ${ctx.full_content}\n` +
+                    `   **Tags**: ${ctx.tags.join(", ") || "None"}\n` +
+                    `   **Quality**: ${
+                      ctx.quality_score?.toFixed(2) || "N/A"
+                    }\n` +
+                    `   **Similarity**: ${
+                      ctx.similarity?.toFixed(3) || "N/A"
+                    }\n` +
+                    `   **Hybrid Score**: ${
+                      ctx.hybrid_score?.toFixed(3) || "N/A"
+                    }\n` +
+                    `   **Created**: ${ctx.created_at}\n` +
+                    `   **File**: ${ctx.file_path || "N/A"}\n`
+                )
+                .join("\n"),
           },
         ],
         isError: false,
         _meta: {
           query: args.query,
           total_contexts_searched: allContexts.length,
-          results: results.map((r) => ({
-            ...r,
-            similarity: r.similarity,
-            hybrid_score: r.hybrid_score,
-          })),
+          results_count: formattedResults.length,
+          results: formattedResults,
           search_params: searchParams,
         },
       };
