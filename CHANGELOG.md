@@ -20,9 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Entry point remains `dist/index.js` for MCP protocol communication
   - No breaking changes for MCP client users
 
-### Migration Note
-If you were trying to run `npx devmind-mcp` as a command-line tool, this is no longer supported. DevMind MCP is designed to be used exclusively through MCP clients. Configure it in your MCP client's settings (e.g., `~/.kiro/settings/mcp.json` for Kiro).
-
 ---
 
 ## [2.0.0] - 2025-11-04
