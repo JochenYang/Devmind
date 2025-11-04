@@ -49,6 +49,11 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 
 #### Core Capabilities
 
+- **Intelligent Auto-Memory** (New in v2.0) - AI automatically evaluates and decides what to remember
+  - Process recognition (6 types: bug_fix, refactor, solution_design, etc.)
+  - Value assessment (4 dimensions: code significance, problem complexity, solution importance, reusability)
+  - Smart decision-making (auto-remember, ask confirmation, or ignore)
+  - User feedback learning (continuously optimizes evaluation parameters)
 - **Intelligent Memory** - AI-driven context recording through MCP protocol
 - **Semantic Search** - AI-powered vector embedding search for finding related contexts
 - **Persistent Storage** - SQLite-based local storage with complete privacy
@@ -332,6 +337,151 @@ const results = await semantic_search({
 ```
 
 
+
+---
+
+## Intelligent Auto-Memory (New in v2.0)
+
+### Overview
+
+DevMind now features **Intelligent Auto-Memory** that automatically evaluates content value and decides what to remember. No more manual decisions - let AI manage your memory intelligently!
+
+### How It Works
+
+```text
+Content → Process Recognition → Value Assessment → Smart Decision → Memory/Skip
+   │            │                    │                  │              │
+ Input      Identify type      Score 4 dimensions   Auto/Ask/Ignore  Store or not
+           (bug_fix, etc.)    (code, problem, etc.)  (80/50/25)
+```
+
+### Three Memory Modes
+
+#### 1. AI Proactive Memory (Default)
+AI automatically evaluates and decides:
+- **Score ≥ 80**: Auto-remember
+- **Score 50-79**: Ask for confirmation
+- **Score < 50**: Ignore
+
+```typescript
+// AI decides automatically (default behavior)
+await record_context({
+  content: "Fixed critical memory leak in event listeners",
+  type: "bug_fix",
+  project_path: "./my-project"
+  // auto_evaluate: true (default)
+});
+
+// Output:
+// ✓ Auto-remembered
+// 
+// Evaluation Result:
+// - Process Type: Bug Fix (Confidence 90%)
+// - Value Score: 85/100
+//   * Code Significance: 80
+//   * Problem Complexity: 90
+//   * Solution Importance: 85
+//   * Reusability: 80
+// 
+// Suggested Tags: bug-fix, memory-leak, performance
+// Decision Reasoning: High-value bug fix involving memory management
+```
+
+#### 2. User Explicit Memory (Highest Priority)
+Force remember important content:
+
+```typescript
+// Always remember, skip evaluation
+await record_context({
+  content: "Critical architecture decision for microservices migration",
+  type: "solution_design",
+  project_path: "./my-project",
+  force_remember: true  // Always remember
+});
+```
+
+#### 3. Traditional Memory (Backward Compatible)
+Disable intelligent evaluation:
+
+```typescript
+// Traditional behavior
+await record_context({
+  content: "Regular code change",
+  type: "code",
+  project_path: "./my-project",
+  auto_evaluate: false  // Disable intelligent evaluation
+});
+```
+
+### Value Assessment Dimensions
+
+DevMind evaluates content across 4 dimensions:
+
+1. **Code Significance (30%)** - Algorithm complexity, code quality, code length
+2. **Problem Complexity (25%)** - Technical difficulty, tech stack depth, impact scope
+3. **Solution Importance (25%)** - Innovation, generality, completeness
+4. **Reusability (20%)** - Abstraction level, documentation, applicability
+
+### Process Recognition
+
+Automatically identifies 6 development process types:
+
+- `bug_fix` - Bug fixes and error corrections
+- `refactor` - Code refactoring and improvements
+- `solution_design` - Architecture and design decisions
+- `code_change` - Regular code modifications
+- `testing` - Test writing and validation
+- `documentation` - Documentation updates
+
+### User Feedback Learning
+
+System learns from your feedback to optimize evaluation:
+
+```typescript
+// Provide feedback on a memory
+await update_context({
+  context_id: "abc123",
+  user_feedback: "useful",  // or "not_useful", "needs_improvement"
+  feedback_comment: "This solution was very helpful"
+});
+
+// System automatically:
+// - Records feedback
+// - Adjusts evaluation weights
+// - Optimizes recognition patterns
+// - Improves future decisions
+```
+
+### Search with Intelligence
+
+Search results now include intelligent memory metadata:
+
+```typescript
+const results = await semantic_search({
+  query: "memory leak solutions"
+});
+
+// Results include:
+// - Memory Source: ai_proactive / user_explicit / auto_trigger
+// - Process Type: bug_fix (90% confidence)
+// - Value Score: 85/100
+// - Helps AI understand context better
+```
+
+### Default Parameters
+
+Optimized default values (auto-adjusted through learning):
+
+**Thresholds:**
+- High Value: 80 (auto-remember)
+- Medium Value: 50 (ask confirmation)
+- Low Value: 25 (ignore)
+
+**Weights:**
+- Code Significance: 30%
+- Problem Complexity: 25%
+- Solution Importance: 25%
+- Reusability: 20%
 
 ---
 

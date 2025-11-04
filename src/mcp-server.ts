@@ -22,6 +22,7 @@ import {
   createFilePathDetector,
   FilePathDetector,
 } from "./utils/file-path-detector.js";
+import { UnifiedMemoryManager } from "./core/UnifiedMemoryManager.js";
 import {
   AiMemoryConfig,
   ContextSearchParams,
@@ -49,6 +50,7 @@ export class AiMemoryMcpServer {
   private autoRecordFilter: AutoRecordFilter;
   private fileWatcher: any = null;
   private lastNotifiedFiles: Map<string, number> = new Map(); // 记录已提示的文件和时间
+  private unifiedMemoryManager: UnifiedMemoryManager;
 
   // 真实日期记录函数
   private getCurrentRealDate(): string {
@@ -144,6 +146,9 @@ export class AiMemoryMcpServer {
         cache_embeddings: this.config.vector_search.cache_embeddings,
       });
     }
+
+    // 初始化统一记忆管理器（智能自动记忆）
+    this.unifiedMemoryManager = new UnifiedMemoryManager(this.db);
 
     this.server = new Server(
       {
@@ -256,7 +261,7 @@ export class AiMemoryMcpServer {
         {
           name: "record_context",
           description:
-            "[ENHANCED] Record development context with rich metadata and intelligent quality filtering. Supports multi-file tracking, automatic change detection, and impact analysis.\n\n**When to Record (IMPORTANT):**\n- After user confirms the solution or approach\n- After successfully solving a problem or bug\n- After completing an important feature or refactoring\n- When documenting valuable insights or technical decisions\n- After code changes are verified and working\n\n**When NOT to Record:**\n- During exploration or trial-and-error phases\n- For failed attempts or error states\n- For temporary or intermediate debugging steps\n- Before user confirms the approach\n- For trivial changes or routine updates\n\n**Quality Filtering:** The system automatically filters low-quality content (quality_score < 0.6) to maintain memory quality.\n\n**File Tracking:** Use 'files_changed' for multi-file changes (refactoring/features), or 'file_path' for single-file changes.\n\n**Formatting:** Always use Markdown syntax (headings ##, code blocks ```, lists) for better readability in database and knowledge graph visualization.",
+            "[ENHANCED] Record development context with intelligent auto-evaluation. The system can automatically assess content value and decide whether to remember.\n\n**Intelligent Auto-Memory (New in v2.0.0):**\n- Auto-evaluates content based on 4 dimensions: code significance, problem complexity, solution importance, reusability\n- Automatically decides: Auto-remember (score >=80), Ask confirmation (50-79), Ignore (<50)\n- User explicit memory has highest priority (force_remember=true)\n- Supports Chinese and English output based on project language\n\n**When to Use:**\n- Let AI proactively call this tool when detecting valuable content\n- User explicitly requests to remember something (force_remember=true)\n- After solving problems, implementing features, or making important decisions\n\n**Parameters:**\n- auto_evaluate: Enable intelligent evaluation (default: true)\n- force_remember: User explicit memory, highest priority (default: false)\n- type: Context type (code_modify, bug_fix, solution, etc.)\n- content: The content to remember\n\n**Quality Filtering:** Automatically filters low-quality content (quality_score < 0.6).\n\n**File Tracking:** Use 'files_changed' for multi-file changes, or 'file_path' for single-file changes.\n\n**Formatting:** Use Markdown syntax (headings ##, code blocks ```, lists) for better readability.",
           inputSchema: {
             type: "object",
             properties: {
@@ -433,6 +438,18 @@ export class AiMemoryMcpServer {
                 type: "object",
                 description: "Optional additional metadata",
               },
+
+              // === 智能自动记忆参数 (New in v2.0.0) ===
+              auto_evaluate: {
+                type: "boolean",
+                description:
+                  "🆕 Enable intelligent auto-evaluation (default: true). When enabled, the system will automatically assess content value and decide whether to remember. Set to false to use traditional behavior.",
+              },
+              force_remember: {
+                type: "boolean",
+                description:
+                  "🆕 Force remember without evaluation (default: false). Use this when user explicitly requests to remember something. This has the highest priority and bypasses all evaluation.",
+              },
             },
             required: ["type", "content"],
           },
@@ -531,41 +548,49 @@ export class AiMemoryMcpServer {
         {
           name: "semantic_search",
           description:
-            "[RECOMMENDED] Multi-dimensional AI search (semantic 40% + keyword 30% + quality 20% + freshness 10%). Results cached for 5min. Use file_path to search within specific files.",
+            "[RECOMMENDED] Intelligent memory search using hybrid algorithm (semantic 70% + keyword 30%). Supports special characters and complex queries. Results cached for 5min.\n\nWhen to use:\n- Search for similar solutions or code patterns\n- Find related bug fixes or implementations\n- Discover relevant context from past work\n\nParameters:\n- query: Your search text (supports special characters like UUIDs, file paths)\n- project_path: Limit search to specific project (file system path)\n- session_id: Limit search to specific session\n- file_path: Filter to specific file (e.g., 'src/auth/login.ts')\n\nExample: semantic_search({query: 'memory leak fix', project_path: 'D:\\\\codes\\\\myproject'})",
           inputSchema: {
             type: "object",
             properties: {
-              query: { type: "string", description: "Search query text" },
-              project_id: {
+              query: {
                 type: "string",
-                description: "Optional project ID to search within",
+                description:
+                  "Search query text. Supports special characters, UUIDs, file paths, etc.",
+              },
+              project_path: {
+                type: "string",
+                description:
+                  "Optional project file system path (e.g., 'D:\\\\codes\\\\myproject'). Limits search to this project only.",
               },
               session_id: {
                 type: "string",
-                description: "Optional session ID to search within",
+                description:
+                  "Optional session ID to search within a specific session. Use get_current_session to get the session ID.",
               },
               file_path: {
                 type: "string",
                 description:
-                  "Filter to specific file (e.g., 'src/auth/login.ts')",
+                  "Optional filter to specific file (e.g., 'src/auth/login.ts'). Searches only in contexts related to this file.",
               },
               limit: {
                 type: "number",
-                description: "Maximum number of results (default: 10)",
+                description:
+                  "Maximum number of results to return (default: 10, max: 50)",
               },
               similarity_threshold: {
                 type: "number",
-                description: "Minimum similarity 0-1 (default: 0.5)",
+                description:
+                  "Minimum similarity score 0-1 (default: 0.5). Higher values return more relevant but fewer results.",
               },
               hybrid_weight: {
                 type: "number",
                 description:
-                  "Semantic vs keyword weight 0-1 (default: 0.7, higher=more semantic)",
+                  "Balance between semantic and keyword search, 0-1 (default: 0.7). Higher=more semantic, lower=more keyword-based.",
               },
               use_cache: {
                 type: "boolean",
                 description:
-                  "Use LRU cache for faster repeated searches (default: true)",
+                  "Use LRU cache for faster repeated searches (default: true). Disable for real-time results.",
               },
             },
             required: ["query"],
@@ -574,17 +599,19 @@ export class AiMemoryMcpServer {
         {
           name: "list_contexts",
           description:
-            "List recorded contexts (search history, debug sessions, code changes). Use semantic_search for intelligent queries.",
+            "List recorded contexts (search history, debug sessions, code changes). Use semantic_search for intelligent queries. Parameters: project_path (file system path) OR session_id (specific session). If neither provided, lists all contexts.",
           inputSchema: {
             type: "object",
             properties: {
+              project_path: {
+                type: "string",
+                description:
+                  "Optional project file system path (e.g., 'D:\\codes\\myproject'). Lists contexts from all sessions of this project.",
+              },
               session_id: {
                 type: "string",
-                description: "Optional session ID to filter contexts",
-              },
-              project_id: {
-                type: "string",
-                description: "Optional project ID to filter contexts",
+                description:
+                  "Optional session ID to filter contexts from a specific session. Use get_current_session to get the session ID.",
               },
               limit: {
                 type: "number",
@@ -886,7 +913,7 @@ export class AiMemoryMcpServer {
           return await this.handleSemanticSearch(
             safeArgs as {
               query: string;
-              project_id?: string;
+              project_path?: string;
               session_id?: string;
               limit?: number;
               similarity_threshold?: number;
@@ -905,7 +932,7 @@ export class AiMemoryMcpServer {
           return await this.handleListContexts(
             safeArgs as {
               session_id?: string;
-              project_id?: string;
+              project_path?: string;
               limit?: number;
             }
           );
@@ -1356,6 +1383,110 @@ export class AiMemoryMcpServer {
         finalLineEnd = undefined;
       }
 
+      // === 智能自动记忆评估 (New in v2.0.0) ===
+      let autoMemoryResult: any = null;
+      const shouldAutoEvaluate = args.auto_evaluate !== false; // 默认启用
+      const isForceRemember = args.force_remember === true; // 用户主动记忆
+
+      if (shouldAutoEvaluate && !isForceRemember) {
+        // AI 主动记忆或自动触发 - 执行智能评估
+        try {
+          const interactionContext = {
+            currentFiles: detectedFilePath ? [detectedFilePath] : undefined,
+          };
+
+          const userIntent = {
+            type: "ai_proactive" as const,
+            memory_type: args.type,
+            tags: args.tags,
+            priority: args.priority,
+          };
+
+          autoMemoryResult = await this.unifiedMemoryManager.processUserInput(
+            args.content,
+            interactionContext,
+            userIntent,
+            args.project_path
+          );
+
+          // 根据决策结果决定是否继续记忆
+          if (autoMemoryResult.action_required.type === "ignored") {
+            // 评分过低，不记忆
+            const detailedOutput =
+              this.unifiedMemoryManager.formatDetailedOutput(
+                autoMemoryResult,
+                args.project_path
+              );
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: detailedOutput,
+                },
+              ],
+              isError: false,
+              _meta: {
+                auto_memory_decision: "ignored",
+                evaluation_result: autoMemoryResult,
+              },
+            };
+          }
+
+          // 如果需要确认，返回建议但不记忆
+          if (autoMemoryResult.action_required.type === "confirmation_needed") {
+            const detailedOutput =
+              this.unifiedMemoryManager.formatDetailedOutput(
+                autoMemoryResult,
+                args.project_path
+              );
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: `${detailedOutput}\n\n💡 Tip: Set force_remember=true to remember this content.`,
+                },
+              ],
+              isError: false,
+              _meta: {
+                auto_memory_decision: "confirmation_needed",
+                evaluation_result: autoMemoryResult,
+              },
+            };
+          }
+
+          // action === "memory_stored" - 继续记忆
+        } catch (error) {
+          console.error("[AutoMemory] Evaluation failed:", error);
+          // 评估失败，继续使用传统方式记忆
+        }
+      } else if (isForceRemember) {
+        // 用户主动记忆 - 执行评估但总是记忆
+        try {
+          const interactionContext = {
+            currentFiles: detectedFilePath ? [detectedFilePath] : undefined,
+          };
+
+          const userIntent = {
+            type: "explicit_memory" as const,
+            memory_type: args.type,
+            tags: args.tags,
+            priority: args.priority,
+          };
+
+          autoMemoryResult = await this.unifiedMemoryManager.processUserInput(
+            args.content,
+            interactionContext,
+            userIntent,
+            args.project_path
+          );
+        } catch (error) {
+          console.error("[AutoMemory] Evaluation failed:", error);
+          // 评估失败，继续使用传统方式记忆
+        }
+      }
+
       const mergedMetadata = {
         ...(args.metadata || {}),
         ...extractedContext.metadata, // 包含自动提取的 affected_functions, affected_classes 等
@@ -1368,6 +1499,62 @@ export class AiMemoryMcpServer {
           ? { session_info: autoSessionMeta }
           : {}),
       };
+
+      // 添加智能记忆元数据
+      if (autoMemoryResult) {
+        const autoMemoryMetadata: any = {
+          source: isForceRemember
+            ? "user_explicit"
+            : shouldAutoEvaluate
+            ? "ai_proactive"
+            : "auto_trigger",
+        };
+
+        if (autoMemoryResult.process_type) {
+          autoMemoryMetadata.process_type = {
+            type: autoMemoryResult.process_type.type,
+            confidence: autoMemoryResult.process_type.confidence,
+            key_elements: autoMemoryResult.process_type.key_elements,
+          };
+        }
+
+        if (autoMemoryResult.value_score) {
+          autoMemoryMetadata.value_score = {
+            total_score: autoMemoryResult.value_score.total_score,
+            code_significance: autoMemoryResult.value_score.code_significance,
+            problem_complexity: autoMemoryResult.value_score.problem_complexity,
+            solution_importance:
+              autoMemoryResult.value_score.solution_importance,
+            reusability: autoMemoryResult.value_score.reusability,
+          };
+        }
+
+        if (autoMemoryResult.memory_decision) {
+          autoMemoryMetadata.trigger_decision = {
+            action: autoMemoryResult.memory_decision.action,
+            reasoning: autoMemoryResult.memory_decision.reasoning,
+            suggested_tags: autoMemoryResult.memory_decision.suggested_tags,
+          };
+
+          // 合并建议的标签
+          if (
+            autoMemoryResult.memory_decision.suggested_tags &&
+            autoMemoryResult.memory_decision.suggested_tags.length > 0
+          ) {
+            const existingTags = args.tags || extractedContext.tags;
+            const suggestedTags =
+              autoMemoryResult.memory_decision.suggested_tags;
+            const mergedTags = [
+              ...new Set([...existingTags, ...suggestedTags]),
+            ];
+            mergedMetadata.auto_suggested_tags = suggestedTags;
+            // 更新 tags（后面会用到）
+            args.tags = mergedTags;
+          }
+        }
+
+        mergedMetadata.auto_memory_metadata = autoMemoryMetadata;
+      }
 
       const contextId = this.db.createContext({
         session_id: sessionId,
@@ -1414,11 +1601,22 @@ export class AiMemoryMcpServer {
       }
 
       // 构建响应消息
-      let responseText = `Recorded context: ${contextId}`;
+      let responseText = "";
+
+      // 智能评估结果（如果有）
+      if (autoMemoryResult) {
+        const detailedOutput = this.unifiedMemoryManager.formatDetailedOutput(
+          autoMemoryResult,
+          args.project_path
+        );
+        responseText += detailedOutput + "\n\n";
+      }
+
+      responseText += `Context ID: ${contextId}`;
 
       // 多文件信息
       if (isMultiFileContext && args.files_changed) {
-        responseText += `\n📁 Multi-file change: ${args.files_changed.length} files`;
+        responseText += `\nMulti-file change: ${args.files_changed.length} files`;
         args.files_changed.forEach((file, idx) => {
           responseText += `\n  ${idx + 1}. ${file.file_path}`;
           if (file.change_type) responseText += ` (${file.change_type})`;
@@ -1427,13 +1625,13 @@ export class AiMemoryMcpServer {
           }
         });
         if (enhancedMetadata.diff_stats) {
-          responseText += `\n📊 Total changes: +${enhancedMetadata.diff_stats.additions}/-${enhancedMetadata.diff_stats.deletions} (~${enhancedMetadata.diff_stats.changes} lines)`;
+          responseText += `\nTotal changes: +${enhancedMetadata.diff_stats.additions}/-${enhancedMetadata.diff_stats.deletions} (~${enhancedMetadata.diff_stats.changes} lines)`;
         }
       }
 
       // Session信息
       if (autoSessionMeta.auto_session) {
-        responseText += `\n📋 Session: ${
+        responseText += `\nSession: ${
           autoSessionMeta.session_source === "existing_active"
             ? "Reused active session"
             : "Created new session"
@@ -1442,7 +1640,7 @@ export class AiMemoryMcpServer {
 
       // 路径检测信息（仅单文件场景）
       if (!isMultiFileContext && pathDetectionMeta.auto_detected) {
-        responseText += `\n🔍 Auto-detected file: ${
+        responseText += `\nAuto-detected file: ${
           pathDetectionMeta.all_suggestions?.[0]?.path || "N/A"
         } (confidence: ${Math.round(
           (pathDetectionMeta.confidence || 0) * 100
@@ -1465,6 +1663,17 @@ export class AiMemoryMcpServer {
           ),
           is_multi_file: isMultiFileContext,
           files_count: isMultiFileContext ? args.files_changed?.length : 1,
+          auto_memory_enabled: shouldAutoEvaluate,
+          auto_memory_decision: autoMemoryResult
+            ? autoMemoryResult.action_required.type
+            : "not_evaluated",
+          evaluation_result: autoMemoryResult
+            ? {
+                process_type: autoMemoryResult.process_type?.type,
+                value_score: autoMemoryResult.value_score?.total_score,
+                decision: autoMemoryResult.memory_decision?.action,
+              }
+            : undefined,
           ...pathDetectionMeta,
           ...autoSessionMeta,
         },
@@ -1802,7 +2011,7 @@ export class AiMemoryMcpServer {
 
   private async handleSemanticSearch(args: {
     query: string;
-    project_id?: string;
+    project_path?: string;
     session_id?: string;
     limit?: number;
     similarity_threshold?: number;
@@ -1824,9 +2033,18 @@ export class AiMemoryMcpServer {
       // 加载模型如果尚未初始化
       await this.vectorSearch.initialize();
 
+      // 如果提供了 project_path，转换为 project_id
+      let projectId: string | undefined;
+      if (args.project_path) {
+        const project = this.db.getProjectByPath(args.project_path);
+        if (project) {
+          projectId = project.id;
+        }
+      }
+
       // 获取用于搜索的contexts
       const allContexts = this.db.getContextsForVectorSearch(
-        args.project_id,
+        projectId,
         args.session_id
       );
 
@@ -1862,7 +2080,7 @@ export class AiMemoryMcpServer {
       // 获取关键词搜索结果作为基线
       const keywordResults = this.db.searchContexts(
         args.query,
-        args.project_id,
+        projectId,
         searchParams.limit
       );
 
@@ -1879,23 +2097,46 @@ export class AiMemoryMcpServer {
         this.db.recordContextSearch(context.id);
       });
 
-      // 格式化显示结果
-      const formattedResults = results.map((ctx) => ({
-        id: ctx.id,
-        type: ctx.type,
-        content_preview:
-          ctx.content.substring(0, 200) +
-          (ctx.content.length > 200 ? "..." : ""),
-        full_content: ctx.content, // Include full content for AI to read
-        tags: ctx.tags
-          ? ctx.tags.split(",").filter((t: string) => t.trim())
-          : [],
-        quality_score: ctx.quality_score,
-        created_at: ctx.created_at,
-        file_path: ctx.file_path,
-        similarity: ctx.similarity,
-        hybrid_score: ctx.hybrid_score,
-      }));
+      // 格式化显示结果（包含智能记忆元数据）
+      const formattedResults = results.map((ctx) => {
+        // 解析智能记忆元数据
+        let autoMemoryMeta: any = null;
+        try {
+          const metadata = ctx.metadata ? JSON.parse(ctx.metadata) : {};
+          if (metadata.auto_memory_metadata) {
+            autoMemoryMeta = metadata.auto_memory_metadata;
+          }
+        } catch (error) {
+          // 忽略解析错误
+        }
+
+        return {
+          id: ctx.id,
+          type: ctx.type,
+          content_preview:
+            ctx.content.substring(0, 200) +
+            (ctx.content.length > 200 ? "..." : ""),
+          full_content: ctx.content, // Include full content for AI to read
+          tags: ctx.tags
+            ? ctx.tags.split(",").filter((t: string) => t.trim())
+            : [],
+          quality_score: ctx.quality_score,
+          created_at: ctx.created_at,
+          file_path: ctx.file_path,
+          similarity: ctx.similarity,
+          hybrid_score: ctx.hybrid_score,
+          // 智能记忆元数据（如果存在）
+          auto_memory: autoMemoryMeta
+            ? {
+                source: autoMemoryMeta.source,
+                process_type: autoMemoryMeta.process_type?.type,
+                process_confidence: autoMemoryMeta.process_type?.confidence,
+                value_score: autoMemoryMeta.value_score?.total_score,
+                decision: autoMemoryMeta.trigger_decision?.action,
+              }
+            : undefined,
+        };
+      });
 
       return {
         content: [
@@ -1904,8 +2145,8 @@ export class AiMemoryMcpServer {
             text:
               `Found ${formattedResults.length} semantically relevant contexts for query: "${args.query}"\n\n` +
               formattedResults
-                .map(
-                  (ctx, i) =>
+                .map((ctx, i) => {
+                  let result =
                     `${i + 1}. **ID**: ${ctx.id}\n` +
                     `   **Type**: ${ctx.type}\n` +
                     `   **Content**: ${ctx.full_content}\n` +
@@ -1918,10 +2159,25 @@ export class AiMemoryMcpServer {
                     }\n` +
                     `   **Hybrid Score**: ${
                       ctx.hybrid_score?.toFixed(3) || "N/A"
-                    }\n` +
+                    }\n`;
+
+                  // 添加智能记忆信息（如果存在）
+                  if (ctx.auto_memory) {
+                    result += `   **Memory Source**: ${ctx.auto_memory.source}\n`;
+                    if (ctx.auto_memory.process_type) {
+                      result += `   **Process Type**: ${ctx.auto_memory.process_type} (${ctx.auto_memory.process_confidence}%)\n`;
+                    }
+                    if (ctx.auto_memory.value_score !== undefined) {
+                      result += `   **Value Score**: ${ctx.auto_memory.value_score}/100\n`;
+                    }
+                  }
+
+                  result +=
                     `   **Created**: ${ctx.created_at}\n` +
-                    `   **File**: ${ctx.file_path || "N/A"}\n`
-                )
+                    `   **File**: ${ctx.file_path || "N/A"}\n`;
+
+                  return result;
+                })
                 .join("\n"),
           },
         ],
@@ -2547,7 +2803,7 @@ Happy coding! 🚀`;
   // Context management handlers
   private async handleListContexts(args: {
     session_id?: string;
-    project_id?: string;
+    project_path?: string;
     limit?: number;
   }) {
     try {
@@ -2555,11 +2811,29 @@ Happy coding! 🚀`;
       const limit = args.limit || 20;
 
       if (args.session_id) {
-        // List by session
+        // List by session ID
         contexts = this.db.getContextsBySession(args.session_id, limit);
-      } else if (args.project_id) {
-        // List by project (get all contexts from all sessions of the project)
-        const sessions = this.db.getActiveSessions(args.project_id);
+      } else if (args.project_path) {
+        // List by project path - get project ID first
+        const project = this.db.getProjectByPath(args.project_path);
+        if (!project) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `No project found for path: ${args.project_path}. The project may not have been initialized yet.`,
+              },
+            ],
+            isError: false,
+            _meta: {
+              total_contexts: 0,
+              contexts: [],
+            },
+          };
+        }
+
+        // Get all contexts from all sessions of the project
+        const sessions = this.db.getActiveSessions(project.id);
         for (const session of sessions) {
           const sessionContexts = this.db.getContextsBySession(
             session.id,
@@ -2574,10 +2848,8 @@ Happy coding! 🚀`;
         );
         contexts = contexts.slice(0, limit);
       } else {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          "Either session_id or project_id is required"
-        );
+        // No filter - list all contexts (limited)
+        contexts = this.db.getAllContexts(limit);
       }
 
       // Format contexts for display
@@ -2683,6 +2955,9 @@ Happy coding! 🚀`;
       line_ranges?: number[][];
       diff_stats?: { additions: number; deletions: number; changes: number };
     }>;
+    // 用户反馈参数（New in v2.0.0）
+    user_feedback?: "useful" | "not_useful" | "needs_improvement";
+    feedback_comment?: string;
   }) {
     try {
       // First check if context exists
@@ -2735,32 +3010,106 @@ Happy coding! 🚀`;
         }
       }
 
-      if (updated || args.file_path || args.files_changed) {
+      // 处理用户反馈（如果提供）
+      let feedbackResult: any = null;
+      if (args.user_feedback) {
+        try {
+          // 获取上下文的智能记忆元数据
+          const contextMeta = context.metadata
+            ? JSON.parse(context.metadata)
+            : {};
+          const autoMemoryMeta = contextMeta.auto_memory_metadata;
+
+          // 构建用户反馈对象
+          const userFeedback = {
+            memory_id: args.context_id,
+            action:
+              args.user_feedback === "useful"
+                ? ("accepted" as const)
+                : args.user_feedback === "not_useful"
+                ? ("rejected" as const)
+                : ("modified" as const),
+            process_type: autoMemoryMeta?.process_type?.type,
+            value_score: autoMemoryMeta?.value_score?.total_score,
+            user_comment: args.feedback_comment,
+            timestamp: new Date(),
+          };
+
+          // 构建记忆结果对象
+          const memoryOutcome = {
+            was_useful: args.user_feedback === "useful",
+            access_count: 1, // 可以从 metadata 中获取实际访问次数
+            last_accessed: new Date(),
+          };
+
+          // 调用学习系统
+          const feedbackLearning =
+            this.unifiedMemoryManager.getFeedbackLearning();
+          await feedbackLearning.learnFromFeedback(
+            args.context_id,
+            userFeedback,
+            memoryOutcome
+          );
+
+          feedbackResult = {
+            feedback_recorded: true,
+            feedback_action: userFeedback.action,
+            learning_applied: true,
+          };
+
+          updatedFields.push("user_feedback");
+        } catch (error) {
+          console.error("[UserFeedback] Failed to process feedback:", error);
+          feedbackResult = {
+            feedback_recorded: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          };
+        }
+      }
+
+      if (updated || args.file_path || args.files_changed || feedbackResult) {
         const updatedContext = this.db.getContextById(args.context_id);
         const files = this.contextFileManager.getFilesByContext(
           args.context_id
         );
 
+        let responseText =
+          `Successfully updated context: ${args.context_id}\n` +
+          `Type: ${updatedContext?.type}\n` +
+          `Updated fields: ${updatedFields.join(", ")}\n`;
+
+        if (feedbackResult) {
+          responseText += `\nUser Feedback:\n`;
+          responseText += `  Recorded: ${
+            feedbackResult.feedback_recorded ? "Yes" : "No"
+          }\n`;
+          if (feedbackResult.feedback_recorded) {
+            responseText += `  Action: ${feedbackResult.feedback_action}\n`;
+            responseText += `  Learning Applied: ${
+              feedbackResult.learning_applied ? "Yes" : "No"
+            }\n`;
+          } else if (feedbackResult.error) {
+            responseText += `  Error: ${feedbackResult.error}\n`;
+          }
+        }
+
+        responseText +=
+          `Files: ${
+            files.length > 0 ? files.map((f) => f.file_path).join(", ") : "None"
+          }\n` + `Content: ${updatedContext?.content.substring(0, 100)}...`;
+
         return {
           content: [
             {
               type: "text",
-              text:
-                `Successfully updated context: ${args.context_id}\n` +
-                `Type: ${updatedContext?.type}\n` +
-                `Updated fields: ${updatedFields.join(", ")}\n` +
-                `Files: ${
-                  files.length > 0
-                    ? files.map((f) => f.file_path).join(", ")
-                    : "None"
-                }\n` +
-                `Content: ${updatedContext?.content.substring(0, 100)}...`,
+              text: responseText,
             },
           ],
           _meta: {
             updated_context_id: args.context_id,
             updated_fields: updatedFields,
             file_count: files.length,
+            feedback_result: feedbackResult,
             success: true,
           },
         };

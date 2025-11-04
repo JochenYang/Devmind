@@ -207,6 +207,10 @@ export interface RecordContextParams {
   }>;
 
   metadata?: Record<string, any>; // 其他元数据
+
+  // === 智能自动记忆参数 (New in v2.0.0) ===
+  auto_evaluate?: boolean; // 是否启用智能评估（默认 true）
+  force_remember?: boolean; // 强制记忆，跳过评估（默认 false，用户主动记忆时为 true）
 }
 
 export interface SessionCreateParams {

@@ -122,6 +122,67 @@ export class DatabaseManager {
         FOREIGN KEY (context_id) REFERENCES contexts (id) ON DELETE CASCADE
       )
     `);
+
+    // Learning parameters table (智能记忆学习参数)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS learning_parameters (
+        id TEXT PRIMARY KEY,
+        parameter_type TEXT NOT NULL CHECK(parameter_type IN ('threshold', 'weight', 'pattern')),
+        parameter_name TEXT NOT NULL,
+        parameter_value REAL NOT NULL,
+        updated_at TEXT NOT NULL,
+        update_reason TEXT,
+        previous_value REAL,
+        UNIQUE(parameter_type, parameter_name)
+      )
+    `);
+
+    // User feedback table (用户反馈学习)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS user_feedback (
+        id TEXT PRIMARY KEY,
+        context_id TEXT NOT NULL,
+        feedback_action TEXT NOT NULL CHECK(feedback_action IN ('accepted', 'rejected', 'modified')),
+        process_type TEXT,
+        value_score REAL,
+        user_comment TEXT,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (context_id) REFERENCES contexts (id) ON DELETE CASCADE
+      )
+    `);
+
+    // 数据库迁移：添加 auto_memory_metadata 字段
+    this.migrateDatabase();
+  }
+
+  /**
+   * 数据库迁移逻辑
+   */
+  private migrateDatabase() {
+    try {
+      // 检查 contexts 表是否有 auto_memory_metadata 字段
+      const tableInfo = this.db
+        .prepare("PRAGMA table_info(contexts)")
+        .all() as Array<{ name: string }>;
+
+      const hasAutoMemoryMetadata = tableInfo.some(
+        (col) => col.name === "auto_memory_metadata"
+      );
+
+      if (!hasAutoMemoryMetadata) {
+        console.log(
+          "[DevMind] Migrating database: Adding auto_memory_metadata field to contexts table..."
+        );
+        this.db.exec(`
+          ALTER TABLE contexts 
+          ADD COLUMN auto_memory_metadata TEXT DEFAULT NULL
+        `);
+        console.log("[DevMind] Database migration completed successfully.");
+      }
+    } catch (error) {
+      console.error("[DevMind] Database migration failed:", error);
+      // 不抛出错误，允许系统继续运行
+    }
   }
 
   private createIndexes() {
@@ -164,6 +225,17 @@ export class DatabaseManager {
     );
     this.db.exec(
       `CREATE INDEX IF NOT EXISTS idx_context_files_path ON context_files (file_path)`
+    );
+
+    // 智能记忆相关索引
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_learning_param_type ON learning_parameters (parameter_type)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_feedback_context ON user_feedback (context_id)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_feedback_action ON user_feedback (feedback_action)`
     );
 
     // 全文搜索索引
@@ -599,17 +671,56 @@ export class DatabaseManager {
     return result.changes > 0;
   }
 
+  /**
+   * 清理 FTS5 查询字符串，移除或转义特殊字符
+   * FTS5 特殊字符：- ( ) " * ^ $ [ ] { } 等
+   */
+  private sanitizeFTS5Query(query: string): string {
+    if (!query || query.trim().length === 0) {
+      return "";
+    }
+
+    // 移除或转义 FTS5 特殊字符
+    // 保留：字母、数字、空格、中文字符、下划线
+    let sanitized = query
+      // 移除 FTS5 操作符字符
+      .replace(/[-()"\*\^\$\[\]\{\}]/g, " ")
+      // 移除多余的空格
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // 如果清理后为空，返回原始查询的字母数字部分
+    if (sanitized.length === 0) {
+      sanitized = query.replace(/[^a-zA-Z0-9\u4e00-\u9fa5_]/g, " ").trim();
+    }
+
+    // 如果仍然为空，返回通配符（匹配所有）
+    if (sanitized.length === 0) {
+      return "*";
+    }
+
+    return sanitized;
+  }
+
   searchContexts(
     query: string,
     projectId?: string,
     limit: number = 20
   ): Context[] {
+    // 清理查询字符串，防止 FTS5 语法错误
+    const sanitizedQuery = this.sanitizeFTS5Query(query);
+
+    // 如果清理后的查询为空或只是通配符，使用普通查询
+    if (!sanitizedQuery || sanitizedQuery === "*") {
+      return this.searchContextsWithoutFTS(projectId, limit);
+    }
+
     let sql = `
       SELECT c.* FROM contexts c
       JOIN contexts_fts fts ON c.rowid = fts.rowid
     `;
 
-    const params: any[] = [query];
+    const params: any[] = [sanitizedQuery];
 
     if (projectId) {
       sql += `
@@ -622,6 +733,40 @@ export class DatabaseManager {
     }
 
     sql += ` ORDER BY c.quality_score DESC LIMIT ?`;
+    params.push(limit);
+
+    try {
+      const stmt = this.db.prepare(sql);
+      return stmt.all(...params) as Context[];
+    } catch (error) {
+      // 如果 FTS5 查询仍然失败，降级到普通查询
+      console.warn(
+        `FTS5 query failed for "${sanitizedQuery}", falling back to non-FTS search:`,
+        error
+      );
+      return this.searchContextsWithoutFTS(projectId, limit);
+    }
+  }
+
+  /**
+   * 不使用 FTS5 的备用查询方法
+   */
+  private searchContextsWithoutFTS(
+    projectId?: string,
+    limit: number = 20
+  ): Context[] {
+    let sql = `SELECT c.* FROM contexts c`;
+    const params: any[] = [];
+
+    if (projectId) {
+      sql += `
+        JOIN sessions s ON c.session_id = s.id
+        WHERE s.project_id = ?
+      `;
+      params.push(projectId);
+    }
+
+    sql += ` ORDER BY c.created_at DESC LIMIT ?`;
     params.push(limit);
 
     const stmt = this.db.prepare(sql);
@@ -897,12 +1042,15 @@ export class DatabaseManager {
 
   /**
    * 获取所有上下文
+   * @param limit 限制返回数量（可选）
    * @returns 所有上下文数组
    */
-  getAllContexts(): Context[] {
-    const stmt = this.db.prepare(
-      "SELECT * FROM contexts ORDER BY created_at DESC"
-    );
+  getAllContexts(limit?: number): Context[] {
+    let sql = "SELECT * FROM contexts ORDER BY created_at DESC";
+    if (limit) {
+      sql += ` LIMIT ${limit}`;
+    }
+    const stmt = this.db.prepare(sql);
     return stmt.all() as Context[];
   }
 
