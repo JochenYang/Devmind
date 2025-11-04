@@ -5,6 +5,53 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.4] - 2025-11-04
+
+### BREAKING CHANGES
+- **Pure MCP Tool**: DevMind is now a pure MCP (Model Context Protocol) tool
+  - Removed all CLI functionality (cli.ts, daemon.ts, CLI commands)
+  - Removed CLI-related dependencies (commander)
+  - All features now accessible exclusively through 18 MCP tools
+  - Focus on seamless AI assistant integration
+
+### Removed
+- **CLI Interface**: Removed command-line interface
+  - No more `devmind init`, `devmind start`, `devmind search` commands
+  - Removed CLI documentation (CLI-REFERENCE-EN.md)
+  - Removed daemon file monitoring
+- **Dependencies**: Removed CLI-specific packages
+  - commander (CLI framework)
+  - CLI-related utilities
+
+### Changed
+- **Architecture**: Simplified to pure MCP server
+  - Single entry point: MCP protocol server
+  - AI-driven context recording (no background daemon)
+  - Cleaner codebase focused on MCP tools
+- **Documentation**: Updated all docs to reflect pure MCP approach
+  - README.md: Removed CLI sections, focused on MCP usage
+  - Website: Removed CLI reference pages
+  - Emphasized MCP client configuration (Claude Desktop, Cursor, etc.)
+- **Package**: Updated package.json
+  - Removed `bin` configuration
+  - Version bumped to 1.19.4
+  - Description updated to "AI Assistant Memory System - Pure MCP Tool"
+
+### Migration Guide
+**From v1.19.3 (CLI + MCP) to v1.19.4 (Pure MCP)**
+
+If you were using CLI commands:
+- `devmind record` → Use `record_context` MCP tool through AI assistant
+- `devmind search` → Use `semantic_search` MCP tool
+- `devmind stats` → Use `get_current_session` MCP tool
+- Daemon monitoring → AI actively records context through MCP tools
+
+**Why Pure MCP?**
+- Simpler: One-time configuration, no commands to learn
+- Smarter: AI decides when to record context
+- Seamless: Direct integration with AI assistants
+- Cross-platform: Works with all MCP-compatible clients
+
 ## [1.19.3] - 2025-11-03
 
 ### Fixed

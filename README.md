@@ -17,7 +17,7 @@
 
 ## Why DevMind MCP?
 
-- **Auto-Memory** - Monitors file changes and Git operations automatically
+- **Pure MCP Tool** - Seamless integration with AI assistants through Model Context Protocol
 - **Hybrid Search** - Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **100% Private** - All data stored locally in SQLite, zero cloud transmission
 - **18 MCP Tools** - Complete toolkit for memory management and project analysis
@@ -49,7 +49,7 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 
 #### Core Capabilities
 
-- **Automatic Memory** - Background monitoring of file changes, Git operations, and error logs
+- **Intelligent Memory** - AI-driven context recording through MCP protocol
 - **Semantic Search** - AI-powered vector embedding search for finding related contexts
 - **Persistent Storage** - SQLite-based local storage with complete privacy
 - **Hybrid Search** - Combines keyword and semantic search for best results
@@ -81,11 +81,11 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 ┌──────────────────────────────────────────────────────────────┐
 │                   DevMind MCP Server                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐│
-│  │  18 MCP Tools   │  │  Auto Monitor   │  │ Hybrid Search││
+│  │  18 MCP Tools   │  │  AI Recording   │  │ Hybrid Search││
 │  │                 │  │                 │  │              ││
-│  │ • Session (4)   │  │ • File Watch    │  │ • Semantic   ││
-│  │ • Context (7)   │  │ • Git Hooks     │  │ • Keyword    ││
-│  │ • Project (2)   │  │ • Auto Record   │  │ • Quality    ││
+│  │ • Session (4)   │  │ • Smart Record  │  │ • Semantic   ││
+│  │ • Context (7)   │  │ • Auto Dedupe   │  │ • Keyword    ││
+│  │ • Project (2)   │  │ • Quality Score │  │ • Quality    ││
 │  │ • Optimize (4)  │  │                 │  │ • Freshness  ││
 │  │ • Status (1)    │  │                 │  │              ││
 │  └─────────────────┘  └─────────────────┘  └──────────────┘│
@@ -101,7 +101,7 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 **Key Components:**
 
 - **18 MCP Tools** - Session management, context operations, project analysis, optimization, system status
-- **Auto Monitor** - Background file watching and Git operation tracking
+- **AI Recording** - Intelligent context recording through AI assistant interaction
 - **Hybrid Search** - Multi-dimensional scoring: Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **Local Storage** - SQLite database with vector embeddings and full-text search indexes
 
@@ -118,14 +118,10 @@ devmind-mcp/
 │   ├── content-quality-assessor.ts  # Content quality scoring
 │   ├── quality-score-calculator.ts  # Multi-dimensional quality scoring
 │   ├── auto-record-filter.ts        # Smart deduplication
-│   ├── daemon.ts                    # Background file monitoring
-│   ├── cli.ts                       # Command-line interface
-│   ├── smart-confirmation-system.ts # User interaction system
-│   ├── performance-optimizer.ts     # Performance tuning
 │   ├── types.ts                     # Type definitions
 │   ├── index.ts                     # Main entry point
 │   │
-│   ├── memory-graph/                # 🆕 Memory graph visualization (v1.19.0)
+│   ├── memory-graph/                # Memory graph visualization
 │   │   ├── index.ts                 # Main graph generator
 │   │   ├── types.ts                 # Graph type definitions
 │   │   ├── data/
@@ -210,22 +206,7 @@ Edit your MCP client configuration file:
 
 Restart Claude Desktop or your MCP client to load DevMind.
 
-#### Step 3: Initialize DevMind (Optional for CLI)
-
-If you want to use CLI features:
-
-```bash
-# Install globally first
-npm install -g devmind-mcp
-
-# Initialize in your project
-devmind init
-
-# Start monitoring daemon
-devmind start
-```
-
-#### Step 4: Try Your First Command
+#### Step 3: Try Your First Command
 
 In your AI assistant, try:
 
@@ -305,80 +286,7 @@ DevMind provides **18 powerful tools** and **1 professional prompt** for your AI
 
 **New in v1.19**: Memory graph features a clean vertical timeline layout with fixed node positioning and optimized performance.
 
-### CLI Commands Reference
 
-**[Complete CLI Reference](./CLI-REFERENCE-EN.md)** - Detailed documentation for all commands
-
-| Category     | Command                              | Description                            | Options                                   |
-|--------------|--------------------------------------|----------------------------------------|-------------------------------------------|
-| **Project**  | `devmind init`                       | Initialize DevMind in current project  | `--config-path`                           |
-|              | `devmind project <action>`           | Manage projects (list/create/info)     | `--config`                                |
-|              | `devmind stats`                      | Show database statistics               | `--config`                                |
-| **Daemon**   | `devmind start`                      | Start monitoring daemon                | `--no-terminal`, `--project`              |
-|              | `devmind status`                     | Check daemon status                    | `--project`                               |
-|              | `devmind stop`                       | Stop monitoring daemon                 | `--project`                               |
-| **Session**  | `devmind session <action>`           | Manage sessions (create/end/list/info) | `--name`, `--tool`                        |
-| **Search**   | `devmind search <query>`             | Semantic search contexts               | `--project`, `--limit`, `--threshold`     |
-|              | `devmind extract <file>`             | Extract context from file              | `--record`, `--session`                   |
-| **Optimize** | `devmind optimize <project-id>`      | Optimize memory storage                | `--strategies`, `--dry-run`               |
-|              | `devmind quality`                    | Update quality scores                  | `--project`, `--force-all`                |
-| **Maintain** | `devmind maintenance vacuum`         | Compact database                       | `--config`                                |
-|              | `devmind maintenance backup`         | Create database backup                 | `--output`                                |
-|              | `devmind maintenance restore <file>` | Restore from backup                    | `--force`                                 |
-| **Visual**   | `devmind graph <project-id>`         | Export timeline graph (v1.19.0)        | `--output`, `--max-nodes`, `--focus-type` |
-
-#### Quick Start
-
-**Initialize and Start Monitoring:**
-
-```bash
-# 1. Initialize configuration
-devmind init
-
-# 2. Start monitoring daemon
-devmind start
-
-# 3. Check daemon status
-devmind status
-```
-
-**Search and Query:**
-
-```bash
-# Semantic search
-devmind search "authentication implementation"
-
-# Search with filters
-devmind search "database" --project myproject --limit 5 --threshold 0.7
-
-# Extract file context
-devmind extract src/app.ts --record
-```
-
-**Maintenance:**
-
-```bash
-# Optimize storage
-devmind optimize <project-id>
-
-# Create backup
-devmind maintenance backup --output ./backups/
-
-# Update quality scores
-devmind quality --force-all
-```
-
-**Stop Monitoring:**
-
-```bash
-# Stop daemon
-devmind stop
-
-# Verify stopped
-devmind status
-```
-
-For detailed documentation including all options, examples, and troubleshooting, see the **[Complete CLI Reference](./CLI-REFERENCE-EN.md)**.
 
 ### Usage Examples
 
@@ -423,63 +331,7 @@ const results = await semantic_search({
 });
 ```
 
-### Advanced CLI Operations
 
-#### Memory Optimization
-
-The `optimize` command helps maintain database health by removing duplicate and low-quality contexts:
-
-```bash
-# Optimize a specific project
-devmind optimize <project-id>
-
-# Preview what would be deleted (recommended first)
-devmind optimize <project-id> --dry-run
-```
-
-**What gets optimized:**
-- **Duplicate contexts**: Removes contexts with >95% content similarity
-- **Low-quality contexts**: Removes contexts with quality_score < 0.3 that haven't been accessed in 60+ days
-
-**Example output:**
-```
-Found 15 duplicate contexts
-Found 8 low-quality contexts
-Deleted 23 contexts
-Saved approximately 2.3 MB
-```
-
-#### Backup & Restore
-
-Protect your development memory with database backup and restore:
-
-```bash
-# Create a backup
-devmind maintenance backup
-# Output: Backup created: devmind-backup-1729612345678.json (5.2 MB)
-
-# Create backup with custom name
-devmind maintenance backup --output ./backups/before-refactor.json
-
-# Restore from backup
-devmind maintenance restore ./backups/before-refactor.json
-# Prompts: "This will overwrite existing data. Continue? (yes/no):"
-
-# Force restore without confirmation
-devmind maintenance restore ./backups/before-refactor.json --force
-```
-
-**Backup contents:**
-- All projects and sessions
-- All contexts with embeddings
-- All relationships between contexts
-- Complete metadata and quality scores
-
-**Use cases:**
-- Before major refactoring or cleanup operations
-- Regular backups for data safety
-- Migrating DevMind data between machines
-- Testing optimization strategies safely
 
 ---
 
@@ -606,7 +458,7 @@ Key Principles:
 - "In Progress" = Discussion/design only, not yet implemented
 - "Release" = Comprehensive summary record of completed work
 
-IMPORTANT: NPX mode has no background monitoring. AI must actively record all important contexts.
+IMPORTANT: DevMind is a pure MCP tool. AI must actively record all important contexts through MCP tools.
 ```
 
 #### Auto-Recording Triggers

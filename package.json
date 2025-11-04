@@ -1,12 +1,11 @@
 {
   "name": "devmind-mcp",
-  "version": "1.19.3",
-  "description": "DevMind MCP - An intelligent context-aware memory system for AI assistants with professional metadata tracking",
+  "version": "1.19.4",
+  "description": "DevMind MCP - AI Assistant Memory System - Pure MCP Tool",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "devmind-mcp": "dist/index.js",
-    "devmind": "dist/cli.js"
+    "devmind-mcp": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -14,9 +13,7 @@
     "start": "node dist/index.js",
     "test": "vitest",
     "lint": "eslint src/**/*.ts",
-    "prepare": "npm run build",
-    "daemon": "node dist/daemon.js",
-    "cli": "node dist/cli.js"
+    "prepare": "npm run build"
   },
   "keywords": [
     "mcp",
@@ -35,7 +32,6 @@
     "@xenova/transformers": "^2.17.2",
     "better-sqlite3": "^12.4.1",
     "chokidar": "^3.5.3",
-    "commander": "^11.1.0",
     "crypto": "^1.0.1",
     "glob": "^10.3.10",
     "ignore": "^5.3.0",
