@@ -86,13 +86,14 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 ┌──────────────────────────────────────────────────────────────┐
 │                   DevMind MCP 服务器                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐│
-│  │  18 MCP Tools   │  │  AI Recording   │  │ Hybrid Search││
+│  │  18 MCP 工具    │  │  智能自动记忆   │  │  混合搜索    ││
+│  │                 │  │  (v2.0 新功能)  │  │              ││
+│  │ • 会话 (4)      │  │                 │  │ • 语义搜索   ││
+│  │ • 上下文 (7)    │  │ • 过程识别      │  │ • 关键词     ││
+│  │ • 项目 (2)      │  │ • 价值评估      │  │ • 质量评分   ││
+│  │ • 优化 (4)      │  │ • 智能决策      │  │ • 新鲜度     ││
+│  │ • 状态 (1)      │  │ • 用户学习      │  │              ││
 │  │                 │  │                 │  │              ││
-│  │ • Session (4)   │  │ • Smart Record  │  │ • Semantic   ││
-│  │ • Context (7)   │  │ • Auto Dedupe   │  │ • Keyword    ││
-│  │ • Project (2)   │  │ • Quality Score │  │ • Quality    ││
-│  │ • Optimize (4)  │  │                 │  │ • Freshness  ││
-│  │ • Status (1)    │  │                 │  │              ││
 │  └─────────────────┘  └─────────────────┘  └──────────────┘│
 └────────────────────────┬─────────────────────────────────────┘
                          │
@@ -100,6 +101,7 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 ┌──────────────────────────────────────────────────────────────┐
 │                  SQLite 本地存储                             │
 │  Projects • Sessions • Contexts • Relations • Embeddings     │
+│  + 智能记忆元数据 (过程类型、价值评分)                       │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -124,6 +126,14 @@ devmind-mcp/
 │   ├── auto-record-filter.ts        # 智能去重
 │   ├── types.ts                     # 类型定义
 │   ├── index.ts                     # 主入口
+│   │
+│   ├── core/                        # v2.0 智能自动记忆
+│   │   ├── auto-memory-types.ts     # 类型定义
+│   │   ├── DevelopmentProcessDetector.ts  # 过程识别
+│   │   ├── DevelopmentValueEvaluator.ts   # 价值评估
+│   │   ├── AutoMemoryTrigger.ts     # 决策触发
+│   │   ├── UserFeedbackLearning.ts  # 反馈学习
+│   │   └── UnifiedMemoryManager.ts  # 统一管理器
 │   │
 │   ├── memory-graph/                # 记忆图谱可视化
 │   │   ├── index.ts                 # 图谱生成器主入口

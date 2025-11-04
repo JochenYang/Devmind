@@ -86,13 +86,14 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 ┌──────────────────────────────────────────────────────────────┐
 │                   DevMind MCP Server                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐│
-│  │  18 MCP Tools   │  │  AI Recording   │  │ Hybrid Search││
-│  │                 │  │                 │  │              ││
-│  │ • Session (4)   │  │ • Smart Record  │  │ • Semantic   ││
-│  │ • Context (7)   │  │ • Auto Dedupe   │  │ • Keyword    ││
-│  │ • Project (2)   │  │ • Quality Score │  │ • Quality    ││
-│  │ • Optimize (4)  │  │                 │  │ • Freshness  ││
-│  │ • Status (1)    │  │                 │  │              ││
+│  │  18 MCP Tools   │  │ Intelligent     │  │ Hybrid Search││
+│  │                 │  │ Auto-Memory     │  │              ││
+│  │ • Session (4)   │  │ (v2.0 New)      │  │ • Semantic   ││
+│  │ • Context (7)   │  │                 │  │ • Keyword    ││
+│  │ • Project (2)   │  │ • Process ID    │  │ • Quality    ││
+│  │ • Optimize (4)  │  │ • Value Eval    │  │ • Freshness  ││
+│  │ • Status (1)    │  │ • Smart Decide  │  │              ││
+│  │                 │  │ • User Learn    │  │              ││
 │  └─────────────────┘  └─────────────────┘  └──────────────┘│
 └────────────────────────┬─────────────────────────────────────┘
                          │
@@ -100,6 +101,7 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 ┌──────────────────────────────────────────────────────────────┐
 │                  SQLite Local Storage                        │
 │  Projects • Sessions • Contexts • Relationships • Embeddings │
+│  + Intelligent Memory Metadata (Process Type, Value Score)   │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -125,6 +127,14 @@ devmind-mcp/
 │   ├── auto-record-filter.ts        # Smart deduplication
 │   ├── types.ts                     # Type definitions
 │   ├── index.ts                     # Main entry point
+│   │
+│   ├── core/                        # v2.0 Intelligent Auto-Memory
+│   │   ├── auto-memory-types.ts     # Type definitions
+│   │   ├── DevelopmentProcessDetector.ts  # Process recognition
+│   │   ├── DevelopmentValueEvaluator.ts   # Value assessment
+│   │   ├── AutoMemoryTrigger.ts     # Decision trigger
+│   │   ├── UserFeedbackLearning.ts  # Feedback learning
+│   │   └── UnifiedMemoryManager.ts  # Unified manager
 │   │
 │   ├── memory-graph/                # Memory graph visualization
 │   │   ├── index.ts                 # Main graph generator
