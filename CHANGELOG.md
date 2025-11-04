@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.2] - 2025-11-04
+
+### Fixed
+- **Critical**: Restored `bin` field for NPX compatibility
+  - NPX requires `bin` field to determine which file to execute
+  - MCP clients use `npx devmind-mcp@latest` to start the server
+  - Fixed "npm error could not determine executable to run" error
+  - `bin` field is necessary for MCP server distribution, not just CLI tools
+
+### Technical Note
+The `bin` field in package.json is required for NPX to work, even for pure MCP servers. When users run `npx devmind-mcp@latest`, NPX needs to know which file to execute. This is different from CLI functionality - it's about package distribution.
+
+---
+
 ## [2.0.1] - 2025-11-04
 
 ### Fixed
