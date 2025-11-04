@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2025-11-04
+
+### Fixed
+- **Critical**: Removed `bin` field from package.json to prevent CLI execution
+  - DevMind MCP is now a pure MCP tool, not a command-line executable
+  - Fixes issue where `npx devmind-mcp@latest --version` would start MCP server instead of showing version
+  - Users should use `npm view devmind-mcp@latest version` to check version
+  - MCP server should only be invoked by MCP clients (Claude Desktop, Kiro, etc.)
+
+### Changed
+- **Package Configuration**: Simplified package.json for pure MCP usage
+  - Removed `bin` configuration that allowed CLI execution
+  - Entry point remains `dist/index.js` for MCP protocol communication
+  - No breaking changes for MCP client users
+
+### Migration Note
+If you were trying to run `npx devmind-mcp` as a command-line tool, this is no longer supported. DevMind MCP is designed to be used exclusively through MCP clients. Configure it in your MCP client's settings (e.g., `~/.kiro/settings/mcp.json` for Kiro).
+
+---
+
 ## [2.0.0] - 2025-11-04
 
 ### Major Release: Intelligent Auto-Memory
