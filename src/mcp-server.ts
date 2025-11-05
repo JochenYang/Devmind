@@ -1217,6 +1217,93 @@ export class AiMemoryMcpServer {
     }
   }
 
+  /**
+   * 生成增强的通知格式
+   */
+  private generateEnhancedNotification(
+    autoMemoryResult: any,
+    args: RecordContextParams,
+    decisionType: "ignored" | "confirmation_needed" | "auto_remembered"
+  ): string {
+    const language = args.project_path
+      ? languageDetector.detectProjectLanguage(args.project_path)
+      : "en";
+
+    const score = autoMemoryResult.value_score?.total_score || 0;
+    const processType = autoMemoryResult.process_type?.type || args.type || "conversation";
+    const suggestedTags = autoMemoryResult.memory_decision?.suggested_tags || args.tags || [];
+    const contentPreview = args.content.length > 100
+      ? args.content.substring(0, 100) + "..."
+      : args.content;
+
+    const lines: string[] = [];
+
+    // 状态行和评分
+    if (decisionType === "ignored") {
+      lines.push(language === "zh"
+        ? `⚠️  [已忽略] 评分: ${score}/100`
+        : `⚠️  [Ignored] Score: ${score}/100`);
+    } else if (decisionType === "confirmation_needed") {
+      lines.push(language === "zh"
+        ? `❓  [需要确认记忆] 评分: ${score}/100`
+        : `❓  [Confirmation Needed] Score: ${score}/100`);
+    } else {
+      lines.push(language === "zh"
+        ? `✅  [已自动记忆] 评分: ${score}/100`
+        : `✅  [Auto Remembered] Score: ${score}/100`);
+    }
+
+    lines.push(language === "zh"
+      ? `📁 类型: ${processType}`
+      : `📁 Type: ${processType}`);
+
+    if (suggestedTags.length > 0) {
+      lines.push(language === "zh"
+        ? `💡 建议标签: ${suggestedTags.join(", ")}`
+        : `💡 Suggested Tags: ${suggestedTags.join(", ")}`);
+    }
+
+    lines.push(language === "zh"
+      ? `📝 内容预览: ${contentPreview}`
+      : `📝 Content Preview: ${contentPreview}`);
+
+    // 添加决策理由
+    if (autoMemoryResult.memory_decision?.reasoning) {
+      lines.push("");
+      lines.push(language === "zh"
+        ? `🔍 决策理由: ${autoMemoryResult.memory_decision.reasoning}`
+        : `🔍 Decision: ${autoMemoryResult.memory_decision.reasoning}`);
+    }
+
+    // 添加具体的行动指导
+    if (decisionType === "ignored") {
+      lines.push("");
+      lines.push(language === "zh"
+        ? `💡 如果确实需要记忆: 调用 record_context 工具，使用 force_remember=true 覆盖`
+        : `💡 If really needed: Call record_context tool with force_remember=true to override`);
+    } else if (decisionType === "confirmation_needed") {
+      lines.push("");
+      const tip = score >= 70
+        ? (language === "zh" ? "评分较高，这个内容值得记忆" : "High score, content is worth remembering")
+        : (language === "zh" ? "评分中等，可以考虑记忆" : "Medium score, consider remembering");
+
+      lines.push(language === "zh"
+        ? `🤔 智能建议: ${tip}`
+        : `🤔 Smart Suggestion: ${tip}`);
+
+      lines.push(language === "zh"
+        ? `🔧 如需记忆: 调用 record_context 工具，使用相同 content 和 type，并设置 force_remember=true`
+        : `🔧 To Remember: Call record_context with same content and type, set force_remember=true`);
+    } else {
+      lines.push("");
+      lines.push(language === "zh"
+        ? `[AI行为] 内容已保存到记忆库，可通过 semantic_search 检索`
+        : `[AI Action] Content saved to memory, searchable via semantic_search`);
+    }
+
+    return lines.join("\n");
+  }
+
   private async handleRecordContext(args: RecordContextParams) {
     try {
       // 自动获取或创建会话（如果未提供 session_id）
@@ -1412,18 +1499,18 @@ export class AiMemoryMcpServer {
 
           // 根据决策结果决定是否继续记忆
           if (autoMemoryResult.action_required.type === "ignored") {
-            // 评分过低，不记忆
-            const detailedOutput =
-              this.unifiedMemoryManager.formatDetailedOutput(
-                autoMemoryResult,
-                args.project_path
-              );
+            // 评分过低，不记忆 - 使用增强通知格式
+            const enhancedNotification = this.generateEnhancedNotification(
+              autoMemoryResult,
+              args,
+              "ignored"
+            );
 
             return {
               content: [
                 {
                   type: "text",
-                  text: detailedOutput,
+                  text: enhancedNotification,
                 },
               ],
               isError: false,
@@ -1434,57 +1521,19 @@ export class AiMemoryMcpServer {
             };
           }
 
-          // 如果需要确认，返回建议但不记忆
+          // 如果需要确认，返回建议但不记忆 - 使用增强通知格式
           if (autoMemoryResult.action_required.type === "confirmation_needed") {
-            const detailedOutput =
-              this.unifiedMemoryManager.formatDetailedOutput(
-                autoMemoryResult,
-                args.project_path
-              );
-
-            // 根据评分生成智能提示
-            const score = autoMemoryResult.value_score?.total_score || 0;
-            const language = args.project_path
-              ? languageDetector.detectProjectLanguage(args.project_path)
-              : "en";
-
-            let smartTip = "";
-            let actionGuide = "";
-
-            if (score >= 70) {
-              smartTip =
-                language === "zh"
-                  ? `\n\n[智能建议] 评分较高 (${score}/100)，这个内容值得记忆。`
-                  : `\n\n[Smart Suggestion] High score (${score}/100), this content is worth remembering.`;
-              actionGuide =
-                language === "zh"
-                  ? `\n\n[如何记忆] 再次调用 record_context 工具，使用相同的 content 和 type，并设置 force_remember=true 参数。`
-                  : `\n\n[How to Remember] Call record_context tool again with the same content and type, and set force_remember=true parameter.`;
-            } else if (score >= 60) {
-              smartTip =
-                language === "zh"
-                  ? `\n\n[智能建议] 评分中等 (${score}/100)，可以考虑记忆。`
-                  : `\n\n[Smart Suggestion] Medium score (${score}/100), consider remembering.`;
-              actionGuide =
-                language === "zh"
-                  ? `\n\n[如需记忆] 再次调用 record_context 工具，使用相同的 content 和 type，并设置 force_remember=true 参数。`
-                  : `\n\n[If Needed] Call record_context tool again with the same content and type, and set force_remember=true parameter.`;
-            } else {
-              smartTip =
-                language === "zh"
-                  ? `\n\n[智能建议] 评分偏低 (${score}/100)，建议仅在确实需要时记忆。`
-                  : `\n\n[Smart Suggestion] Lower score (${score}/100), recommend remembering only if necessary.`;
-              actionGuide =
-                language === "zh"
-                  ? `\n\n[注意] 如确需记忆：再次调用 record_context 工具，使用相同的 content 和 type，并设置 force_remember=true 参数。`
-                  : `\n\n[Note] If really needed: Call record_context tool again with the same content and type, and set force_remember=true parameter.`;
-            }
+            const enhancedNotification = this.generateEnhancedNotification(
+              autoMemoryResult,
+              args,
+              "confirmation_needed"
+            );
 
             return {
               content: [
                 {
                   type: "text",
-                  text: `${detailedOutput}${smartTip}${actionGuide}`,
+                  text: enhancedNotification,
                 },
               ],
               isError: false,
@@ -1642,13 +1691,14 @@ export class AiMemoryMcpServer {
       // 构建响应消息
       let responseText = "";
 
-      // 智能评估结果（如果有）
+      // 智能评估结果（如果有）- 使用增强通知格式
       if (autoMemoryResult) {
-        const detailedOutput = this.unifiedMemoryManager.formatDetailedOutput(
+        const enhancedNotification = this.generateEnhancedNotification(
           autoMemoryResult,
-          args.project_path
+          args,
+          "auto_remembered"
         );
-        responseText += detailedOutput + "\n\n";
+        responseText += enhancedNotification + "\n\n";
       }
 
       responseText += `Context ID: ${contextId}`;

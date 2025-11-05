@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.9] - 2025-11-05
+
+### Enhanced
+
+- **Intelligent Auto-Memory Notification**: Major UX improvements for memory evaluation feedback
+  - **Visual Status Indicators**: Use emoji icons (⚠️/❓/✅) to clearly show evaluation decisions
+  - **Structured Format**: Organized layout with categories, tags, content preview, and decision reasoning
+  - **Clear Action Guidance**: Provide specific `force_remember=true` command examples for user override
+  - **Smart Language Adaptation**: Auto-detect project language (Chinese/English) for better user experience
+  - **Immediate Visibility**: Users can instantly see scores, decisions, and next steps without reading long text
+
+### Improved
+
+- **Enhanced Notification System**: Replaced plain text with structured, visually appealing messages
+  - Score prominently displayed at the top of each notification
+  - Actionable guidance with exact tool call parameters
+  - Better accessibility through emoji-based visual cues
+  - Reduced cognitive load with concise, organized information presentation
+
 ## [2.0.8] - 2025-11-05
 
 ### Fixed
