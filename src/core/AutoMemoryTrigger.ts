@@ -13,9 +13,9 @@ import {
  */
 export class AutoMemoryTrigger {
   private readonly MEMORY_THRESHOLDS = {
-    HIGH_VALUE: 80, // 高价值：自动记忆
-    MEDIUM_VALUE: 50, // 中价值：询问确认
-    LOW_VALUE: 25, // 低价值：忽略
+    HIGH_VALUE: 50, // 高价值：自动记忆（合理的50分标准）
+    MEDIUM_VALUE: 30, // 中价值：询问确认（合理的30分标准）
+    LOW_VALUE: 20, // 低价值：忽略（只忽略明显无价值的内容）
   };
 
   /**

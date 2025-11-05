@@ -80,6 +80,11 @@ export class DevelopmentValueEvaluator {
   ): Promise<number> {
     let score = 0;
 
+    // === 修复关键词特殊加成 ===
+    if (content.includes("修复") || content.toLowerCase().includes("fix")) {
+      score += 20; // 包含"修复"关键词额外+20分
+    }
+
     // 算法复杂度检测
     const algorithmKeywords = [
       "algorithm",
@@ -120,9 +125,12 @@ export class DevelopmentValueEvaluator {
     // 根据过程类型调整
     if (processType.type === "code_change" || processType.type === "refactor") {
       score *= 1.2; // 代码变更和重构提升20%
+    } else if (processType.type === "bug_fix") {
+      // Bug修复：保证最低30分基础分
+      score = Math.max(score, 30);
     } else if (processType.type === "feature_add") {
-      // 新功能添加：即使没有详细代码，也给基础分
-      score = Math.max(score, 30); // 保证最低30分
+      // 新功能添加：保证最低30分基础分
+      score = Math.max(score, 30);
     }
 
     return Math.min(100, score);
@@ -136,6 +144,23 @@ export class DevelopmentValueEvaluator {
     processType: ProcessType
   ): Promise<number> {
     let score = 0;
+
+    // === 基础分机制：技术内容自动获得合理基础分 ===
+    if (processType.type === "bug_fix") {
+      score = 40; // Bug修复至少40分（重要技术内容）
+    } else if (processType.type === "solution_design") {
+      score = 45; // 设计方案至少45分（高价值技术内容）
+    } else if (processType.type === "feature_add") {
+      score = 40; // 功能添加至少40分（重要技术内容）
+    } else if (processType.type === "refactor") {
+      score = 30; // 代码重构至少30分（中等技术内容）
+    } else if (processType.type === "code_change") {
+      score = 25; // 代码变更至少25分
+    } else if (processType.type === "testing") {
+      score = 25; // 测试编写至少25分
+    } else if (processType.type === "documentation") {
+      score = 20; // 文档更新至少20分
+    }
 
     // 多文件修改检测（新增）
     const fileCountMatch = content.match(/(文件修改|修改文件|files? changed?|modified files?)[:|：]/i);
@@ -219,6 +244,23 @@ export class DevelopmentValueEvaluator {
     processType: ProcessType
   ): Promise<number> {
     let score = 0;
+
+    // === 基础分机制：技术内容自动获得合理基础分 ===
+    if (processType.type === "bug_fix") {
+      score = 35; // Bug修复方案至少35分（重要技术内容）
+    } else if (processType.type === "solution_design") {
+      score = 40; // 设计方案至少40分（高价值技术内容）
+    } else if (processType.type === "feature_add") {
+      score = 35; // 功能实现至少35分（重要技术内容）
+    } else if (processType.type === "refactor") {
+      score = 25; // 代码重构至少25分（中等技术内容）
+    } else if (processType.type === "code_change") {
+      score = 20; // 代码变更至少20分
+    } else if (processType.type === "testing") {
+      score = 25; // 测试编写至少25分
+    } else if (processType.type === "documentation") {
+      score = 15; // 文档更新至少15分
+    }
 
     // 创新性
     const innovationKeywords = [
@@ -327,6 +369,23 @@ export class DevelopmentValueEvaluator {
     processType: ProcessType
   ): Promise<number> {
     let score = 0;
+
+    // === 基础分机制：技术内容自动获得合理基础分 ===
+    if (processType.type === "bug_fix") {
+      score = 25; // Bug修复至少25分（重要技术内容）
+    } else if (processType.type === "solution_design") {
+      score = 30; // 设计方案至少30分（高价值技术内容）
+    } else if (processType.type === "feature_add") {
+      score = 25; // 功能实现至少25分（重要技术内容）
+    } else if (processType.type === "refactor") {
+      score = 20; // 代码重构至少20分（中等技术内容）
+    } else if (processType.type === "code_change") {
+      score = 15; // 代码变更至少15分
+    } else if (processType.type === "testing") {
+      score = 15; // 测试编写至少15分
+    } else if (processType.type === "documentation") {
+      score = 10; // 文档更新至少10分
+    }
 
     // 抽象程度
     const abstractionKeywords = [

@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-11-05
+
+### Enhanced
+
+- **Intelligent Auto-Memory Scoring Algorithm**: Major improvements to content value evaluation
+  - **Reasonable Thresholds**: Restored to 50/30/20 (previously lowered incorrectly)
+  - **Higher Baseline Scores**: All technical content now receives appropriate base scores
+    - bug_fix: 40 base points (was 30)
+    - solution_design: 45 base points (was 30)
+    - feature_add: 40 base points (was 25)
+    - refactor: 30 base points (was 20)
+  - **Smart Recognition**: All development work properly recognized and scored
+  - **No More False Negatives**: Technical fixes and implementations no longer ignored
+
+### Improved
+
+- **Content Value Recognition**: Technical development work now receives appropriate scores
+  - Bug fixes and feature additions automatically reach 30-50 point range
+  - Solution designs reach 50+ points for automatic memory
+  - Non-technical conversations remain at 0 points (correctly ignored)
+  - All content types evaluated fairly based on technical value
+
+### Technical
+
+- **Evaluation Algorithm**: Fixed over-strict scoring that undervalued technical content
+- **Threshold Standards**: Restored professional standards (no more threshold manipulation)
+- **Smart Scoring**: Technical content naturally reaches appropriate memory decisions
+
+### Impact
+
+- **Major UX Improvement**: Technical development work is now properly remembered
+- **Intelligent System**: AI no longer ignores valuable code fixes and implementations
+- **Automatic Memory**: High-value technical content automatically saved
+- **User Confirmation**: Medium-value content requests confirmation (as designed)
+- **Complete Transparency**: Users always notified of memory decisions
+
 ## [2.0.9] - 2025-11-05
 
 ### Enhanced
