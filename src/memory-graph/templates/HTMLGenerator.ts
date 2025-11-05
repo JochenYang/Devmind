@@ -27,7 +27,7 @@ export class HTMLGenerator {
 
       // Determine output path
       const filePath = this.resolveOutputPath(
-        data.metadata.project_name,
+        data.metadata.project_path,
         outputPath
       );
 
@@ -86,13 +86,22 @@ export class HTMLGenerator {
    */
   private getStyles(): string {
     return `<style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { 
+      margin: 0; 
+      padding: 0; 
+      box-sizing: border-box;
+      user-select: none; /* 禁用文本选择 */
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #0a0e27;
       color: #e2e8f0;
       overflow: hidden;
       position: relative;
+      cursor: default; /* 默认光标 */
     }
     body::before {
       content: '';
@@ -127,6 +136,10 @@ export class HTMLGenerator {
       height: 100vh;
       position: relative;
       z-index: 1;
+      cursor: grab; /* 显示抓手光标 */
+    }
+    #graph:active {
+      cursor: grabbing; /* 拖拽时显示抓取光标 */
     }
     .controls {
       position: absolute;
@@ -156,6 +169,9 @@ export class HTMLGenerator {
       border-radius: 6px;
       color: #e2e8f0;
       font-size: 14px;
+      user-select: text; /* 允许输入框选择文本 */
+      -webkit-user-select: text;
+      cursor: text; /* 输入框显示文本光标 */
     }
     .control-group {
       margin-bottom: 15px;
@@ -166,6 +182,29 @@ export class HTMLGenerator {
       font-size: 12px;
       color: #94a3b8;
       font-weight: 500;
+    }
+    .radio-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .radio-label, .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #e2e8f0;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .radio-label:hover, .checkbox-label:hover {
+      color: #60a5fa;
+    }
+    .radio-label input[type="radio"],
+    .checkbox-label input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      cursor: pointer;
     }
     .stats {
       position: absolute;
@@ -252,6 +291,9 @@ export class HTMLGenerator {
       max-height: 500px;
       overflow-y: auto;
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      user-select: text; /* 允许 tooltip 中选择文本 */
+      -webkit-user-select: text;
+      cursor: auto; /* tooltip 中使用默认光标 */
     }
     .custom-tooltip.visible {
       opacity: 1;
@@ -304,15 +346,39 @@ export class HTMLGenerator {
       <input type="text" id="search" placeholder="Search...">
     </div>
     <div class="control-group">
-      <label class="control-label" id="filterLabel">Filter by Type</label>
+      <label class="control-label" id="filterLabel">Filter by Zone</label>
       <select id="typeFilter">
-        <option value="all" id="optionAll">All Types</option>
-        <option value="code">Code</option>
-        <option value="documentation">Documentation</option>
-        <option value="bug_fix">Bug Fix</option>
-        <option value="feature">Feature</option>
-        <option value="conversation">Conversation</option>
+        <option value="all" id="optionAll">All Zones</option>
+        <option value="conversation">💬 Conversation</option>
+        <option value="solution">✨ Solution</option>
+        <option value="code">💻 Code</option>
+        <option value="documentation">📚 Documentation</option>
+        <option value="error">🐛 Error</option>
+        <option value="configuration">⚙️ Configuration</option>
       </select>
+    </div>
+    <div class="control-group">
+      <label class="control-label" id="displayModeLabel">Display Mode</label>
+      <div class="radio-group">
+        <label class="radio-label">
+          <input type="radio" name="displayMode" value="preview" id="modePreview">
+          <span id="modePreviewText">Preview (50)</span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="displayMode" value="standard" id="modeStandard" checked>
+          <span id="modeStandardText">Standard (100)</span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="displayMode" value="full" id="modeFull">
+          <span id="modeFullText">Full (All)</span>
+        </label>
+      </div>
+    </div>
+    <div class="control-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="showLabels" checked>
+        <span id="showLabelsText">Show Labels</span>
+      </label>
     </div>
     <button class="btn" id="langToggle">🌐 中文</button>
     <button class="btn" id="resetLayout">🔄 Reset Layout</button>
@@ -331,9 +397,10 @@ export class HTMLGenerator {
    */
   private getStats(): string {
     return `<div class="stats">
-    <div><strong>Nodes:</strong> <span id="nodeCount">0</span></div>
-    <div><strong>Edges:</strong> <span id="edgeCount">0</span></div>
-    <div><strong>Visible:</strong> <span id="visibleCount">0</span></div>
+    <div id="displayingText"><strong>Displaying:</strong> <span id="nodeCount">0</span>/<span id="totalNodes">0</span></div>
+    <div id="edgesText"><strong>Edges:</strong> <span id="edgeCount">0</span></div>
+    <div id="visibleText"><strong>Visible:</strong> <span id="visibleCount">0</span></div>
+    <div id="performanceText"><strong>Performance:</strong> <span id="performanceStatus" style="color: #34d399;">Good</span></div>
   </div>`;
   }
 
@@ -342,13 +409,14 @@ export class HTMLGenerator {
    */
   private getLegend(): string {
     return `<div class="legend">
-    <div><strong>Legend</strong></div>
+    <div><strong id="legendTitle">Legend</strong></div>
     <div style="margin-top: 8px;">
-      <div>💻 Code</div>
-      <div>📚 Documentation</div>
-      <div>🐛 Bug Fix</div>
-      <div>✨ Feature</div>
-      <div>💬 Conversation</div>
+      <div>💬 <span id="legendConversation">Conversation</span></div>
+      <div>✨ <span id="legendSolution">Solution</span></div>
+      <div>💻 <span id="legendCode">Code</span></div>
+      <div>📚 <span id="legendDocumentation">Documentation</span></div>
+      <div>🐛 <span id="legendError">Error</span></div>
+      <div>⚙️ <span id="legendConfiguration">Configuration</span></div>
     </div>
   </div>`;
   }
@@ -373,6 +441,16 @@ export class HTMLGenerator {
       metadata: ${safeMetadataJson}
     };
     
+    // Display mode configuration
+    const displayModes = {
+      preview: { limit: 50, labels: true },
+      standard: { limit: 100, labels: true },
+      full: { limit: 0, labels: false } // 0 = all
+    };
+    let currentMode = 'standard';
+    let currentDisplayLimit = displayModes.standard.limit;
+    const totalNodeCount = graphData.nodes.length;
+    
     // Initialize D3 visualization with zoom and pan
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -387,23 +465,47 @@ export class HTMLGenerator {
     const zoom = d3.zoom()
       .scaleExtent([0.1, 4])
       .filter(event => {
-        // Allow all mouse events for panning and zooming
-        // Only prevent double-click zoom
-        if (event.type === 'dblclick') return false;
+        // Prevent double-click zoom
+        if (event.type === 'dblclick') {
+          event.preventDefault();
+          return false;
+        }
+        
+        // Only handle primary mouse button for dragging
+        if (event.button && event.button !== 0) return false;
+        
+        // Only prevent default for wheel events to avoid scroll
+        if (event.type === 'wheel') {
+          event.preventDefault();
+        }
+        
+        // Allow wheel zoom and drag
         return true;
+      })
+      .on('start', () => {
+        // Change cursor when starting to drag
+        svg.style('cursor', 'grabbing');
       })
       .on('zoom', (event) => {
         // Use transform for better performance
         g.attr('transform', event.transform);
+      })
+      .on('end', () => {
+        // Restore cursor when drag ends
+        svg.style('cursor', 'grab');
       });
     
-    svg.call(zoom);
+    svg.call(zoom)
+      .on('dblclick.zoom', null); // Completely disable double-click zoom
     
     // Optimize rendering performance
     svg.style('will-change', 'transform');
     
-    // Click background to unpin tooltip
-    svg.on('click', () => {
+    // Click background to unpin tooltip (use mousedown to avoid conflict with zoom)
+    svg.on('click.tooltip', (event) => {
+      // Only handle if not dragging
+      if (event.defaultPrevented) return;
+      
       if (tooltipPinned) {
         tooltipPinned = false;
         tooltip.classed('pinned', false);
@@ -542,27 +644,57 @@ export class HTMLGenerator {
         controls: 'Controls',
         searchLabel: 'Search Nodes',
         searchPlaceholder: 'Search...',
-        filterLabel: 'Filter by Type',
-        allTypes: 'All Types',
+        filterLabel: 'Filter by Zone',
+        allTypes: 'All Zones',
+        displayModeLabel: 'Display Mode',
+        modePreview: 'Preview (50)',
+        modeStandard: 'Standard (100)',
+        modeFull: 'Full (All)',
+        showLabels: 'Show Labels',
         resetLayout: 'Reset Layout',
         langToggle: '中文',
         tooltipHint: 'Click node to pin this window',
-        nodes: 'Nodes',
+        displaying: 'Displaying',
         edges: 'Edges',
-        visible: 'Visible'
+        visible: 'Visible',
+        performance: 'Performance',
+        perfGood: 'Good',
+        perfSlow: 'Slow',
+        legendTitle: 'Legend',
+        legendConversation: 'Conversation',
+        legendSolution: 'Solution',
+        legendCode: 'Code',
+        legendDocumentation: 'Documentation',
+        legendError: 'Error',
+        legendConfiguration: 'Configuration'
       },
       zh: {
         controls: '控制面板',
         searchLabel: '搜索节点',
         searchPlaceholder: '搜索...',
-        filterLabel: '按类型筛选',
-        allTypes: '所有类型',
+        filterLabel: '按区域筛选',
+        allTypes: '所有区域',
+        displayModeLabel: '显示模式',
+        modePreview: '预览 (50)',
+        modeStandard: '标准 (100)',
+        modeFull: '完整 (全部)',
+        showLabels: '显示标签',
         resetLayout: '重置布局',
         langToggle: 'English',
         tooltipHint: '点击节点固定此窗口',
-        nodes: '节点',
+        displaying: '正在显示',
         edges: '边',
-        visible: '可见'
+        visible: '可见',
+        performance: '性能',
+        perfGood: '良好',
+        perfSlow: '较慢',
+        legendTitle: '图例',
+        legendConversation: '对话',
+        legendSolution: '解决方案',
+        legendCode: '代码',
+        legendDocumentation: '文档',
+        legendError: '错误',
+        legendConfiguration: '配置'
       }
     };
     
@@ -691,69 +823,123 @@ export class HTMLGenerator {
       }
     }
     
-    // Draw nodes with fixed positions
-    const node = g.append('g')
-      .selectAll('circle')
-      .data(graphData.nodes)
-      .enter().append('circle')
-      .attr('class', 'node')
-      .attr('cx', d => d.x)
-      .attr('cy', d => d.y)
-      .attr('r', d => 5 + d.importance * 10)
-      .attr('fill', d => typeColors[d.type] || '#94a3b8')
-      .on('mouseenter', function(event, d) {
-        if (!tooltipPinned) {
-          showTooltip(d, event);
-        }
-      })
-      .on('mousemove', function(event) {
-        if (!tooltipPinned) {
-          const tooltipWidth = 600;
-          const tooltipHeight = 500;
-          let left = event.pageX + 15;
-          let top = event.pageY + 15;
-          
-          if (left + tooltipWidth > window.innerWidth) {
-            left = event.pageX - tooltipWidth - 15;
-          }
-          if (top + tooltipHeight > window.innerHeight) {
-            top = event.pageY - tooltipHeight - 15;
-          }
-          
-          tooltip
-            .style('left', left + 'px')
-            .style('top', top + 'px');
-        }
-      })
-      .on('mouseleave', function() {
-        if (!tooltipPinned) {
-          tooltipTimeout = setTimeout(() => {
-            tooltip.classed('visible', false);
-          }, 300);
-        }
-      })
-      .on('click', function(event, d) {
-        event.stopPropagation();
-        if (tooltipPinned) {
-          tooltipPinned = false;
-          tooltip.classed('pinned', false);
-          tooltip.classed('visible', false);
-        } else {
-          tooltipPinned = true;
-          tooltip.classed('pinned', true);
-          showTooltip(d, event);
-        }
-      });
+    // Function to get nodes to display based on current mode
+    function getNodesToDisplay() {
+      const limit = displayModes[currentMode].limit;
+      if (limit === 0 || limit >= totalNodeCount) {
+        return graphData.nodes;
+      }
+      return graphData.nodes.slice(0, limit);
+    }
     
-    // Draw labels with fixed positions
-    const label = g.append('g')
-      .selectAll('text')
-      .data(graphData.nodes)
-      .enter().append('text')
-      .attr('class', 'node-label')
-      .attr('x', d => d.x)
-      .attr('y', d => d.y - 15)
-      .text(d => d.label);
+    // Node and label elements (will be updated by render function)
+    let node, label, link;
+    
+    // Function to render nodes and labels
+    function renderGraph() {
+      const nodesToDisplay = getNodesToDisplay();
+      const showLabelsChecked = d3.select('#showLabels').property('checked');
+      
+      // Remove existing nodes and labels
+      g.selectAll('.node').remove();
+      g.selectAll('.node-label').remove();
+      g.selectAll('.link').remove();
+      
+      // Draw edges first (so they appear behind nodes)
+      link = g.append('g')
+        .selectAll('line')
+        .data(graphData.edges)
+        .enter().append('line')
+        .attr('class', 'link')
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+      
+      // Draw nodes
+      node = g.append('g')
+        .selectAll('circle')
+        .data(nodesToDisplay)
+        .enter().append('circle')
+        .attr('class', 'node')
+        .attr('cx', d => d.x)
+        .attr('cy', d => d.y)
+        .attr('r', d => 5 + d.importance * 10)
+        .attr('fill', d => typeColors[d.type] || '#94a3b8')
+        .on('mouseenter', function(event, d) {
+          if (!tooltipPinned) {
+            showTooltip(d, event);
+          }
+        })
+        .on('mousemove', function(event) {
+          if (!tooltipPinned) {
+            const tooltipWidth = 600;
+            const tooltipHeight = 500;
+            let left = event.pageX + 15;
+            let top = event.pageY + 15;
+            
+            if (left + tooltipWidth > window.innerWidth) {
+              left = event.pageX - tooltipWidth - 15;
+            }
+            if (top + tooltipHeight > window.innerHeight) {
+              top = event.pageY - tooltipHeight - 15;
+            }
+            
+            tooltip
+              .style('left', left + 'px')
+              .style('top', top + 'px');
+          }
+        })
+        .on('mouseleave', function() {
+          if (!tooltipPinned) {
+            tooltipTimeout = setTimeout(() => {
+              tooltip.classed('visible', false);
+            }, 300);
+          }
+        })
+        .on('click', function(event, d) {
+          event.stopPropagation();
+          if (tooltipPinned) {
+            tooltipPinned = false;
+            tooltip.classed('pinned', false);
+            tooltip.classed('visible', false);
+          } else {
+            tooltipPinned = true;
+            tooltip.classed('pinned', true);
+            showTooltip(d, event);
+          }
+        });
+      
+      // Draw labels (conditionally based on checkbox)
+      if (showLabelsChecked) {
+        label = g.append('g')
+          .selectAll('text')
+          .data(nodesToDisplay)
+          .enter().append('text')
+          .attr('class', 'node-label')
+          .attr('x', d => d.x)
+          .attr('y', d => d.y - 15)
+          .text(d => d.label);
+      }
+      
+      // Update stats
+      d3.select('#nodeCount').text(nodesToDisplay.length);
+      d3.select('#totalNodes').text(totalNodeCount);
+      d3.select('#edgeCount').text(graphData.edges.length);
+      d3.select('#visibleCount').text(nodesToDisplay.length);
+      
+      // Update performance indicator
+      const perfStatus = d3.select('#performanceStatus');
+      const t = i18n[currentLang];
+      if (nodesToDisplay.length > 100) {
+        perfStatus.text(t.perfSlow).style('color', '#fbbf24');
+      } else {
+        perfStatus.text(t.perfGood).style('color', '#34d399');
+      }
+    }
+    
+    // Initial render
+    renderGraph();
     
     // Search functionality
     d3.select('#search').on('input', function() {
@@ -762,34 +948,61 @@ export class HTMLGenerator {
         !d.label.toLowerCase().includes(searchTerm) &&
         !d.content.toLowerCase().includes(searchTerm)
       );
-      label.classed('filtered-out', d => 
-        !d.label.toLowerCase().includes(searchTerm) &&
-        !d.content.toLowerCase().includes(searchTerm)
-      );
-      link.classed('filtered-out', d =>
-        (!d.source.label.toLowerCase().includes(searchTerm) &&
-         !d.source.content.toLowerCase().includes(searchTerm)) ||
-        (!d.target.label.toLowerCase().includes(searchTerm) &&
-         !d.target.content.toLowerCase().includes(searchTerm))
-      );
-      updateVisibleCount();
-    });
-    
-    // Type filter
-    d3.select('#typeFilter').on('change', function() {
-      const selectedType = this.value;
-      if (selectedType === 'all') {
-        node.classed('filtered-out', false);
-        label.classed('filtered-out', false);
-        link.classed('filtered-out', false);
-      } else {
-        node.classed('filtered-out', d => d.type !== selectedType);
-        label.classed('filtered-out', d => d.type !== selectedType);
-        link.classed('filtered-out', d => 
-          d.source.type !== selectedType || d.target.type !== selectedType
+      if (label) {
+        label.classed('filtered-out', d => 
+          !d.label.toLowerCase().includes(searchTerm) &&
+          !d.content.toLowerCase().includes(searchTerm)
+        );
+      }
+      if (link) {
+        link.classed('filtered-out', d =>
+          (!d.source.label.toLowerCase().includes(searchTerm) &&
+           !d.source.content.toLowerCase().includes(searchTerm)) ||
+          (!d.target.label.toLowerCase().includes(searchTerm) &&
+           !d.target.content.toLowerCase().includes(searchTerm))
         );
       }
       updateVisibleCount();
+    });
+    
+    // Zone filter
+    d3.select('#typeFilter').on('change', function() {
+      const selectedZone = this.value;
+      if (selectedZone === 'all') {
+        node.classed('filtered-out', false);
+        if (label) label.classed('filtered-out', false);
+        if (link) link.classed('filtered-out', false);
+      } else {
+        // Filter by zone (d.zone is set during node positioning)
+        node.classed('filtered-out', d => d.zone !== selectedZone);
+        if (label) {
+          label.classed('filtered-out', d => d.zone !== selectedZone);
+        }
+        if (link) {
+          link.classed('filtered-out', d => 
+            d.source.zone !== selectedZone || d.target.zone !== selectedZone
+          );
+        }
+      }
+      updateVisibleCount();
+    });
+    
+    // Display mode change handler
+    d3.selectAll('input[name="displayMode"]').on('change', function() {
+      currentMode = this.value;
+      currentDisplayLimit = displayModes[currentMode].limit;
+      
+      // Update Show Labels checkbox based on mode
+      const shouldShowLabels = displayModes[currentMode].labels;
+      d3.select('#showLabels').property('checked', shouldShowLabels);
+      
+      // Re-render graph
+      renderGraph();
+    });
+    
+    // Show Labels checkbox handler
+    d3.select('#showLabels').on('change', function() {
+      renderGraph();
     });
     
     // Language toggle
@@ -803,9 +1016,23 @@ export class HTMLGenerator {
       d3.select('#search').attr('placeholder', t.searchPlaceholder);
       d3.select('#filterLabel').text(t.filterLabel);
       d3.select('#optionAll').text(t.allTypes);
+      d3.select('#displayModeLabel').text(t.displayModeLabel);
+      d3.select('#modePreviewText').text(t.modePreview);
+      d3.select('#modeStandardText').text(t.modeStandard);
+      d3.select('#modeFullText').text(t.modeFull);
+      d3.select('#showLabelsText').text(t.showLabels);
       d3.select('#langToggle').text('🌐 ' + t.langToggle);
       d3.select('#resetLayout').text('🔄 ' + t.resetLayout);
       d3.select('#tooltipHint').text('💡 ' + t.tooltipHint);
+      
+      // Update legend
+      d3.select('#legendTitle').text(t.legendTitle);
+      d3.select('#legendConversation').text(t.legendConversation);
+      d3.select('#legendSolution').text(t.legendSolution);
+      d3.select('#legendCode').text(t.legendCode);
+      d3.select('#legendDocumentation').text(t.legendDocumentation);
+      d3.select('#legendError').text(t.legendError);
+      d3.select('#legendConfiguration').text(t.legendConfiguration);
       
       // Update zone labels
       Object.keys(zoneLabelElements).forEach(zone => {
@@ -826,23 +1053,24 @@ export class HTMLGenerator {
     
     // Update visible count
     function updateVisibleCount() {
-      const visibleNodes = graphData.nodes.filter((d, i) => 
-        !node.nodes()[i].classList.contains('filtered-out')
-      );
+      const nodesToDisplay = getNodesToDisplay();
+      const visibleNodes = nodesToDisplay.filter((d, i) => {
+        const nodeElement = node.nodes()[i];
+        return nodeElement && !nodeElement.classList.contains('filtered-out');
+      });
       d3.select('#visibleCount').text(visibleNodes.length);
     }
-    
-    // Initialize stats
-    d3.select('#nodeCount').text(graphData.nodes.length);
-    d3.select('#edgeCount').text(graphData.edges.length);
-    d3.select('#visibleCount').text(graphData.nodes.length);
   </script>`;
   }
 
   /**
    * Resolve output file path
+   * 
+   * @param projectPath - Project directory path
+   * @param outputPath - Optional custom output path
+   * @returns Resolved absolute path
    */
-  private resolveOutputPath(projectName: string, outputPath?: string): string {
+  private resolveOutputPath(projectPath: string, outputPath?: string): string {
     if (outputPath) {
       // Validate path to prevent directory traversal
       const normalized = join(outputPath);
@@ -852,8 +1080,8 @@ export class HTMLGenerator {
       return normalized;
     }
 
-    // Default: memory/memory-graph.html in current directory
-    return join(process.cwd(), "memory", "memory-graph.html");
+    // Default: {projectPath}/memory/knowledge-graph.html
+    return join(projectPath, "memory", "knowledge-graph.html");
   }
 
   /**

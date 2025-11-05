@@ -20,6 +20,7 @@ export class NodeBuilder {
       content: context.content,
       type: context.type,
       importance: context.quality_score,
+      quality_score: context.quality_score,
       tags: this.parseTags(context.tags),
       created_at: context.created_at,
       file_path: context.file_path,

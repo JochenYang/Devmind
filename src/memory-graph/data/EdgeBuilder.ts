@@ -21,8 +21,10 @@ export class EdgeBuilder {
     }
 
     return {
-      from: relationship.from_context_id,
-      to: relationship.to_context_id,
+      id: `edge-${relationship.id}`,
+      source: relationship.from_context_id,
+      target: relationship.to_context_id,
+      label: relationship.type,
       relation: relationship.type,
       strength: this.calculateStrength(relationship),
     };

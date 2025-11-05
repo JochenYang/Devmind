@@ -20,6 +20,8 @@ export interface GraphNode {
   type: string;
   /** Importance score (0-1) based on quality */
   importance: number;
+  /** Quality score (0-1, same as importance, for Cytoscape compatibility) */
+  quality_score?: number;
   /** Associated tags */
   tags: string[];
   /** Creation timestamp */
@@ -32,14 +34,18 @@ export interface GraphNode {
  * Graph edge representing a relationship between contexts
  */
 export interface GraphEdge {
+  /** Edge unique identifier */
+  id: string;
   /** Source context ID */
-  from: string;
+  source: string;
   /** Target context ID */
-  to: string;
+  target: string;
+  /** Optional edge label */
+  label?: string;
   /** Relationship type */
-  relation: string;
+  relation?: string;
   /** Relationship strength (0-1) */
-  strength: number;
+  strength?: number;
 }
 
 /**
@@ -48,6 +54,8 @@ export interface GraphEdge {
 export interface GraphMetadata {
   /** Project name */
   project_name: string;
+  /** Project file path */
+  project_path: string;
   /** Total number of contexts in the graph */
   total_contexts: number;
   /** Total number of relationships in the graph */

@@ -58,7 +58,7 @@ export class GraphDataExtractor {
     const edges = this.edgeBuilder.buildMany(relationships, contextIds);
 
     // Build metadata
-    const metadata = this.buildMetadata(project.name, contexts, edges.length);
+    const metadata = this.buildMetadata(project.name, project.path, contexts, edges.length);
 
     return {
       nodes,
@@ -90,8 +90,10 @@ export class GraphDataExtractor {
       );
     }
 
-    // Sort by quality (highest first)
-    contexts.sort((a, b) => b.quality_score - a.quality_score);
+    // Sort by time (newest first) - ensures recent contexts are shown first
+    contexts.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
 
     // Limit number of nodes
     const maxNodes = options.max_nodes || 0;
@@ -150,17 +152,20 @@ export class GraphDataExtractor {
    * Build graph metadata
    *
    * @param projectName - Project name
+   * @param projectPath - Project file path
    * @param contexts - Array of contexts
    * @param edgeCount - Number of edges
    * @returns Graph metadata
    */
   private buildMetadata(
     projectName: string,
+    projectPath: string,
     contexts: Context[],
     edgeCount: number
   ) {
     return {
       project_name: projectName,
+      project_path: projectPath,
       total_contexts: contexts.length,
       total_relationships: edgeCount,
       generated_at: new Date().toISOString(),

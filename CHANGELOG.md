@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.7] - 2025-11-05
+
+### Enhanced
+- **Knowledge Graph UI Optimization**: Major visual improvements to the memory knowledge graph visualization
+  - **Pure Black Theme**: Changed background from blue gradient to pure black (#000) with subtle purple gradient light effects
+  - **Soft Text Colors**: Node labels now use soft gray (#d1d5db) instead of harsh white, reducing eye strain
+  - **Geometric Grid Pattern**: Added subtle purple grid overlay (50px × 50px) for visual depth
+  - **Enhanced Readability**: All text now has better contrast without being too bright
+  - **Refined Animations**: Smooth 20s gradient shift animation for ambient light effects
+
+### Improved
+- **Tooltip/Modal UI**: Significantly enhanced node detail display
+  - **Deeper Background**: Changed to #0a0a0a for better focus and reduced glare
+  - **Structured Metadata**: Metadata now displays in separate lines with labels (Type, Quality, Created, Tags, File)
+  - **Visual Hierarchy**: Title with bottom border, content in larger font (13px), metadata in color-coded box
+  - **Better Spacing**: Increased padding and margins for improved readability
+
+### Removed
+- **Show Labels Checkbox**: Removed redundant control from UI
+  - Labels are now always visible for better user experience
+  - Simplified control panel by removing unnecessary toggle
+  - Zone labels remain independently visible and support language switching
+
+### Fixed
+- **Zone Label Language Switching**: Fixed issue where zone labels wouldn't update after drag operations
+  - Zone labels now force style updates during language toggle
+  - Labels remain independent of other display modes
+  - Consistent behavior across all user interactions
+- **Stats Display**: Fixed node count calculation to exclude zone-label nodes
+  - Now correctly shows content node counts (e.g., 100/107 instead of 113/107)
+  - More accurate performance indicators
+- **Drag Border Artifacts**: Removed conflicting `autoungrabify` settings
+  - Eliminated selection box borders during canvas drag
+  - Cleaner interaction without visual glitches
+
+### Technical Details
+- Modified `src/memory-graph/templates/HTMLGeneratorCytoscape.ts`:
+  - Background: Pure black with purple radial gradients at multiple points
+  - Node text: #d1d5db color with reduced outline
+  - Zone labels: Maintain colorful display with 16px font
+  - Tooltip: #0a0a0a background with HTML-formatted metadata
+  - CSS: Gradient shift animation, grid pattern overlay
+- Display modes updated: All modes now show labels by default
+- Removed Show Labels event listener and UI element
+
+### Impact
+- **Improved Visual Comfort**: Softer colors reduce eye fatigue during extended use
+- **Better Information Hierarchy**: Clearer distinction between title, content, and metadata
+- **Simplified UI**: Fewer controls means easier navigation
+- **Professional Appearance**: Dark theme with subtle accents looks more polished
+- **Enhanced Usability**: Always-visible labels improve information density
+
+---
+
 ## [2.0.6] - 2025-11-05
 
 ### Added

@@ -11,7 +11,7 @@
 
 import { DatabaseManager } from "../database.js";
 import { GraphDataExtractor } from "./data/GraphDataExtractor.js";
-import { HTMLGenerator } from "./templates/HTMLGenerator.js";
+import { HTMLGeneratorCytoscape } from "./templates/HTMLGeneratorCytoscape.js";
 import {
   GenerateOptions,
   GenerateResult,
@@ -42,7 +42,7 @@ import {
  */
 export class MemoryGraphGenerator {
   private extractor: GraphDataExtractor;
-  private htmlGenerator: HTMLGenerator;
+  private htmlGenerator: HTMLGeneratorCytoscape;
 
   /**
    * 创建记忆图谱生成器实例
@@ -52,7 +52,7 @@ export class MemoryGraphGenerator {
    */
   constructor(private db: DatabaseManager) {
     this.extractor = new GraphDataExtractor(db);
-    this.htmlGenerator = new HTMLGenerator();
+    this.htmlGenerator = new HTMLGeneratorCytoscape();
   }
 
   /**
