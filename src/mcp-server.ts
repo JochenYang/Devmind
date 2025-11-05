@@ -23,6 +23,7 @@ import {
   FilePathDetector,
 } from "./utils/file-path-detector.js";
 import { UnifiedMemoryManager } from "./core/UnifiedMemoryManager.js";
+import { languageDetector } from "./utils/language-detector.js";
 import {
   AiMemoryConfig,
   ContextSearchParams,
@@ -1441,11 +1442,49 @@ export class AiMemoryMcpServer {
                 args.project_path
               );
 
+            // 根据评分生成智能提示
+            const score = autoMemoryResult.value_score?.total_score || 0;
+            const language = args.project_path
+              ? languageDetector.detectProjectLanguage(args.project_path)
+              : "en";
+
+            let smartTip = "";
+            let actionGuide = "";
+
+            if (score >= 70) {
+              smartTip =
+                language === "zh"
+                  ? `\n\n[智能建议] 评分较高 (${score}/100)，这个内容值得记忆。`
+                  : `\n\n[Smart Suggestion] High score (${score}/100), this content is worth remembering.`;
+              actionGuide =
+                language === "zh"
+                  ? `\n\n[如何记忆] 再次调用 record_context 工具，使用相同的 content 和 type，并设置 force_remember=true 参数。`
+                  : `\n\n[How to Remember] Call record_context tool again with the same content and type, and set force_remember=true parameter.`;
+            } else if (score >= 60) {
+              smartTip =
+                language === "zh"
+                  ? `\n\n[智能建议] 评分中等 (${score}/100)，可以考虑记忆。`
+                  : `\n\n[Smart Suggestion] Medium score (${score}/100), consider remembering.`;
+              actionGuide =
+                language === "zh"
+                  ? `\n\n[如需记忆] 再次调用 record_context 工具，使用相同的 content 和 type，并设置 force_remember=true 参数。`
+                  : `\n\n[If Needed] Call record_context tool again with the same content and type, and set force_remember=true parameter.`;
+            } else {
+              smartTip =
+                language === "zh"
+                  ? `\n\n[智能建议] 评分偏低 (${score}/100)，建议仅在确实需要时记忆。`
+                  : `\n\n[Smart Suggestion] Lower score (${score}/100), recommend remembering only if necessary.`;
+              actionGuide =
+                language === "zh"
+                  ? `\n\n[注意] 如确需记忆：再次调用 record_context 工具，使用相同的 content 和 type，并设置 force_remember=true 参数。`
+                  : `\n\n[Note] If really needed: Call record_context tool again with the same content and type, and set force_remember=true parameter.`;
+            }
+
             return {
               content: [
                 {
                   type: "text",
-                  text: `${detailedOutput}\n\n💡 Tip: Set force_remember=true to remember this content.`,
+                  text: `${detailedOutput}${smartTip}${actionGuide}`,
                 },
               ],
               isError: false,

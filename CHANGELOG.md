@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.4] - 2025-11-05
+
+### Enhanced
+- **Intelligent Confirmation Prompts**: Significantly improved user experience for `confirmation_needed` scenarios
+  - **Score-based Differentiated Suggestions**: Different guidance based on value scores
+    - Score ≥ 70: "[Smart Suggestion] High score, this content is worth remembering"
+    - Score 60-69: "[Smart Suggestion] Medium score, consider remembering"
+    - Score 50-59: "[Smart Suggestion] Lower score, recommend remembering only if necessary"
+  - **Clear Action Guidance**: Explicitly instructs AI how to proceed
+    - "[How to Remember] Call record_context tool again with the same content and type, and set force_remember=true parameter"
+    - Eliminates ambiguity about next steps
+  - **Multi-language Support**: Auto-detects project language (Chinese/English)
+    - Chinese labels: `[智能建议]` `[如何记忆]` `[如需记忆]` `[注意]`
+    - English labels: `[Smart Suggestion]` `[How to Remember]` `[If Needed]` `[Note]`
+  - **No Emoji**: Clean, professional output following project standards
+
+### Improved
+- **AI Understanding**: AI now clearly knows to call the tool again with `force_remember=true`
+- **User Decision-Making**: Score-based guidance helps users quickly decide whether to remember
+- **Output Consistency**: Prompts language matches evaluation results language automatically
+
+### Technical Details
+- Modified `src/mcp-server.ts` confirmation response logic (lines ~1444-1486)
+- Added `languageDetector` import for automatic language detection
+- Language detection logic:
+  - Scans code comments (up to 20 files)
+  - Checks README files
+  - Chinese character ratio > 20% → "zh", otherwise → "en"
+  - Defaults to "en" when project_path is not provided
+
+### Testing
+- Added `test-confirmation.js` for validation
+- Tested 4 scenarios (high/medium/low scores + English)
+- Verified: No emojis, differentiated suggestions, clear guidance, multi-language support
+
+### Example Output
+
+**High Score (72/100) - Chinese:**
+```
+建议记忆（需要确认）
+
+评估结果：
+- 过程类型：Bug 修复（置信度 85%）
+- 价值评分：72/100
+
+[智能建议] 评分较高 (72/100)，这个内容值得记忆。
+
+[如何记忆] 再次调用 record_context 工具，使用相同的 content 和 type，并设置 force_remember=true 参数。
+```
+
+**Medium Score (65/100) - Chinese:**
+```
+[智能建议] 评分中等 (65/100)，可以考虑记忆。
+
+[如需记忆] 再次调用 record_context 工具，使用相同的 content 和 type，并设置 force_remember=true 参数。
+```
+
+### Impact
+- **High ROI Enhancement**: Minimal code change (~50 lines) for significant UX improvement
+- **Fully Backward Compatible**: No breaking changes
+- **Completes Intelligent Auto-Memory**: AI can now properly handle medium-value content confirmation
+
+---
+
 ## [2.0.3] - 2025-11-04
 
 ### Fixed
