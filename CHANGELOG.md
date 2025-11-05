@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2025-11-05
+
+### Fixed
+
+- **Documentation Alignment**: Updated record_context tool description to match actual algorithm thresholds
+  - Fixed outdated scoring standards in tool description (was >=80, now >=50)
+  - Aligned documentation with actual intelligent memory scoring algorithm
+  - Added clear explanation of baseline scores for technical content
+
 ## [2.1.0] - 2025-11-05
 
 ### Enhanced
