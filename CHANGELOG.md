@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.6] - 2025-11-05
+
+### Added
+- **AI Behavior Guidance**: Added explicit instructions in `record_context` tool description for AI to inform users about memory decisions
+  - Score >=80: AI must notify user that work was auto-recorded with Context ID
+  - Score 50-79: AI must ask user for confirmation with evaluation summary
+  - Score <50: AI must inform user that work was not recorded, with option to override
+  - Ensures complete transparency and user control over all memory operations
+
+### Improved
+- **Tool Description Quality**: Enhanced `record_context` description following official MCP best practices
+  - Clear "IMPORTANT" section for AI behavior after task completion
+  - Three explicit scenarios with standard response templates
+  - Guarantees AI will proactively communicate memory decisions to users
+
+### Fixed
+- **Documentation Cleanup**: Removed version numbers from tool descriptions
+  - Removed "(New in v2.0.0)" and "(New in v1.16.0)" annotations
+  - Tool descriptions now version-agnostic and cleaner
+
+### Impact
+- **User Experience**: Users will now always be informed about memory decisions
+- **Transparency**: No more "silent" auto-memory or ignored content
+- **Control**: Users can override any decision (even low-score content)
+- **Predictability**: AI behavior is now standardized and consistent
+
+### Technical Details
+- Modified `src/mcp-server.ts` line 265 (record_context description)
+- Used Python script to preserve UTF-8 encoding of Chinese comments
+- No breaking changes to functionality or API
+
+---
+
 ## [2.0.5] - 2025-11-05
 
 ### Enhanced
