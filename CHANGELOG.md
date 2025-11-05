@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.3] - 2025-11-04
+
+### Fixed
+- **Critical**: Added explicit `onnxruntime-node` dependency for Node.js v24+ compatibility
+  - Fixes "Cannot find package 'onnxruntime-node/index.js'" error on Node.js v24.x
+  - Added `onnxruntime-node@^1.23.2` as direct dependency
+  - Resolves module resolution issues with `@xenova/transformers` on newer Node.js versions
+  - Users on Node.js v24+ should now be able to run devmind-mcp without errors
+
+### Technical Details
+The `@xenova/transformers` package has a peer dependency on `onnxruntime-node`, but the module resolution in Node.js v24+ requires it to be explicitly listed in dependencies. This fix ensures compatibility across all Node.js versions >=20.0.0.
+
+---
+
 ## [2.0.2] - 2025-11-04
 
 ### Fixed
