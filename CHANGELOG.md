@@ -5,9 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.8] - 2025-11-05
+
+### Fixed
+
+- **Knowledge Graph Output Path**: Fixed memory graph generation always writing to project root directory
+  - All relative paths now correctly redirect to `memory/knowledge-graph.html`
+  - Absolute paths are preserved and used as-is
+  - Default output path is now consistently `memory/knowledge-graph.html`
+
+### Improved
+
+- **Path Resolution Logic**: Enhanced `resolveOutputPath` method to properly handle relative and absolute paths
+  - Added path type checking using `isAbsolute()`
+  - Relative paths automatically redirect to project's memory folder
+  - Better path handling for all use cases
+
 ## [2.0.7] - 2025-11-05
 
 ### Enhanced
+
 - **Knowledge Graph UI Optimization**: Major visual improvements to the memory knowledge graph visualization
   - **Pure Black Theme**: Changed background from blue gradient to pure black (#000) with subtle purple gradient light effects
   - **Soft Text Colors**: Node labels now use soft gray (#d1d5db) instead of harsh white, reducing eye strain

@@ -7,7 +7,7 @@
 
 import { GraphData, GenerateResult, FileOperationError } from "../types.js";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, isAbsolute } from "path";
 
 export class HTMLGeneratorCytoscape {
   /**
@@ -1244,6 +1244,10 @@ export class HTMLGeneratorCytoscape {
 
   private resolveOutputPath(projectPath: string, outputPath?: string): string {
     if (outputPath) {
+      // 如果是相对路径，重定向到 memory/ 文件夹并使用默认文件名
+      if (!isAbsolute(outputPath)) {
+        return join(projectPath, "memory", "knowledge-graph.html");
+      }
       return outputPath;
     }
     return join(projectPath, "memory", "knowledge-graph.html");
