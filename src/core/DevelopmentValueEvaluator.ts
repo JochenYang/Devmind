@@ -120,6 +120,9 @@ export class DevelopmentValueEvaluator {
     // 根据过程类型调整
     if (processType.type === "code_change" || processType.type === "refactor") {
       score *= 1.2; // 代码变更和重构提升20%
+    } else if (processType.type === "feature_add") {
+      // 新功能添加：即使没有详细代码，也给基础分
+      score = Math.max(score, 30); // 保证最低30分
     }
 
     return Math.min(100, score);
@@ -133,6 +136,26 @@ export class DevelopmentValueEvaluator {
     processType: ProcessType
   ): Promise<number> {
     let score = 0;
+
+    // 多文件修改检测（新增）
+    const fileCountMatch = content.match(/(文件修改|修改文件|files? changed?|modified files?)[:|：]/i);
+    if (fileCountMatch) {
+      // 提取文件数量
+      const fileMatches = content.match(/[-*]\s+[^\n]+\.(tsx?|jsx?|vue|py|java|go|rs|cpp|c|h)/gi);
+      if (fileMatches) {
+        const fileCount = fileMatches.length;
+        if (fileCount >= 5) score += 40;
+        else if (fileCount >= 3) score += 25;
+        else if (fileCount >= 2) score += 15;
+      }
+    }
+
+    // 代码行数统计（新增）
+    const linesAddedMatch = content.match(/(\d+)\s*(lines?|\u884c)\s*(added?|new|新增)/i);
+    if (linesAddedMatch) {
+      const linesAdded = parseInt(linesAddedMatch[1]);
+      score += Math.min(30, linesAdded / 10);
+    }
 
     // 问题描述复杂度
     const complexityKeywords = [
@@ -181,6 +204,8 @@ export class DevelopmentValueEvaluator {
     // 根据过程类型调整
     if (processType.type === "bug_fix") {
       score *= 1.3; // Bug修复提升30%
+    } else if (processType.type === "feature_add" && score > 0) {
+      score *= 1.2; // 新功能添加提升20%
     }
 
     return Math.min(100, score);
@@ -243,9 +268,52 @@ export class DevelopmentValueEvaluator {
     ).length;
     score += completenessMatches * 10;
 
+    // UX/用户体验价值识别（新增）
+    const uxKeywords = [
+      "user experience",
+      "ux",
+      "usability",
+      "accessibility",
+      "user interface",
+      "ui improvement",
+      "interaction",
+      "responsive",
+      "用户体验",
+      "可用性",
+      "交互",
+      "界面优化",
+      "响应式",
+    ];
+    const uxMatches = uxKeywords.filter((keyword) =>
+      content.toLowerCase().includes(keyword.toLowerCase())
+    ).length;
+    score += uxMatches * 18;
+
+    // i18n/国际化价值识别（新增）
+    const i18nKeywords = [
+      "internationalization",
+      "i18n",
+      "localization",
+      "l10n",
+      "translation",
+      "multilingual",
+      "locale",
+      "language support",
+      "国际化",
+      "本地化",
+      "多语言",
+      "翻译",
+    ];
+    const i18nMatches = i18nKeywords.filter((keyword) =>
+      content.toLowerCase().includes(keyword.toLowerCase())
+    ).length;
+    score += i18nMatches * 20;
+
     // 根据过程类型调整
     if (processType.type === "solution_design") {
       score *= 1.4; // 方案设计提升40%
+    } else if (processType.type === "feature_add") {
+      score *= 1.2; // 新功能添加提升20%
     }
 
     return Math.min(100, score);
@@ -305,6 +373,57 @@ export class DevelopmentValueEvaluator {
       content.includes("```") || content.includes("example");
     if (hasCodeExample) {
       score += 15;
+    }
+
+    // 可复用模式识别（新增）
+    const reusablePatterns = [
+      {
+        name: "HashRouter anchor handling",
+        keywords: ["hashrouter", "anchor", "scrollintoview", "preventdefault"],
+        score: 20,
+      },
+      {
+        name: "i18n integration pattern",
+        keywords: ["uselanguage", "i18n", "translation", "locale"],
+        score: 20,
+      },
+      {
+        name: "Error boundary",
+        keywords: ["errorboundary", "componentdidcatch", "fallback"],
+        score: 25,
+      },
+      {
+        name: "Custom React hook",
+        keywords: ["hook", "useeffect", "usestate"],
+        patterns: [/use[A-Z]\w+/],
+        score: 20,
+      },
+      {
+        name: "State management pattern",
+        keywords: ["redux", "context", "provider", "store"],
+        score: 18,
+      },
+    ];
+
+    for (const pattern of reusablePatterns) {
+      let matches = 0;
+
+      // 关键词匹配
+      if (pattern.keywords) {
+        matches = pattern.keywords.filter((kw) =>
+          content.toLowerCase().includes(kw.toLowerCase())
+        ).length;
+      }
+
+      // 正则匹配
+      if (pattern.patterns) {
+        matches += pattern.patterns.filter((p) => p.test(content)).length;
+      }
+
+      // 至少匹配2个特征才认为是该模式
+      if (matches >= 2) {
+        score += pattern.score;
+      }
     }
 
     return Math.min(100, score);

@@ -6,6 +6,7 @@
  * 过程类型枚举
  */
 export type ProcessTypeEnum =
+  | "feature_add"
   | "code_change"
   | "bug_fix"
   | "solution_design"

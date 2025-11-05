@@ -298,6 +298,7 @@ export class AutoMemoryTrigger {
   ): string {
     // 根据过程类型映射到记忆类型
     const typeMapping: Record<string, string> = {
+      feature_add: "feature_add",
       code_change: "code_modify",
       bug_fix: "bug_fix",
       solution_design: "solution",
@@ -358,6 +359,10 @@ export class AutoMemoryTrigger {
       { keyword: "database", tag: "database" },
       { keyword: "api", tag: "api" },
       { keyword: "test", tag: "testing" },
+      { keyword: "i18n", tag: "i18n" },
+      { keyword: "internationalization", tag: "i18n" },
+      { keyword: "ux", tag: "ux" },
+      { keyword: "user experience", tag: "ux" },
     ];
 
     for (const { keyword, tag } of tagKeywords) {

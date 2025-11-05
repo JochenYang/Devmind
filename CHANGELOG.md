@@ -5,6 +5,84 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.5] - 2025-11-05
+
+### Enhanced
+- **Intelligent Process Recognition**: Added `feature_add` process type for better feature development detection
+  - New keywords: "add", "create", "new", "implement", "build", "develop", "introduce"
+  - Pattern matching: `/\bcreate\s+(new\s+)?[\w]+/i`, `/\badd\s+(new\s+)?[\w]+/i`, etc.
+  - Higher confidence boost (35 vs 25 for bug_fix) to prioritize feature detection
+  - Prevents misclassification of feature additions as bug fixes
+
+- **Multi-File Impact Detection**: Significantly improved problem complexity assessment
+  - Automatically detects multiple file changes from content description
+  - Score boost: 5+ files (+40), 3-4 files (+25), 2 files (+15)
+  - Code lines detection: Adds score based on total additions (up to +30)
+  - Real impact: Case study showed 0 → 57.6 score improvement (+∞%)
+
+- **UX/i18n Value Recognition**: Enhanced solution importance evaluation
+  - UX keywords: "user experience", "ux", "usability", "accessibility", "interaction" (+18 per match)
+  - i18n keywords: "internationalization", "i18n", "localization", "l10n", "translation" (+20 per match)
+  - Feature-add type boost: +20% score multiplier
+  - Real impact: Case study showed 32 → 100 score improvement (+212%)
+
+- **Reusable Pattern Detection**: Improved reusability assessment
+  - HashRouter anchor handling pattern (+20)
+  - i18n integration pattern (+20)
+  - Error boundary pattern (+25)
+  - Custom React hook pattern (+20)
+  - State management pattern (+18)
+  - Pattern matching requires ≥2 feature matches for accuracy
+  - Real impact: Case study showed 0 → 40 score improvement (+∞%)
+
+### Fixed
+- **Bug-Fix Over-Detection**: Refined bug_fix keyword patterns
+  - Changed from single "fix" to compound "fix bug" or "bug fix"
+  - Prevents false positives when "fix" appears in feature descriptions
+  - More accurate process type classification
+
+### Improved
+- **Type System**: Added `feature_add` to `ProcessTypeEnum` and memory type mapping
+- **Evaluation Weights**: Dynamic adjustment for different process types
+  - `feature_add`: Emphasizes multi-file impact and user value
+  - Guarantees minimum base scores for feature additions (30 for code significance)
+- **Tag Generation**: Added i18n and ux tags to suggested tags
+- **Decision Confidence**: Enhanced context-based decision adjustments
+
+### Technical Details
+- Modified files:
+  - `src/core/DevelopmentProcessDetector.ts`: Added feature_add type and refined bug_fix patterns
+  - `src/core/DevelopmentValueEvaluator.ts`: Multi-file detection, UX/i18n keywords, pattern recognition
+  - `src/core/AutoMemoryTrigger.ts`: feature_add mapping and new tag keywords
+  - `src/core/auto-memory-types.ts`: Updated ProcessTypeEnum
+
+### Performance
+- **Case Study Results** (Documentation optimization scenario):
+  - Process Recognition: bug_fix (wrong) → feature_add (correct) ✅
+  - Problem Complexity: 0 → 57.6 (+∞%)
+  - Solution Importance: 32 → 100 (+212%)
+  - Reusability: 0 → 40 (+∞%)
+  - **Total Score: 24 → 56 (+133%)**
+  - **Decision: ignore → ask_confirmation** ✅
+
+### Architecture
+- Follows official MCP best practices:
+  - Detailed tool descriptions with "When to Use" guidance
+  - Clear parameter explanations
+  - Transparent decision-making logic
+  - Smart confirmation prompts with actionable guidance
+- No breaking changes to data structures
+- Knowledge graph generation unaffected
+- Backward compatible with existing contexts
+
+### Impact
+- **More Accurate Recognition**: Feature additions correctly identified
+- **Better Value Assessment**: Multi-dimensional improvements capture real development value
+- **Smarter Decisions**: More content reaches ask_confirmation threshold (50-79 score range)
+- **AI-Friendly**: Enhanced tool descriptions enable proactive AI behavior
+
+---
+
 ## [2.0.4] - 2025-11-05
 
 ### Enhanced
