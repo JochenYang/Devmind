@@ -4,7 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/devmind-mcp.svg)](https://www.npmjs.com/package/devmind-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org)
 [![Downloads](https://img.shields.io/npm/dm/devmind-mcp.svg)](https://www.npmjs.com/package/devmind-mcp)
 
 **为AI助手打造的智能上下文感知记忆系统**
@@ -20,7 +20,7 @@
 - **纯 MCP 工具** - 通过模型上下文协议与 AI 助手无缝集成
 - **混合搜索** - 语义 40% + 关键词 30% + 质量 20% + 新鲜度 10%
 - **100% 私密** - 所有数据本地存储在 SQLite，零云端传输
-- **18 个 MCP 工具** - 完整的记忆管理和项目分析工具集
+- **14 个 MCP 工具** - 完整的记忆管理和项目分析工具集
 - **跨平台支持** - 兼容 Claude Desktop、Cursor 及所有 MCP 客户端
 
 ---
@@ -49,11 +49,10 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 
 #### 主要功能
 
-- **智能自动记忆** (v2.0 新功能) - AI 自动评估并决定记忆内容
-  - 过程识别（6种类型：bug修复、重构、方案设计等）
-  - 价值评估（4个维度：代码显著性、问题复杂度、解决方案重要性、可复用性）
-  - 智能决策（自动记忆、询问确认或忽略）
-  - 用户反馈学习（持续优化评估参数）
+- **类型驱动自动记忆** - 基于上下文类型的简化智能记录
+  - Tier 1: 自动记录技术执行（bug_fix、feature_add、code_modify）- 静默
+  - Tier 2: 自动记录并通知（solution、design、documentation）- 可删除
+  - Tier 3: 不自动记录（conversation、error）- 除非 force_remember=true
 - **智能记忆** - 通过 MCP 协议实现 AI 驱动的上下文记录
 - **语义搜索** - AI驱动的向量嵌入搜索,查找相关上下文
 - **持久存储** - 基于SQLite的本地存储,完全私密
@@ -86,14 +85,13 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 ┌──────────────────────────────────────────────────────────────┐
 │                   DevMind MCP 服务器                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐│
-│  │  18 MCP 工具    │  │  智能自动记忆   │  │  混合搜索    ││
-│  │                 │  │  (v2.0 新功能)  │  │              ││
-│  │ • 会话 (4)      │  │                 │  │ • 语义搜索   ││
-│  │ • 上下文 (7)    │  │ • 过程识别      │  │ • 关键词     ││
-│  │ • 项目 (2)      │  │ • 价值评估      │  │ • 质量评分   ││
-│  │ • 优化 (4)      │  │ • 智能决策      │  │ • 新鲜度     ││
-│  │ • 状态 (1)      │  │ • 用户学习      │  │              ││
+│  │  14 MCP 工具    │  │  类型驱动记忆   │  │  混合搜索    ││
 │  │                 │  │                 │  │              ││
+│  │ • 会话 (4)      │  │                 │  │ • 语义搜索   ││
+│  │ • 上下文 (6)    │  │ • 3个层级       │  │ • 关键词     ││
+│  │ • 项目 (2)      │  │ • 智能类型      │  │ • 质量评分   ││
+│  │ • 可视化 (1)    │  │ • 懒加载评分    │  │ • 新鲜度     ││
+│  │ • 状态 (1)      │  │                 │  │              ││
 │  └─────────────────┘  └─────────────────┘  └──────────────┘│
 └────────────────────────┬─────────────────────────────────────┘
                          │
@@ -101,14 +99,14 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 ┌──────────────────────────────────────────────────────────────┐
 │                  SQLite 本地存储                             │
 │  Projects • Sessions • Contexts • Relations • Embeddings     │
-│  + 智能记忆元数据 (过程类型、价值评分)                       │
+│  + 自动生成质量评分 (懒加载更新，每24小时)                   │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 **核心组件:**
 
-- **18 个 MCP 工具** - 会话管理、上下文操作、项目分析、优化、系统状态
-- **AI 记录** - 通过 AI 助手交互实现智能上下文记录
+- **14 个 MCP 工具** - 会话管理 (4)、上下文操作 (6)、项目功能 (2)、可视化 (1)、状态 (1)
+- **类型驱动自动记忆** - 基于上下文类型的简化3层策略
 - **混合搜索** - 多维度评分：语义 40% + 关键词 30% + 质量 20% + 新鲜度 10%
 - **本地存储** - SQLite 数据库，包含向量嵌入和全文搜索索引
 ## 📍 项目结构
@@ -124,16 +122,9 @@ devmind-mcp/
 │   ├── content-quality-assessor.ts  # 内容质量评分
 │   ├── quality-score-calculator.ts  # 多维度质量评分
 │   ├── auto-record-filter.ts        # 智能去重
+│   ├── context-file-manager.ts      # 文件变更追踪
 │   ├── types.ts                     # 类型定义
 │   ├── index.ts                     # 主入口
-│   │
-│   ├── core/                        # v2.0 智能自动记忆
-│   │   ├── auto-memory-types.ts     # 类型定义
-│   │   ├── DevelopmentProcessDetector.ts  # 过程识别
-│   │   ├── DevelopmentValueEvaluator.ts   # 价值评估
-│   │   ├── AutoMemoryTrigger.ts     # 决策触发
-│   │   ├── UserFeedbackLearning.ts  # 反馈学习
-│   │   └── UnifiedMemoryManager.ts  # 统一管理器
 │   │
 │   ├── memory-graph/                # 记忆图谱可视化
 │   │   ├── index.ts                 # 图谱生成器主入口
@@ -177,7 +168,7 @@ devmind-mcp/
 
 ### 环境要求
 
-- **Node.js** ≥ 18.0.0
+- **Node.js** ≥ 20.0.0
 - **MCP兼容客户端** (Claude Desktop、Cursor等)
 
 ### 安装
@@ -241,7 +232,7 @@ devmind-mcp/
 
 ### MCP工具速查
 
-DevMind为您的AI助手提供 **18个强大工具** 和 **1个专业提示**:
+DevMind为您的AI助手提供 **14个强大工具** 和 **1个专业提示**:
 
 #### 项目分析
 
@@ -270,28 +261,21 @@ DevMind为您的AI助手提供 **18个强大工具** 和 **1个专业提示**:
 
 #### 上下文操作
 
-| 工具                   | 用途                | 使用示例        |
-|------------------------|---------------------|-----------------|
-| `record_context`       | 存储开发上下文      | 保存bug修复方案 |
-| `list_contexts`        | 列出所有上下文      | 查看项目历史    |
-| `delete_context`       | 删除特定上下文      | 移除过时信息    |
-| `update_context`       | 更新上下文内容/标签 | 完善文档        |
-| `extract_file_context` | 从文件提取上下文    | 分析代码结构    |
+|| 工具             | 用途                | 使用示例        |
+||------------------|---------------------|-----------------|
+|| `record_context` | 存储开发上下文      | 保存bug修复方案 |
+|| `list_contexts`  | 列出所有上下文      | 查看项目历史    |
+|| `delete_context` | 删除特定上下文      | 移除过时信息    |
+|| `update_context` | 更新上下文内容/标签 | 完善文档        |
 
 #### 搜索与发现
 
-| 工具                   | 用途             | 使用示例     |
-|------------------------|------------------|--------------|
-| `semantic_search`      | AI驱动的语义搜索 | 查找相关实现 |
-| `get_related_contexts` | 查找相关上下文   | 探索关联性   |
-| `generate_embeddings`  | 生成向量嵌入     | 索引新内容   |
+|| 工具                   | 用途             | 使用示例     |
+||------------------------|------------------|--------------|
+|| `semantic_search`      | AI驱动的语义搜索 | 查找相关实现 |
+|| `get_related_contexts` | 查找相关上下文   | 探索关联性   |
 
-#### 内存优化
-
-| 工具                      | 用途                   | 使用示例         |
-|---------------------------|------------------------|------------------|
-| `optimize_project_memory` | 优化记忆存储和性能     | 清理、压缩、去重   |
-| `update_quality_scores`   | 重新计算多维度质量评分 | 刷新时间衰减评分 |
+**注意**: Embedding自动生成于record_context。质量评分在搜索时自动更新（懒加载，每24小时）。
 
 #### 可视化
 
@@ -432,92 +416,26 @@ const analysis = await project_analysis_engineer({
 | `auto_cleanup`      | boolean | `true`                 | 启用旧上下文自动清理 |
 | `vector_dimensions` | number  | `1536`                 | 向量嵌入维度         |
 
-### 推荐系统提示
+### 智能记录指南
 
-在您的MCP客户端系统提示中添加这个规则，实现智能记忆管理：
+DevMind 使用 **3层类型驱动自动记忆策略**：
 
-```
-DevMind 智能记录规则:
+**Tier 1 (静默自动记录):**
+- `bug_fix`、`feature_add`、`feature_update`、`code_modify`、`code_refactor`、`code_optimize`
+- 技术执行自动记录，无需确认
 
-1. 查询优先: 回答技术问题前先使用 semantic_search 搜索已有知识
-   - 结果使用多维度评分（语义+关键词+质量+新鲜度）
-   - 使用 file_path 参数在特定文件中搜索
-   - 搜索结果自动缓存5分钟，重复查询更快
+**Tier 2 (通知自动记录):**
+- `solution`、`design`、`learning`、`documentation`
+- 自动记录并提示删除通知（用户可根据需要移除）
 
-2. 立即记录 (无需确认):
-   - 用户明确说"记住这个"或"记录这个"
-   - Bug 修复完成并验证 → type="solution"
-   - 新功能开发完成并测试 → type="code"
-   - 版本发布完成 (包含 Git tag + NPM publish) → type="documentation"
+**Tier 3 (不自动记录):**
+- `conversation`、`error` - 仅当 `force_remember=true` 时记录
 
-3. 建议记录 (先询问用户):
-   - 架构设计讨论 → type="documentation"
-   - 复杂问题的多种解决方案 → type="solution"
-   - 技术调研和对比分析 → type="documentation"
-
-4. 记录格式要求:
-   - 必需字段: content、type、session_id、tags
-   - 单文件: file_path、line_ranges [[起始,结束],...]
-   - 多文件: files_changed [{file_path, change_type, line_ranges, diff_stats}]
-   - 涉及2个以上文件时使用 files_changed（重构/功能开发）
-   - Tags 格式: ["技术栈", "模块名", "功能类型", "状态"]
-
-5. 会话管理: 每个项目自动创建/复用唯一主会话
-
-6. 新项目: 使用 project_analysis_engineer 提示生成专业文档
-
-关键原则:
-- "完成" = 代码已写 + 测试通过 + 验证可用
-- "进行中" = 仅讨论/设计，尚未实现
-- "发布" = 已完成工作的全面总结记录
-
-重要提示: DevMind 是纯 MCP 工具，AI 必须通过 MCP 工具主动记录所有重要上下文。
-```
-
-#### 自动记录触发场景
-
-| 优先级 | 何时记录 | 示例场景                             |
-|--------|----------|--------------------------------------|
-| **高** | 必须记录 | 用户说"记住"、bug修复、新功能、架构决策 |
-| **中** | 建议记录 | 代码审查、优化方案、配置更改、最佳实践  |
-| **低** | 可选记录 | 一般性讨论、简单解释、重复内容         |
-
-#### 推荐记录格式
-
-**单文件变更:**
-```typescript
-{
-  content: "具体的技术内容,包含背景和解决方案",
-  type: "solution|code|error|documentation|test|configuration",
-  file_path: "src/auth/login.ts",
-  line_ranges: [[10, 50], [80, 100]],
-  tags: ["技术栈", "模块", "重要性", "状态"],
-  session_id: "当前会话ID"
-}
-```
-
-**多文件变更（重构/功能开发）:**
-```typescript
-{
-  content: "重构认证模块，拆分为多个文件",
-  type: "code_refactor",
-  files_changed: [
-    {
-      file_path: "src/auth/login.ts",
-      change_type: "modify",
-      line_ranges: [[10, 50]],
-      diff_stats: {additions: 15, deletions: 8, changes: 23}
-    },
-    {
-      file_path: "src/auth/utils.ts",
-      change_type: "add",
-      line_ranges: [[1, 60]]
-    }
-  ],
-  tags: ["重构", "认证", "多文件"],
-  session_id: "当前会话ID"
-}
-```
+**最佳实践：**
+- 回答技术问题前使用 `semantic_search`
+- 单文件：使用 `file_path` + `line_ranges`
+- 多文件：使用 `files_changed` 数组
+- 用户说“记住这个”：设置 `force_remember=true`
 
 ### 完整MCP配置示例
 

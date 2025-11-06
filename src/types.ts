@@ -122,15 +122,19 @@ export enum ContextType {
   FEATURE_UPDATE = "feature_update", // 功能更新
   FEATURE_REMOVE = "feature_remove", // 移除功能
 
+  // === 方案设计类型（New） ===
+  SOLUTION = "solution", // 技术方案讨论
+  DESIGN = "design", // 架构/系统设计
+  LEARNING = "learning", // 技术学习/概念讨论
+
   // === 通用类型（保持向后兼容） ===
   CODE = "code", // 通用代码（未细分时使用）
-  CONVERSATION = "conversation",
-  ERROR = "error",
-  SOLUTION = "solution",
-  DOCUMENTATION = "documentation",
-  TEST = "test",
-  CONFIGURATION = "configuration",
-  COMMIT = "commit",
+  CONVERSATION = "conversation", // 纯聊天
+  ERROR = "error", // 错误报告
+  DOCUMENTATION = "documentation", // 文档编写
+  TEST = "test", // 测试相关
+  CONFIGURATION = "configuration", // 配置修改
+  COMMIT = "commit", // 版本提交
 }
 
 export enum RelationType {
@@ -208,9 +212,8 @@ export interface RecordContextParams {
 
   metadata?: Record<string, any>; // 其他元数据
 
-  // === 智能自动记忆参数 (New in v2.0.0) ===
-  auto_evaluate?: boolean; // 是否启用智能评估（默认 true）
-  force_remember?: boolean; // 强制记忆，跳过评估（默认 false，用户主动记忆时为 true）
+  // === 简化自动记忆参数 (v2.1.0) ===
+  force_remember?: boolean; // 用户强制记忆（默认 false）
 }
 
 export interface SessionCreateParams {

@@ -4,7 +4,7 @@
 
 [![npm version](https://img.shields.io/npm/v/devmind-mcp.svg)](https://www.npmjs.com/package/devmind-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20.0.0-brightgreen)](https://nodejs.org)
 [![Downloads](https://img.shields.io/npm/dm/devmind-mcp.svg)](https://www.npmjs.com/package/devmind-mcp)
 
 **Intelligent context-aware memory system for AI assistants**
@@ -20,7 +20,7 @@
 - **Pure MCP Tool** - Seamless integration with AI assistants through Model Context Protocol
 - **Hybrid Search** - Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **100% Private** - All data stored locally in SQLite, zero cloud transmission
-- **18 MCP Tools** - Complete toolkit for memory management and project analysis
+- **14 MCP Tools** - Complete toolkit for memory management and project analysis
 - **Cross-Platform** - Works with Claude Desktop, Cursor, and all MCP-compatible clients
 
 ---
@@ -49,11 +49,10 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 
 #### Core Capabilities
 
-- **Intelligent Auto-Memory** (New in v2.0) - AI automatically evaluates and decides what to remember
-  - Process recognition (6 types: bug_fix, refactor, solution_design, etc.)
-  - Value assessment (4 dimensions: code significance, problem complexity, solution importance, reusability)
-  - Smart decision-making (auto-remember, ask confirmation, or ignore)
-  - User feedback learning (continuously optimizes evaluation parameters)
+- **Type-Based Auto-Memory** - Simplified intelligent recording based on context type
+  - Tier 1: Auto-record technical execution (bug_fix, feature_add, code_modify) - silent
+  - Tier 2: Auto-record with notice (solution, design, documentation) - can delete
+  - Tier 3: No auto-record (conversation, error) - unless force_remember=true
 - **Intelligent Memory** - AI-driven context recording through MCP protocol
 - **Semantic Search** - AI-powered vector embedding search for finding related contexts
 - **Persistent Storage** - SQLite-based local storage with complete privacy
@@ -85,30 +84,29 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
                          ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                   DevMind MCP Server                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐│
-│  │  18 MCP Tools   │  │ Intelligent     │  │ Hybrid Search││
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────││
+│  │  14 MCP Tools   │  │ Type-Based      │  │ Hybrid Search││
 │  │                 │  │ Auto-Memory     │  │              ││
-│  │ • Session (4)   │  │ (v2.0 New)      │  │ • Semantic   ││
-│  │ • Context (7)   │  │                 │  │ • Keyword    ││
-│  │ • Project (2)   │  │ • Process ID    │  │ • Quality    ││
-│  │ • Optimize (4)  │  │ • Value Eval    │  │ • Freshness  ││
-│  │ • Status (1)    │  │ • Smart Decide  │  │              ││
-│  │                 │  │ • User Learn    │  │              ││
-│  └─────────────────┘  └─────────────────┘  └──────────────┘│
+│  │ • Session (4)   │  │                 │  │ • Semantic   ││
+│  │ • Context (6)   │  │                 │  │ • Keyword    ││
+│  │ • Project (2)   │  │ • 3 Tiers      │  │ • Quality    ││
+│  │ • Visualize (1) │  │ • Smart Types  │  │ • Freshness  ││
+│  │ • Status (1)    │  │ • Lazy Scoring │  │              ││
+│  └─────────────────┘  └─────────────────┘  └──────────────││
 └────────────────────────┬─────────────────────────────────────┘
                          │
                          ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                  SQLite Local Storage                        │
 │  Projects • Sessions • Contexts • Relationships • Embeddings │
-│  + Intelligent Memory Metadata (Process Type, Value Score)   │
+│  + Auto-generated quality scores (lazy update every 24h)     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 **Key Components:**
 
-- **18 MCP Tools** - Session management, context operations, project analysis, optimization, system status
-- **AI Recording** - Intelligent context recording through AI assistant interaction
+- **14 MCP Tools** - Session management (4), context operations (6), project features (2), visualization (1), status (1)
+- **Type-Based Auto-Memory** - Simplified 3-tier strategy based on context type
 - **Hybrid Search** - Multi-dimensional scoring: Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **Local Storage** - SQLite database with vector embeddings and full-text search indexes
 
@@ -125,16 +123,9 @@ devmind-mcp/
 │   ├── content-quality-assessor.ts  # Content quality scoring
 │   ├── quality-score-calculator.ts  # Multi-dimensional quality scoring
 │   ├── auto-record-filter.ts        # Smart deduplication
+│   ├── context-file-manager.ts      # File change tracking
 │   ├── types.ts                     # Type definitions
 │   ├── index.ts                     # Main entry point
-│   │
-│   ├── core/                        # v2.0 Intelligent Auto-Memory
-│   │   ├── auto-memory-types.ts     # Type definitions
-│   │   ├── DevelopmentProcessDetector.ts  # Process recognition
-│   │   ├── DevelopmentValueEvaluator.ts   # Value assessment
-│   │   ├── AutoMemoryTrigger.ts     # Decision trigger
-│   │   ├── UserFeedbackLearning.ts  # Feedback learning
-│   │   └── UnifiedMemoryManager.ts  # Unified manager
 │   │
 │   ├── memory-graph/                # Memory graph visualization
 │   │   ├── index.ts                 # Main graph generator
@@ -177,7 +168,7 @@ devmind-mcp/
 
 ### Prerequisites
 
-- **Node.js** ≥ 18.0.0
+- **Node.js** ≥ 20.0.0
 - **MCP-compatible client** (Claude Desktop, Cursor, etc.)
 
 ### Installation
@@ -241,7 +232,7 @@ In your AI assistant, try:
 
 ### MCP Tools Quick Reference
 
-DevMind provides **18 powerful tools** and **1 professional prompt** for your AI assistant:
+DevMind provides **14 powerful tools** and **1 professional prompt** for your AI assistant:
 
 #### Project Analysis
 
@@ -270,28 +261,21 @@ DevMind provides **18 powerful tools** and **1 professional prompt** for your AI
 
 #### Context Operations
 
-| Tool                   | Purpose                     | Example Use            |
-|------------------------|-----------------------------|------------------------|
-| `record_context`       | Store development context   | Save bug fix solution  |
-| `list_contexts`        | List all contexts           | Review project history |
-| `delete_context`       | Delete specific context     | Remove outdated info   |
-| `update_context`       | Update context content/tags | Refine documentation   |
-| `extract_file_context` | Extract context from files  | Analyze code structure |
+|| Tool             | Purpose                     | Example Use            |
+||------------------|-----------------------------|------------------------|
+|| `record_context` | Store development context   | Save bug fix solution  |
+|| `list_contexts`  | List all contexts           | Review project history |
+|| `delete_context` | Delete specific context     | Remove outdated info   |
+|| `update_context` | Update context content/tags | Refine documentation   |
 
 #### Search & Discovery
 
-| Tool                   | Purpose                    | Example Use                  |
-|------------------------|----------------------------|------------------------------|
-| `semantic_search`      | AI-powered semantic search | Find related implementations |
-| `get_related_contexts` | Find related contexts      | Explore connections          |
-| `generate_embeddings`  | Generate vector embeddings | Index new content            |
+|| Tool                   | Purpose                    | Example Use                  |
+||------------------------|----------------------------|------------------------------|
+|| `semantic_search`      | AI-powered semantic search | Find related implementations |
+|| `get_related_contexts` | Find related contexts      | Explore connections          |
 
-#### Memory Optimization
-
-| Tool                      | Purpose                                      | Example Use                         |
-|---------------------------|----------------------------------------------|-------------------------------------|
-| `optimize_project_memory` | Optimize memory storage and performance      | Cleanup, compression, deduplication |
-| `update_quality_scores`   | Recalculate multi-dimensional quality scores | Refresh time-decayed scores         |
+**Note**: Embeddings are auto-generated on record_context. Quality scores auto-update every 24h during searches (lazy loading).
 
 #### Visualization
 
@@ -347,151 +331,6 @@ const results = await semantic_search({
 ```
 
 
-
----
-
-## Intelligent Auto-Memory (New in v2.0)
-
-### Overview
-
-DevMind now features **Intelligent Auto-Memory** that automatically evaluates content value and decides what to remember. No more manual decisions - let AI manage your memory intelligently!
-
-### How It Works
-
-```text
-Content → Process Recognition → Value Assessment → Smart Decision → Memory/Skip
-   │            │                    │                  │              │
- Input      Identify type      Score 4 dimensions   Auto/Ask/Ignore  Store or not
-           (bug_fix, etc.)    (code, problem, etc.)  (80/50/25)
-```
-
-### Three Memory Modes
-
-#### 1. AI Proactive Memory (Default)
-AI automatically evaluates and decides:
-- **Score ≥ 80**: Auto-remember
-- **Score 50-79**: Ask for confirmation
-- **Score < 50**: Ignore
-
-```typescript
-// AI decides automatically (default behavior)
-await record_context({
-  content: "Fixed critical memory leak in event listeners",
-  type: "bug_fix",
-  project_path: "./my-project"
-  // auto_evaluate: true (default)
-});
-
-// Output:
-// ✓ Auto-remembered
-// 
-// Evaluation Result:
-// - Process Type: Bug Fix (Confidence 90%)
-// - Value Score: 85/100
-//   * Code Significance: 80
-//   * Problem Complexity: 90
-//   * Solution Importance: 85
-//   * Reusability: 80
-// 
-// Suggested Tags: bug-fix, memory-leak, performance
-// Decision Reasoning: High-value bug fix involving memory management
-```
-
-#### 2. User Explicit Memory (Highest Priority)
-Force remember important content:
-
-```typescript
-// Always remember, skip evaluation
-await record_context({
-  content: "Critical architecture decision for microservices migration",
-  type: "solution_design",
-  project_path: "./my-project",
-  force_remember: true  // Always remember
-});
-```
-
-#### 3. Traditional Memory (Backward Compatible)
-Disable intelligent evaluation:
-
-```typescript
-// Traditional behavior
-await record_context({
-  content: "Regular code change",
-  type: "code",
-  project_path: "./my-project",
-  auto_evaluate: false  // Disable intelligent evaluation
-});
-```
-
-### Value Assessment Dimensions
-
-DevMind evaluates content across 4 dimensions:
-
-1. **Code Significance (30%)** - Algorithm complexity, code quality, code length
-2. **Problem Complexity (25%)** - Technical difficulty, tech stack depth, impact scope
-3. **Solution Importance (25%)** - Innovation, generality, completeness
-4. **Reusability (20%)** - Abstraction level, documentation, applicability
-
-### Process Recognition
-
-Automatically identifies 6 development process types:
-
-- `bug_fix` - Bug fixes and error corrections
-- `refactor` - Code refactoring and improvements
-- `solution_design` - Architecture and design decisions
-- `code_change` - Regular code modifications
-- `testing` - Test writing and validation
-- `documentation` - Documentation updates
-
-### User Feedback Learning
-
-System learns from your feedback to optimize evaluation:
-
-```typescript
-// Provide feedback on a memory
-await update_context({
-  context_id: "abc123",
-  user_feedback: "useful",  // or "not_useful", "needs_improvement"
-  feedback_comment: "This solution was very helpful"
-});
-
-// System automatically:
-// - Records feedback
-// - Adjusts evaluation weights
-// - Optimizes recognition patterns
-// - Improves future decisions
-```
-
-### Search with Intelligence
-
-Search results now include intelligent memory metadata:
-
-```typescript
-const results = await semantic_search({
-  query: "memory leak solutions"
-});
-
-// Results include:
-// - Memory Source: ai_proactive / user_explicit / auto_trigger
-// - Process Type: bug_fix (90% confidence)
-// - Value Score: 85/100
-// - Helps AI understand context better
-```
-
-### Default Parameters
-
-Optimized default values (auto-adjusted through learning):
-
-**Thresholds:**
-- High Value: 80 (auto-remember)
-- Medium Value: 50 (ask confirmation)
-- Low Value: 25 (ignore)
-
-**Weights:**
-- Code Significance: 30%
-- Problem Complexity: 25%
-- Solution Importance: 25%
-- Reusability: 20%
 
 ---
 
@@ -579,92 +418,28 @@ Create `.devmind.json` in your project root:
 | `auto_cleanup`      | boolean | `true`                 | Enable automatic cleanup of old contexts |
 | `vector_dimensions` | number  | `1536`                 | Vector embedding dimensions              |
 
-### Recommended System Prompt
+### Smart Recording Guidelines
 
-Add this rule to your MCP client's system prompt for intelligent memory management:
+DevMind uses a **3-tier type-based auto-memory strategy**:
 
-```
-DevMind Smart Recording Rules:
+**Tier 1 (Silent Auto-Record):**
+- `bug_fix`, `feature_add`, `feature_update`, `code_modify`, `code_refactor`, `code_optimize`
+- Technical execution is automatically recorded without confirmation
 
-1. Query First: Use semantic_search before answering technical questions
-   - Results use multi-dimensional scoring (semantic + keyword + quality + freshness)
-   - Use file_path parameter to search within specific files
-   - Searches are cached for 5 minutes for faster repeated queries
+**Tier 2 (Notify Auto-Record):**
+- `solution`, `design`, `learning`, `documentation`
+- Auto-recorded with deletion notice (user can remove if not needed)
 
-2. Record Immediately (no confirmation needed):
-   - User explicitly says "remember this" or "record this"
-   - Bug fix completed and verified → type="solution"
-   - New feature completed and tested → type="code"
-   - Version release completed (with Git tag + NPM publish) → type="documentation"
+**Tier 3 (No Auto-Record):**
+- `conversation`, `error` - Only recorded when `force_remember=true`
 
-3. Suggest Recording (ask user first):
-   - Architecture design discussions → type="documentation"
-   - Complex problems with multiple solutions → type="solution"
-   - Technical research and comparative analysis → type="documentation"
+**Best Practices:**
+- Use `semantic_search` before answering technical questions
+- Single file: use `file_path` + `line_ranges`
+- Multiple files: use `files_changed` array
+- User says "remember this": set `force_remember=true`
 
-4. Recording Format Requirements:
-   - Required fields: content, type, session_id, tags
-   - Single file: file_path, line_ranges [[start,end],...]
-   - Multiple files: files_changed [{file_path, change_type, line_ranges, diff_stats}]
-   - Use files_changed for refactoring/features spanning 2+ files
-   - Tags format: ["tech-stack", "module", "feature-type", "status"]
 
-5. Session Management: Auto-creates/reuses one main session per project
-
-6. New Project: Use project_analysis_engineer prompt for comprehensive documentation
-
-Key Principles:
-- "Completed" = Code written + Tests passed + Verified working
-- "In Progress" = Discussion/design only, not yet implemented
-- "Release" = Comprehensive summary record of completed work
-
-IMPORTANT: DevMind is a pure MCP tool. AI must actively record all important contexts through MCP tools.
-```
-
-#### Auto-Recording Triggers
-
-| Priority   | When to Record | Example Scenarios                                                      |
-|------------|----------------|------------------------------------------------------------------------|
-| **High**   | Must record    | User says "remember", bug fixes, new features, architectural decisions |
-| **Medium** | Should record  | Code reviews, optimizations, config changes, best practices            |
-| **Low**    | Optional       | General discussions, simple explanations, repetitive content           |
-
-#### Recording Format Best Practice
-
-**Single File Change:**
-```typescript
-{
-  content: "Specific technical content including background and solution",
-  type: "solution|code|error|documentation|test|configuration",
-  file_path: "src/auth/login.ts",
-  line_ranges: [[10, 50], [80, 100]],
-  tags: ["tech-stack", "module", "importance", "status"],
-  session_id: "current-session-id"
-}
-```
-
-**Multi-File Change (Refactoring/Feature):**
-```typescript
-{
-  content: "Refactored authentication module across multiple files",
-  type: "code_refactor",
-  files_changed: [
-    {
-      file_path: "src/auth/login.ts",
-      change_type: "modify",
-      line_ranges: [[10, 50]],
-      diff_stats: {additions: 15, deletions: 8, changes: 23}
-    },
-    {
-      file_path: "src/auth/utils.ts",
-      change_type: "add",
-      line_ranges: [[1, 60]]
-    }
-  ],
-  tags: ["refactor", "auth", "multi-file"],
-  session_id: "current-session-id"
-}
-```
 
 ### Full MCP Configuration Example
 
