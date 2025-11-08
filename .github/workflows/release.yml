@@ -1,0 +1,74 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v2.1.7
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for changelog extraction
+      
+      - name: Get version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          # Extract changelog section for this version
+          VERSION=${{ steps.get_version.outputs.version }}
+          
+          # Find the section between [VERSION] and next version or end
+          CHANGELOG=$(awk "/^## \[$VERSION\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+          
+          # If changelog is empty, use a default message
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="Release version $VERSION"
+          fi
+          
+          # Save to output (handle multiline)
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Release ${{ steps.get_version.outputs.tag }}
+          body: |
+            ## DevMind MCP ${{ steps.get_version.outputs.tag }}
+            
+            ${{ steps.changelog.outputs.content }}
+            
+            ---
+            
+            ### Installation
+            
+            ```bash
+            npm install -g devmind-mcp@${{ steps.get_version.outputs.version }}
+            ```
+            
+            ### NPM Package
+            - 📦 [devmind-mcp@${{ steps.get_version.outputs.version }}](https://www.npmjs.com/package/devmind-mcp/v/${{ steps.get_version.outputs.version }})
+            
+            ### Documentation
+            - 📖 [README](https://github.com/${{ github.repository }}/blob/${{ steps.get_version.outputs.tag }}/README.md)
+            - 📝 [Full Changelog](https://github.com/${{ github.repository }}/blob/${{ steps.get_version.outputs.tag }}/CHANGELOG.md)
+          draft: false
+          prerelease: false
+          generate_release_notes: false  # Use our custom changelog instead
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
