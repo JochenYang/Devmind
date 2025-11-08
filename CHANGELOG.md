@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.6] - 2025-11-08
+
+### Improved
+
+- **Tool Descriptions Optimized**: Streamlined tool descriptions for clarity and reduced token usage
+  - `record_context` description: 1500+ chars → 600 chars (60% reduction)
+  - `content` field description: 600+ chars → 200 chars (67% reduction)
+  - Removed redundant examples and philosophical statements
+  - Kept core functionality and mandatory rules intact
+  - Location: `src/mcp-server.ts:265-315`
+
+- **Field Descriptions Clarified**: Fixed misleading parameter descriptions
+  - `language` field: Now explicitly states it's for CODE language (typescript, python, go), not natural language
+  - Added clear distinction: CODE language vs. natural language (Chinese/English)
+  - Prevents confusion between programming language and content language
+  - Location: `src/mcp-server.ts:339-340`
+
+### Added
+
+- **Time Filter for list_contexts**: New `since` parameter for time-based filtering
+  - Supported values: `'24h'`, `'7d'`, `'30d'`, `'90d'`
+  - Returns contexts created within the specified time window
+  - Example: `since: '7d'` returns contexts from last 7 days
+  - Location: `src/mcp-server.ts:2871-2893`
+
+- **Type Filter for list_contexts**: New `type` parameter for context type filtering
+  - Filter by specific context types (e.g., 'bug_fix', 'feature_add', 'commit')
+  - Combines with `since` filter for precise queries
+  - Example: `{type: 'bug_fix', since: '7d'}` returns bug fixes from last week
+  - Location: `src/mcp-server.ts:2896-2898`
+
+- **Type Filter for semantic_search**: New `type` parameter for context type filtering
+  - Filter semantic search results by context type
+  - Example: `{query: 'authentication', type: 'solution'}` finds only solution-type contexts
+  - Applied after hybrid search for precise results
+  - Location: `src/mcp-server.ts:1935-1938`
+
+### Changed
+
+- **Tool Parameter Updates**:
+  - `list_contexts`: Added `since` and `type` parameters
+  - `semantic_search`: Added `type` parameter
+  - All new parameters are optional - backward compatible
+
+### Technical Details
+
+- **Time Calculation**: Millisecond-based filtering using `Date.now()` and context `created_at`
+- **Type Filtering**: String equality check on context `type` field
+- **Performance**: Filters applied in-memory after database query
+- **Backward Compatibility**: All changes are additive - existing calls continue to work
+
+### Testing Recommendations
+
+- Test `list_contexts` with `since='24h'` to view recent work
+- Test `list_contexts` with `type='commit'` to view all commits
+- Test `semantic_search` with `type='bug_fix'` to find bug fix solutions
+- Combine filters: `{since: '7d', type: 'feature_add'}` for recent features
+
 ## [2.1.5] - 2025-11-08
 
 ### Fixed

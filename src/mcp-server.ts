@@ -263,7 +263,7 @@ export class AiMemoryMcpServer {
         {
           name: "record_context",
           description:
-            "Record development context with type-based auto-memory strategy. Technical work is automatically recorded based on context type, eliminating the need for manual evaluation.\n\n**Auto-Memory Strategy:**\n\n**Tier 1: Silent Auto-Record (Code Execution)**\nAutomatically records without user confirmation:\n- bug_fix, feature_add, feature_update\n- code_create, code_modify, code_refactor, code_optimize, code_delete\n- test, configuration, commit\n\nResponse: \"Automatically recorded this [type] work. Context ID: xxx\"\n\n**Tier 2: Notify Auto-Record (Design & Solutions)**\nAutomatically records with deletion option:\n- solution (technical solution discussions)\n- design (architecture/system design)\n- documentation (technical writing)\n- learning (technical concepts/knowledge)\n\nResponse: \"This [type] has been auto-recorded (ID: xxx). To remove: delete_context({context_id: 'xxx'})\"\n\n**Tier 3: Not Recorded**\n- conversation (non-technical chat)\n- error (error reports without solutions)\n\nResponse: \"Conversation not recorded. To force record, set force_remember=true\"\n\n**AI Behavior Guidelines:**\n\nWhen to call this tool:\n1. After completing any technical work (bug fixes, features, refactoring)\n2. After technical discussions (solutions, architecture designs)\n3. When user explicitly requests to \"remember this\" or \"save this\"\n4. After documenting or writing technical guides\n5. **MANDATORY: After git commit/push operations** (type: commit)\n6. **MANDATORY: After npm/package publish operations** (type: commit or configuration)\n7. **MANDATORY: After version releases with git tags** (type: commit)\n8. **MANDATORY: After modifying 2+ files** (use files_changed parameter)\n\nWhen NOT to call:\n1. During casual conversations\n2. For simple error messages without solutions\n3. For exploratory Q&A without actionable results\n\n**Mandatory Auto-Record Checklist (AI must check after each operation):**\n- [ ] Did I execute git push? → Call record_context with type: commit\n- [ ] Did I execute npm publish? → Call record_context with type: commit\n- [ ] Did I create git tag? → Call record_context with type: commit\n- [ ] Did I modify 2+ source files? → Call record_context with files_changed\n- [ ] Did I complete a bug fix? → Call record_context with type: bug_fix\n- [ ] Did I implement a feature? → Call record_context with type: feature_add\n\n**Key Parameters:**\n- type: Determines auto-record behavior (required)\n- content: The content to remember (required) - **MUST match project language** (see content field description)\n- force_remember: User explicit override to record any content (default: false)\n- files_changed: Track multiple files in one context (recommended for refactoring/features)\n\n**Design Philosophy:**\nRecord all technical work to provide complete dataset for long-term learning system. Value is determined by actual usage (query frequency, references, time decay) rather than upfront AI judgment.",
+            "Record development context with type-based 3-tier auto-memory strategy.\n\n**Auto-Memory Strategy:**\n\nTier 1 (Silent): bug_fix, feature_add/update, code_create/modify/refactor/optimize/delete, test, configuration, commit\nTier 2 (Notify): solution, design, documentation, learning\nTier 3 (Not recorded): conversation, error (unless force_remember=true)\n\n**MANDATORY Recording Rules:**\nAI MUST call after:\n1. git commit/push/tag → type: commit\n2. npm publish → type: commit\n3. Modifying 2+ files → use files_changed\n4. Bug fixes → type: bug_fix\n5. New features → type: feature_add\n\n**Key Parameters:**\n- type: Required, determines auto-record tier\n- content: Required, MUST match project language (Chinese/English)\n- force_remember: Override to record any type\n- files_changed: For multi-file changes",
           inputSchema: {
             type: "object",
             properties: {
@@ -311,7 +311,7 @@ export class AiMemoryMcpServer {
               },
               content: { 
                 type: "string", 
-                description: "The context content. **CRITICAL: Must match project language.** \n\n**Language Matching Rules:**\n1. Detect project language from user's conversation language (highest priority)\n2. Check README.md main language (Chinese characters > 30% = Chinese project)\n3. If conversation is in Chinese → Write content in Chinese\n4. If conversation is in English → Write content in English\n5. When unsure, use conversation language\n\n**Examples:**\n- Chinese conversation + Chinese README → 中文内容\n- English conversation + English README → English content\n- Mixed: Prioritize conversation language\n\n**Wrong Examples:**\n❌ Chinese project but writing English content\n❌ Chinese conversation but writing English content\n\n**Correct Examples:**\n✅ Chinese conversation → \"DevMind MCP v2.1.3 版本发布 - Bug修复\\n\\n修复的问题：...\"\n✅ English conversation → \"DevMind MCP v2.1.3 Release - Bug Fixes\\n\\nFixed Issues:...\"" 
+                description: "The context content. **MUST match project's natural language (Chinese/English).**\n\nLanguage Detection Priority:\n1. User's conversation language (highest)\n2. README.md language (>30% Chinese = Chinese project)\n3. When unsure → use conversation language\n\nExamples:\n✅ Chinese conversation → 中文内容\n✅ English conversation → English content\n❌ Chinese conversation but English content" 
               },
               file_path: { type: "string", description: "Optional file path" },
               line_start: {
@@ -337,7 +337,7 @@ export class AiMemoryMcpServer {
               },
               language: {
                 type: "string",
-                description: "Optional programming language",
+                description: "Optional programming language (e.g., 'typescript', 'python', 'go'). This is for CODE language, not natural language. For natural language (Chinese/English), write content field in the appropriate language.",
               },
               tags: {
                 type: "array",
@@ -532,7 +532,7 @@ export class AiMemoryMcpServer {
         {
           name: "semantic_search",
           description:
-            "Intelligent memory search using hybrid algorithm (semantic 70% + keyword 30%). Primary tool for finding past work and solutions.\n\nUse when:\n- Search for similar solutions or code patterns\n- Find related bug fixes or implementations\n- Discover relevant past work\n- User asks 'how did I solve X before?'\n\nReturns:\n- Ranked contexts with similarity scores\n- Content snippets\n- File associations\n- Tags and metadata\n\nParameters:\n- query: Search text (supports UUIDs, file paths, special chars)\n- project_path: Limit to specific project\n- session_id: Limit to specific session\n- file_path: Filter by file (e.g., 'src/auth/login.ts')\n- limit: Max results (default: 10, max: 50)\n\nCache: Results cached for 5 minutes\n\nWorkflow: record_context → semantic_search → find solutions",
+            "Intelligent memory search using hybrid algorithm (semantic 70% + keyword 30%). Primary tool for finding past work and solutions.\n\nUse when:\n- Search for similar solutions or code patterns\n- Find related bug fixes or implementations\n- Discover relevant past work\n- User asks 'how did I solve X before?'\n\nReturns:\n- Ranked contexts with similarity scores\n- Content snippets\n- File associations\n- Tags and metadata\n\nParameters:\n- query: Search text (supports UUIDs, file paths, special chars)\n- project_path: Limit to specific project\n- session_id: Limit to specific session\n- file_path: Filter by file (e.g., 'src/auth/login.ts')\n- type: Filter by context type (e.g., 'bug_fix', 'solution')\n- limit: Max results (default: 10, max: 50)\n\nCache: Results cached for 5 minutes\n\nWorkflow: record_context → semantic_search → find solutions",
           inputSchema: {
             type: "object",
             properties: {
@@ -555,6 +555,11 @@ export class AiMemoryMcpServer {
                 type: "string",
                 description:
                   "Optional filter to specific file (e.g., 'src/auth/login.ts'). Searches only in contexts related to this file.",
+              },
+              type: {
+                type: "string",
+                description:
+                  "Optional context type filter (e.g., 'bug_fix', 'feature_add', 'solution', 'commit'). Only searches contexts of this type.",
               },
               limit: {
                 type: "number",
@@ -583,7 +588,7 @@ export class AiMemoryMcpServer {
         {
           name: "list_contexts",
           description:
-            "List recorded contexts in chronological order. Use semantic_search for intelligent/ranked queries.\n\nReturns: Chronological list of contexts (newest first)\n\nParameters:\n- project_path: List all contexts for this project\n- session_id: List contexts from specific session\n- limit: Max results (default: 20)\n\nUse when:\n- View recent work chronologically\n- Check what was recorded in a session\n- Browse all contexts for a project\n\nFor intelligent search: Use semantic_search instead\nFor relationships: Use get_related_contexts",
+            "List recorded contexts in chronological order. Use semantic_search for intelligent/ranked queries.\n\nReturns: Chronological list of contexts (newest first)\n\nParameters:\n- project_path: List all contexts for this project\n- session_id: List contexts from specific session\n- limit: Max results (default: 20)\n- since: Time filter (e.g., '24h', '7d', '30d')\n- type: Filter by context type\n\nUse when:\n- View recent work chronologically\n- Check what was recorded in a session\n- Browse all contexts for a project\n\nFor intelligent search: Use semantic_search instead\nFor relationships: Use get_related_contexts",
           inputSchema: {
             type: "object",
             properties: {
@@ -600,6 +605,14 @@ export class AiMemoryMcpServer {
               limit: {
                 type: "number",
                 description: "Maximum number of results (default: 20)",
+              },
+              since: {
+                type: "string",
+                description: "Optional time filter: '24h' (last 24 hours), '7d' (last 7 days), '30d' (last 30 days), '90d' (last 90 days). Returns contexts created after this time.",
+              },
+              type: {
+                type: "string",
+                description: "Optional context type filter (e.g., 'bug_fix', 'feature_add', 'commit'). Only returns contexts of this type.",
               },
             },
           },
@@ -1836,6 +1849,7 @@ export class AiMemoryMcpServer {
     project_path?: string;
     session_id?: string;
     file_path?: string;
+    type?: string;
     similarity_threshold?: number;
     hybrid_weight?: number;
     use_cache?: boolean;
@@ -1911,12 +1925,17 @@ export class AiMemoryMcpServer {
       );
 
       // 执行混合搜索
-      const results = await this.vectorSearch.hybridSearch(
+      let results = await this.vectorSearch.hybridSearch(
         args.query,
         keywordResults,
         allContexts,
         searchParams
       );
+
+      // 类型过滤（如果指定）
+      if (args.type) {
+        results = results.filter((ctx) => ctx.type === args.type);
+      }
 
       // 🚀 记录搜索命中，更新质量评分
       results.forEach((context) => {
@@ -2799,6 +2818,8 @@ Happy coding! 🚀`;
     session_id?: string;
     project_path?: string;
     limit?: number;
+    since?: string;
+    type?: string;
   }) {
     try {
       let contexts: any[] = [];
@@ -2844,6 +2865,36 @@ Happy coding! 🚀`;
       } else {
         // No filter - list all contexts (limited)
         contexts = this.db.getAllContexts(limit);
+      }
+
+      // 时间过滤（如果指定）
+      if (args.since) {
+        const now = Date.now();
+        let cutoffTime: number;
+        
+        if (args.since === '24h') {
+          cutoffTime = now - 24 * 60 * 60 * 1000;
+        } else if (args.since === '7d') {
+          cutoffTime = now - 7 * 24 * 60 * 60 * 1000;
+        } else if (args.since === '30d') {
+          cutoffTime = now - 30 * 24 * 60 * 60 * 1000;
+        } else if (args.since === '90d') {
+          cutoffTime = now - 90 * 24 * 60 * 60 * 1000;
+        } else {
+          cutoffTime = 0; // 无效值，不过滤
+        }
+        
+        if (cutoffTime > 0) {
+          contexts = contexts.filter((ctx) => {
+            const createdTime = new Date(ctx.created_at).getTime();
+            return createdTime >= cutoffTime;
+          });
+        }
+      }
+
+      // 类型过滤（如果指定）
+      if (args.type) {
+        contexts = contexts.filter((ctx) => ctx.type === args.type);
       }
 
       // Format contexts for display
