@@ -5,6 +5,84 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.5] - 2025-11-08
+
+### Fixed
+
+- **Language Detection Priority**: Fixed critical mismatch between tool description and implementation
+  - Issue 1: Tool description promised "conversation language (highest priority)" but code used "code comments (highest priority)"
+  - Issue 2: `detectProjectLanguage()` method had NO ability to receive conversation language parameter
+  - Issue 3: Chinese threshold too low (20% → should be 30% per tool description)
+  - Issue 4: No fallback to conversation language when unsure
+  - Solution: Complete rewrite of detection priority order
+  - Location: `src/utils/language-detector.ts:36-59`, `src/mcp-server.ts:1267-1279`
+
+### Improved
+
+- **Conversation Language Detection**: Added inline detection from `content` field in `handleRecordContext()`
+  - Automatically detects Chinese (>30%) or English (<5% Chinese) from record content
+  - Passes detected language to `detectProjectLanguage()` as highest priority parameter
+  - Implementation: Simple regex-based Chinese character ratio check
+  - Location: `src/mcp-server.ts:1267-1276`
+
+- **README Detection Flexibility**: Enhanced to support diverse Chinese documentation paths
+  - Added support for `docs/zh/README.md`, `docs/zh-CN/README.md`, `docs/README.zh.md`
+  - Added support for `README_CN.md`, `README_ZH.md` naming conventions
+  - Prioritizes explicit Chinese markers (`/zh/`, `-CN`, `_CN`, `.zh.`) over content analysis
+  - Increased sample size for detection: 1000 → 2000 characters
+  - Location: `src/utils/language-detector.ts:95-145`
+
+### Changed
+
+- **Detection Priority Order**: Now correctly implements tool description promises
+  - **Before**: Code comments (20%) → README → Default "en"
+  - **After**: Conversation language (if provided) → README (30%) → Code comments (30%) → Default "en"
+  - Chinese threshold increased: 20% → 30% across all detection methods
+
+### Testing
+
+- ✅ All 6 test scenarios passed:
+  - ✓ `docs/zh/README.md` correctly detected as Chinese project
+  - ✓ Conversation language (zh) overrides all other detection methods
+  - ✓ Conversation language (en) overrides Chinese README
+  - ✓ Content detection: Pure Chinese → zh, Pure English → en, Mixed → undefined
+  - ✓ Full workflow simulation: Chinese content → zh, English content → en
+- Created comprehensive test script: `test-language-final.cjs` (114 lines)
+
+### Technical Details
+
+- **Method Signature Change**:
+  ```typescript
+  // Before
+  detectProjectLanguage(projectPath: string): "zh" | "en"
+  
+  // After
+  detectProjectLanguage(
+    projectPath: string,
+    conversationLanguage?: "zh" | "en"
+  ): "zh" | "en"
+  ```
+
+- **README Search Paths** (in priority order):
+  1. Explicit Chinese: `README.zh-CN.md`, `README.zh.md`, `README_CN.md`, `README_ZH.md`
+  2. Docs directories: `docs/zh/README.md`, `docs/zh-CN/README.md`, `docs/README.zh.md`
+  3. Default: `README.md`, `readme.md`
+
+- **Conversation Language Detection Algorithm**:
+  ```javascript
+  chineseRatio > 0.3 → "zh"
+  chineseRatio < 0.05 → "en"
+  else → undefined (defer to README/comments)
+  ```
+
+- **Git Hook Auto-Record**: Correctly uses `detectProjectLanguage(projectPath)` without conversation context (as expected)
+
+### Backward Compatibility
+
+- Fully compatible: New `conversationLanguage` parameter is optional
+- Existing code calling `detectProjectLanguage(path)` continues to work
+- Git Hook auto-recording behavior unchanged (no conversation context)
+
 ## [2.1.4] - 2025-11-08
 
 ### Added

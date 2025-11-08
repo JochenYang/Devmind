@@ -1263,9 +1263,20 @@ export class AiMemoryMcpServer {
       }
 
       // === 分层自动记忆策略 (v2.1.0) ===
+      // 从 content 检测对话语言（简易中文字符占比检测）
+      const detectConversationLanguage = (text: string): "zh" | "en" | undefined => {
+        const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+        const totalChars = text.replace(/\s/g, "").length;
+        if (totalChars === 0) return undefined;
+        const chineseRatio = chineseChars / totalChars;
+        // 超过 30% 中文字符即判定为中文对话
+        return chineseRatio > 0.3 ? "zh" : chineseRatio > 0.05 ? undefined : "en";
+      };
+      
+      const conversationLang = detectConversationLanguage(args.content);
       const language = args.project_path
-        ? languageDetector.detectProjectLanguage(args.project_path)
-        : "en";
+        ? languageDetector.detectProjectLanguage(args.project_path, conversationLang)
+        : conversationLang || "en";
       
       const isForceRemember = args.force_remember === true;
       const memorySource = isForceRemember ? "user_explicit" : "auto_remember";

@@ -28,24 +28,33 @@ export class LanguageDetector {
   ];
 
   /**
-   * 检测项目语言
+   * 检测项目语言（用于 record_context 记录内容语言）
    * @param projectPath 项目路径
+   * @param conversationLanguage 可选的对话语言（从用户对话中检测）
    * @returns 'zh' | 'en'
    */
-  detectProjectLanguage(projectPath: string): "zh" | "en" {
-    // 1. 优先从代码注释检测
-    const commentLanguage = this.detectFromComments(projectPath);
-    if (commentLanguage) {
-      return commentLanguage;
+  detectProjectLanguage(
+    projectPath: string,
+    conversationLanguage?: "zh" | "en"
+  ): "zh" | "en" {
+    // 1. 对话语言（最高优先级）
+    if (conversationLanguage) {
+      return conversationLanguage;
     }
 
-    // 2. 从 README 检测
+    // 2. 从 README 检测（权重高于代码注释）
     const readmeLanguage = this.detectFromReadme(projectPath);
     if (readmeLanguage) {
       return readmeLanguage;
     }
 
-    // 3. 默认英文
+    // 3. 从代码注释检测
+    const commentLanguage = this.detectFromComments(projectPath);
+    if (commentLanguage) {
+      return commentLanguage;
+    }
+
+    // 4. 默认英文
     return "en";
   }
 
@@ -84,24 +93,48 @@ export class LanguageDetector {
   }
 
   /**
-   * 从 README 检测语言
+   * 从 README 检测语言（支持多种中文文档路径）
    */
   private detectFromReadme(projectPath: string): "zh" | "en" | null {
-    const readmeFiles = [
-      "README.md",
-      "README.zh.md",
+    // 优先级顺序：明确的中文标识 > 根目录 README > docs 目录
+    const readmePaths = [
+      // 1. 明确的中文 README（根目录）
       "README.zh-CN.md",
+      "README.zh.md",
+      "README_CN.md",
+      "README_ZH.md",
+      // 2. docs 目录中的中文文档
+      "docs/zh/README.md",
+      "docs/zh-CN/README.md",
+      "docs/README.zh.md",
+      "docs/README.zh-CN.md",
+      "doc/zh/README.md",
+      // 3. 根目录默认 README
+      "README.md",
       "readme.md",
     ];
 
-    for (const filename of readmeFiles) {
-      const readmePath = join(projectPath, filename);
-      if (existsSync(readmePath)) {
+    for (const relativePath of readmePaths) {
+      const fullPath = join(projectPath, relativePath);
+      if (existsSync(fullPath)) {
         try {
-          const content = readFileSync(readmePath, "utf-8");
-          // 只取前 1000 字符判断
-          const sample = content.substring(0, 1000);
-          return this.detectLanguageFromText(sample);
+          const content = readFileSync(fullPath, "utf-8");
+          // 只取前 2000 字符判断（增加样本量）
+          const sample = content.substring(0, 2000);
+          const detectedLang = this.detectLanguageFromText(sample);
+          
+          // 如果检测到中文，立即返回
+          if (detectedLang === "zh") {
+            return "zh";
+          }
+          
+          // 如果是明确的中文文档路径，即使占比不足 30% 也认为是中文项目
+          if (relativePath.includes("/zh/") || 
+              relativePath.includes("-CN") || 
+              relativePath.includes("_CN") ||
+              relativePath.includes(".zh.")) {
+            return "zh";
+          }
         } catch (error) {
           continue;
         }
@@ -125,9 +158,9 @@ export class LanguageDetector {
       return "en";
     }
 
-    // 如果中文字符占比超过 20%，判定为中文
+    // 如果中文字符占比超过 30%，判定为中文
     const chineseRatio = chineseCount / totalChars;
-    return chineseRatio > 0.2 ? "zh" : "en";
+    return chineseRatio > 0.3 ? "zh" : "en";
   }
 
   /**
