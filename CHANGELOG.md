@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.3] - 2025-01-15
+
+### Fixed
+
+- **Markdown Document Auto-Record**: Fixed critical bug where Markdown files were incorrectly filtered as code comments
+  - Issue: Markdown headings (starting with `#`) were treated as Python/Shell comments and filtered out
+  - Impact: Documentation files failed `hasSignificantContent()` check → Tier 2 auto-record blocked
+  - Solution: Added Markdown detection logic to preserve heading lines
+  - Markdown minimum: 5 meaningful lines (vs 3 for code files)
+  - Location: `src/auto-record-filter.ts:97-136`
+
+- **Empty Directory Initialization**: Fixed "out-of-the-box" principle violation for new projects
+  - Issue: `isProjectDirectory()` required project indicators (package.json, .git, etc.) → Empty directories not initialized
+  - Impact: New projects couldn't auto-record until adding dependency files → Violated zero-config principle
+  - Solution: Removed strict project detection from `startAutoMonitoring()` flow
+  - Any existing directory now auto-initializes with main session + file watcher
+  - Location: `src/mcp-server.ts:2176-2186`
+
+### Deprecated
+
+- **Project Detection Method**: Marked `isProjectDirectory()` as `@deprecated` but preserved for backward compatibility
+  - No longer used in auto-monitoring flow
+  - Kept for external code that may directly call this method
+  - Legacy project detection logic intact
+
+### Improved
+
+- **Out-of-the-Box Experience**: Empty directories, pure documentation projects, and new projects now work immediately
+- **Main Session Naming**: Consistently uses root directory basename (e.g., `my-app - Main Session`)
+- **Timestamp Recording**: Contexts automatically include ISO 8601 timestamps in `created_at` field for sorting and statistics
+
+### Technical Details
+
+- **Modified Files**:
+  - `src/auto-record-filter.ts`: Markdown detection and separate filtering logic
+  - `src/mcp-server.ts`: Removed `isProjectDirectory()` check from startup flow
+- **Backward Compatibility**: Fully preserved - existing projects and external code unaffected
+
 ## [2.1.2] - 2025-11-06
 
 ### Changed

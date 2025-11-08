@@ -2172,16 +2172,25 @@ export class AiMemoryMcpServer {
       process.cwd(), // 最后兜底
     ].filter(Boolean) as string[];
 
+    // 找到第一个有效目录就初始化（不要求有标识文件）
     for (const dir of potentialDirs) {
-      if (this.isProjectDirectory(dir)) {
+      if (existsSync(dir)) {
+        // ✅ v2.1.2: 任何存在的目录都视为潜在项目
+        // 这允许空目录、纯文档项目、新项目等场景
         await this.setupProjectMonitoring(dir);
-        return; // 找到项目目录就停止
+        return; // 初始化第一个有效目录就停止
       }
     }
 
-    // 如果没有找到项目目录，静默返回
+    // 如果连有效目录都找不到，静默返回
   }
 
+  /**
+   * @deprecated v2.1.2: 不再使用严格的项目检测
+   * 任何存在的目录都可以成为项目（开箱即用理念）
+   * 
+   * 保留此方法仅为向后兼容，但不在自动监控流程中使用
+   */
   private isProjectDirectory(dirPath: string): boolean {
     if (!dirPath || !existsSync(dirPath)) return false;
 
