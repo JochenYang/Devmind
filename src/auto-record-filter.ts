@@ -101,8 +101,24 @@ export class AutoRecordFilter {
   private hasSignificantContent(content: string): boolean {
     // 分割成行
     const lines = content.split('\n');
+    const trimmedContent = content.trim();
 
-    // 过滤出有意义的行
+    // 检测Markdown文件（以 # 开头或包含多个 ## 标记）
+    const isMarkdown = trimmedContent.startsWith('#') || 
+                      (trimmedContent.match(/^#{1,6}\s/gm) || []).length >= 2;
+
+    if (isMarkdown) {
+      // Markdown文件：只过滤空行和代码块标记
+      const meaningfulLines = lines
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .filter(line => !line.startsWith('```'));  // 代码块标记
+      
+      // Markdown至少需要5行内容（标题+内容）
+      return meaningfulLines.length >= 5;
+    }
+
+    // 非Markdown文件：原有逻辑
     const meaningfulLines = lines
       .map(line => line.trim())
       .filter(line => line.length > 0)

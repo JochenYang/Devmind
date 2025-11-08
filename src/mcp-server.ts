@@ -24,6 +24,7 @@ import {
 } from "./utils/file-path-detector.js";
 // UnifiedMemoryManager removed in v2.1.0 - simplified to type-based auto-memory
 import { languageDetector } from "./utils/language-detector.js";
+import { GitHookInstaller, CommitInfo } from "./git-hook-installer.js";
 import {
   AiMemoryConfig,
   ContextSearchParams,
@@ -34,7 +35,7 @@ import {
 } from "./types.js";
 import { join, dirname, resolve } from "path";
 import { homedir } from "os";
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
 import { normalizeProjectPath } from "./utils/path-normalizer.js";
 
 export class AiMemoryMcpServer {
@@ -262,7 +263,7 @@ export class AiMemoryMcpServer {
         {
           name: "record_context",
           description:
-            "Record development context with type-based auto-memory strategy. Technical work is automatically recorded based on context type, eliminating the need for manual evaluation.\n\n**Auto-Memory Strategy:**\n\n**Tier 1: Silent Auto-Record (Code Execution)**\nAutomatically records without user confirmation:\n- bug_fix, feature_add, feature_update\n- code_create, code_modify, code_refactor, code_optimize, code_delete\n- test, configuration, commit\n\nResponse: \"Automatically recorded this [type] work. Context ID: xxx\"\n\n**Tier 2: Notify Auto-Record (Design & Solutions)**\nAutomatically records with deletion option:\n- solution (technical solution discussions)\n- design (architecture/system design)\n- documentation (technical writing)\n- learning (technical concepts/knowledge)\n\nResponse: \"This [type] has been auto-recorded (ID: xxx). To remove: delete_context({context_id: 'xxx'})\"\n\n**Tier 3: Not Recorded**\n- conversation (non-technical chat)\n- error (error reports without solutions)\n\nResponse: \"Conversation not recorded. To force record, set force_remember=true\"\n\n**AI Behavior Guidelines:**\n\nWhen to call this tool:\n1. After completing any technical work (bug fixes, features, refactoring)\n2. After technical discussions (solutions, architecture designs)\n3. When user explicitly requests to \"remember this\" or \"save this\"\n4. After documenting or writing technical guides\n\nWhen NOT to call:\n1. During casual conversations\n2. For simple error messages without solutions\n3. For exploratory Q&A without actionable results\n\n**Key Parameters:**\n- type: Determines auto-record behavior (required)\n- content: The content to remember (required)\n- force_remember: User explicit override to record any content (default: false)\n- files_changed: Track multiple files in one context (recommended for refactoring/features)\n\n**Design Philosophy:**\nRecord all technical work to provide complete dataset for long-term learning system. Value is determined by actual usage (query frequency, references, time decay) rather than upfront AI judgment.",
+            "Record development context with type-based auto-memory strategy. Technical work is automatically recorded based on context type, eliminating the need for manual evaluation.\n\n**Auto-Memory Strategy:**\n\n**Tier 1: Silent Auto-Record (Code Execution)**\nAutomatically records without user confirmation:\n- bug_fix, feature_add, feature_update\n- code_create, code_modify, code_refactor, code_optimize, code_delete\n- test, configuration, commit\n\nResponse: \"Automatically recorded this [type] work. Context ID: xxx\"\n\n**Tier 2: Notify Auto-Record (Design & Solutions)**\nAutomatically records with deletion option:\n- solution (technical solution discussions)\n- design (architecture/system design)\n- documentation (technical writing)\n- learning (technical concepts/knowledge)\n\nResponse: \"This [type] has been auto-recorded (ID: xxx). To remove: delete_context({context_id: 'xxx'})\"\n\n**Tier 3: Not Recorded**\n- conversation (non-technical chat)\n- error (error reports without solutions)\n\nResponse: \"Conversation not recorded. To force record, set force_remember=true\"\n\n**AI Behavior Guidelines:**\n\nWhen to call this tool:\n1. After completing any technical work (bug fixes, features, refactoring)\n2. After technical discussions (solutions, architecture designs)\n3. When user explicitly requests to \"remember this\" or \"save this\"\n4. After documenting or writing technical guides\n5. **MANDATORY: After git commit/push operations** (type: commit)\n6. **MANDATORY: After npm/package publish operations** (type: commit or configuration)\n7. **MANDATORY: After version releases with git tags** (type: commit)\n8. **MANDATORY: After modifying 2+ files** (use files_changed parameter)\n\nWhen NOT to call:\n1. During casual conversations\n2. For simple error messages without solutions\n3. For exploratory Q&A without actionable results\n\n**Mandatory Auto-Record Checklist (AI must check after each operation):**\n- [ ] Did I execute git push? → Call record_context with type: commit\n- [ ] Did I execute npm publish? → Call record_context with type: commit\n- [ ] Did I create git tag? → Call record_context with type: commit\n- [ ] Did I modify 2+ source files? → Call record_context with files_changed\n- [ ] Did I complete a bug fix? → Call record_context with type: bug_fix\n- [ ] Did I implement a feature? → Call record_context with type: feature_add\n\n**Key Parameters:**\n- type: Determines auto-record behavior (required)\n- content: The content to remember (required) - **MUST match project language** (see content field description)\n- force_remember: User explicit override to record any content (default: false)\n- files_changed: Track multiple files in one context (recommended for refactoring/features)\n\n**Design Philosophy:**\nRecord all technical work to provide complete dataset for long-term learning system. Value is determined by actual usage (query frequency, references, time decay) rather than upfront AI judgment.",
           inputSchema: {
             type: "object",
             properties: {
@@ -308,7 +309,10 @@ export class AiMemoryMcpServer {
                 description:
                   "Type of context (use detailed types like code_modify, bug_fix for better categorization)",
               },
-              content: { type: "string", description: "The context content" },
+              content: { 
+                type: "string", 
+                description: "The context content. **CRITICAL: Must match project language.** \n\n**Language Matching Rules:**\n1. Detect project language from user's conversation language (highest priority)\n2. Check README.md main language (Chinese characters > 30% = Chinese project)\n3. If conversation is in Chinese → Write content in Chinese\n4. If conversation is in English → Write content in English\n5. When unsure, use conversation language\n\n**Examples:**\n- Chinese conversation + Chinese README → 中文内容\n- English conversation + English README → English content\n- Mixed: Prioritize conversation language\n\n**Wrong Examples:**\n❌ Chinese project but writing English content\n❌ Chinese conversation but writing English content\n\n**Correct Examples:**\n✅ Chinese conversation → \"DevMind MCP v2.1.3 版本发布 - Bug修复\\n\\n修复的问题：...\"\n✅ English conversation → \"DevMind MCP v2.1.3 Release - Bug Fixes\\n\\nFixed Issues:...\"" 
+              },
               file_path: { type: "string", description: "Optional file path" },
               line_start: {
                 type: "number",
@@ -2172,16 +2176,25 @@ export class AiMemoryMcpServer {
       process.cwd(), // 最后兜底
     ].filter(Boolean) as string[];
 
+    // 找到第一个有效目录就初始化（不要求有标识文件）
     for (const dir of potentialDirs) {
-      if (this.isProjectDirectory(dir)) {
+      if (existsSync(dir)) {
+        // ✅ v2.1.2: 任何存在的目录都视为潜在项目
+        // 这允许空目录、纯文档项目、新项目等场景
         await this.setupProjectMonitoring(dir);
-        return; // 找到项目目录就停止
+        return; // 初始化第一个有效目录就停止
       }
     }
 
-    // 如果没有找到项目目录，静默返回
+    // 如果连有效目录都找不到，静默返回
   }
 
+  /**
+   * @deprecated v2.1.2: 不再使用严格的项目检测
+   * 任何存在的目录都可以成为项目（开箱即用理念）
+   * 
+   * 保留此方法仅为向后兼容，但不在自动监控流程中使用
+   */
   private isProjectDirectory(dirPath: string): boolean {
     if (!dirPath || !existsSync(dirPath)) return false;
 
@@ -2229,6 +2242,14 @@ export class AiMemoryMcpServer {
 
         // 启动文件监控
         await this.startFileWatcher(projectPath, sessionId);
+
+        // 安装 Git Hook（如果有 .git 目录）
+        try {
+          await GitHookInstaller.installGitHooks(projectPath);
+        } catch (error) {
+          // Git Hook 安装失败不影响主流程
+          console.error("[DevMind] Git Hook installation failed:", error);
+        }
       }
     } catch (error) {
       // 静默失败，不影响MCP服务器启动
@@ -2354,6 +2375,7 @@ export class AiMemoryMcpServer {
       "**/*.{js,ts,jsx,tsx,py,go,rs,java,kt}",
       "**/package.json",
       "**/*.md",
+      ".devmind/pending-commit.json", // Git Hook 触发文件
     ];
 
     try {
@@ -2386,6 +2408,9 @@ export class AiMemoryMcpServer {
         .on("add", (filePath: string) => {
           this.handleAutoFileChange(sessionId, "add", filePath, projectPath);
         });
+
+      // 监听 Git Hook 触发的 commit 信息文件
+      this.setupGitCommitWatcher(projectPath, sessionId);
     } catch (error) {
       // chokidar不可用，静默失败
       console.error("[DevMind] File watcher initialization failed:", error);
@@ -2553,6 +2578,153 @@ export class AiMemoryMcpServer {
     const chars = content.length;
 
     return `[自动记录] ${actionText}文件: ${fileName} (${lines}行, ${chars}字符)`;
+  }
+
+  /**
+   * 设置 Git commit 监听器，用于自动记录提交
+   * 监听由 Git Hook 生成的 .devmind/pending-commit.json 文件
+   */
+  private async setupGitCommitWatcher(
+    projectPath: string,
+    sessionId: string
+  ): Promise<void> {
+    try {
+      const chokidar = await import("chokidar");
+      const pendingFile = join(projectPath, ".devmind", "pending-commit.json");
+
+      // 监听 pending commit 文件
+      const commitWatcher = chokidar.watch(pendingFile, {
+        persistent: true,
+        ignoreInitial: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 500, // 快速响应
+          pollInterval: 100,
+        },
+      });
+
+      commitWatcher.on("add", async () => {
+        await this.handleGitCommitRecord(projectPath, sessionId, pendingFile);
+      });
+
+      commitWatcher.on("change", async () => {
+        await this.handleGitCommitRecord(projectPath, sessionId, pendingFile);
+      });
+
+      console.log("[DevMind] Git commit watcher initialized");
+    } catch (error) {
+      // Git Hook 功能失败不影响主流程
+      console.error("[DevMind] Git commit watcher setup failed:", error);
+    }
+  }
+
+  /**
+   * 从 pending 文件处理 Git commit 记录
+   */
+  private async handleGitCommitRecord(
+    projectPath: string,
+    sessionId: string,
+    pendingFile: string
+  ): Promise<void> {
+    try {
+      // 读取 commit 信息
+      if (!existsSync(pendingFile)) {
+        return;
+      }
+
+      const fileContent = readFileSync(pendingFile, "utf8");
+      const commitInfo = GitHookInstaller.parseCommitInfo(fileContent);
+
+      if (!commitInfo) {
+        console.error("[DevMind] Failed to parse commit info");
+        return;
+      }
+
+      // 检测项目语言（用于生成中文或英文内容）
+      const language = languageDetector.detectProjectLanguage(projectPath);
+
+      // 生成记录内容
+      const content = this.formatCommitContent(commitInfo, language);
+
+      // 自动记录 commit
+      await this.handleRecordContext({
+        session_id: sessionId,
+        type: ContextType.COMMIT,
+        content,
+        files_changed: commitInfo.changedFiles.map((f) => ({
+          file_path: f.path,
+          change_type: f.status,
+        })),
+        tags: ["git-commit", "auto", commitInfo.commitHash.slice(0, 7)],
+        metadata: {
+          auto_recorded: true,
+          commit_hash: commitInfo.commitHash,
+          commit_author: commitInfo.author,
+          commit_date: commitInfo.date,
+          git_hook_triggered: true,
+        },
+      });
+
+      console.log(
+        `[DevMind] ✅ Git commit auto-recorded: ${commitInfo.commitHash.slice(0, 7)}`
+      );
+
+      // 删除 pending 文件
+      try {
+        unlinkSync(pendingFile);
+      } catch (error) {
+        // 删除失败不影响记录流程
+      }
+    } catch (error) {
+      console.error("[DevMind] Failed to record Git commit:", error);
+    }
+  }
+
+  /**
+   * 根据项目语言格式化 commit 内容
+   */
+  private formatCommitContent(commitInfo: CommitInfo, language: string): string {
+    const shortHash = commitInfo.commitHash.slice(0, 7);
+    const filesCount = commitInfo.changedFiles.length;
+
+    if (language === "zh") {
+      return `Git 提交记录
+
+## 提交信息
+- **Commit**: ${shortHash}
+- **作者**: ${commitInfo.author}
+- **日期**: ${commitInfo.date}
+- **修改文件数**: ${filesCount}
+
+## 提交说明
+${commitInfo.message}
+
+## 文件变更
+${commitInfo.changedFiles
+  .map(
+    (f, idx) =>
+      `${idx + 1}. [${f.status.toUpperCase()}] ${f.path}`
+  )
+  .join("\n")}`;
+    } else {
+      return `Git Commit Record
+
+## Commit Info
+- **Commit**: ${shortHash}
+- **Author**: ${commitInfo.author}
+- **Date**: ${commitInfo.date}
+- **Files Changed**: ${filesCount}
+
+## Commit Message
+${commitInfo.message}
+
+## File Changes
+${commitInfo.changedFiles
+  .map(
+    (f, idx) =>
+      `${idx + 1}. [${f.status.toUpperCase()}] ${f.path}`
+  )
+  .join("\n")}`;
+    }
   }
 
   private async createInitialProjectContext(

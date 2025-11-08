@@ -5,6 +5,127 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.4] - 2025-11-08
+
+### Added
+
+- **Git Hook Auto-Record**: Built-in Git Hook system for 100% reliable commit capture and recording
+  - Automatically installs post-commit hook to `.git/hooks/`
+  - Captures commit metadata: hash, message, author, date, changed files
+  - Communicates via `.devmind/pending-commit.json` trigger file
+  - Cross-platform compatible (Windows/Unix/Mac)
+  - Compatible with existing hooks (appends instead of overwriting)
+  - Non-intrusive: Fails silently when Git is unavailable
+  - Location: `src/git-hook-installer.ts` (249 lines)
+
+- **AI Tool Description Enhancement**: Added MANDATORY recording rules in `record_context` tool description
+  - AI self-check checklist: Must call record_context after git push/npm publish
+  - Language matching rules: Write content field based on conversation/project language
+  - Examples with correct/incorrect patterns: Chinese projects use Chinese, English projects use English
+  - Location: `src/mcp-server.ts:263-314`
+
+- **Local Test Script**: Created `test-git-hook.cjs` for local Git Hook functionality testing
+  - 6-step complete test workflow
+  - Simulated commit trigger
+  - Information parsing verification
+  - No actual git commit required
+
+### Improved
+
+- **Auto-Memory Reliability**: Git commit auto-recording no longer depends on AI judgment, 100% reliable trigger
+- **Project Language Detection**: Automatically detects project language and generates commit records in corresponding language
+- **Code Comments**: All new code uses Chinese comments
+
+### Fixed
+
+- **File Parsing Bug**: Fixed regex error in Git Hook file change parsing
+  - Issue: `/\\\\s+/` should be `/\s+/`
+  - Impact: Unable to correctly parse file change list
+  - Solution: Corrected regex expression
+  - Location: `src/git-hook-installer.ts:197`
+
+### Technical Details
+
+- **New Files**:
+  - `src/git-hook-installer.ts`: Git Hook installer (249 lines)
+  - `test-git-hook.cjs`: Local test script (137 lines)
+
+- **Modified Files**:
+  - `src/mcp-server.ts`: Added Git commit watcher and handler logic (+150 lines)
+  - New methods: `setupGitCommitWatcher()`, `handleGitCommitRecord()`, `formatCommitContent()`
+
+- **Workflow**:
+  ```
+  User executes git commit
+    ↓
+  .git/hooks/post-commit auto-triggered
+    ↓
+  Generates .devmind/pending-commit.json
+    ↓
+  MCP file watcher detects change
+    ↓
+  Reads and parses commit info
+    ↓
+  Auto-calls record_context({type: "commit"})
+    ↓
+  ✅ Recording complete, deletes pending file
+  ```
+
+- **Safety Features**:
+  - All operations wrapped in try-catch
+  - Hook installation failure doesn't affect MCP startup
+  - File watcher failure handled silently
+  - No modification to existing code logic
+  - Auto-skips when .git directory doesn't exist
+
+- **Backward Compatibility**: Fully compatible - existing projects and features unaffected
+
+### Testing
+
+- ✅ All tests passed
+- ✅ Hook installation successful
+- ✅ File parsing correct (2 files)
+- ✅ Cross-platform compatible
+- ✅ Chinese comments
+
+## [2.1.3] - 2025-11-08
+
+### Fixed
+
+- **Markdown Document Auto-Record**: Fixed critical bug where Markdown files were incorrectly filtered as code comments
+  - Issue: Markdown headings (starting with `#`) were treated as Python/Shell comments and filtered out
+  - Impact: Documentation files failed `hasSignificantContent()` check → Tier 2 auto-record blocked
+  - Solution: Added Markdown detection logic to preserve heading lines
+  - Markdown minimum: 5 meaningful lines (vs 3 for code files)
+  - Location: `src/auto-record-filter.ts:97-136`
+
+- **Empty Directory Initialization**: Fixed "out-of-the-box" principle violation for new projects
+  - Issue: `isProjectDirectory()` required project indicators (package.json, .git, etc.) → Empty directories not initialized
+  - Impact: New projects couldn't auto-record until adding dependency files → Violated zero-config principle
+  - Solution: Removed strict project detection from `startAutoMonitoring()` flow
+  - Any existing directory now auto-initializes with main session + file watcher
+  - Location: `src/mcp-server.ts:2176-2186`
+
+### Deprecated
+
+- **Project Detection Method**: Marked `isProjectDirectory()` as `@deprecated` but preserved for backward compatibility
+  - No longer used in auto-monitoring flow
+  - Kept for external code that may directly call this method
+  - Legacy project detection logic intact
+
+### Improved
+
+- **Out-of-the-Box Experience**: Empty directories, pure documentation projects, and new projects now work immediately
+- **Main Session Naming**: Consistently uses root directory basename (e.g., `my-app - Main Session`)
+- **Timestamp Recording**: Contexts automatically include ISO 8601 timestamps in `created_at` field for sorting and statistics
+
+### Technical Details
+
+- **Modified Files**:
+  - `src/auto-record-filter.ts`: Markdown detection and separate filtering logic
+  - `src/mcp-server.ts`: Removed `isProjectDirectory()` check from startup flow
+- **Backward Compatibility**: Fully preserved - existing projects and external code unaffected
+
 ## [2.1.2] - 2025-11-06
 
 ### Changed
