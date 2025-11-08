@@ -263,7 +263,7 @@ export class AiMemoryMcpServer {
         {
           name: "record_context",
           description:
-            "Record development context with type-based 3-tier auto-memory strategy.\n\n**Auto-Memory Strategy:**\n\nTier 1 (Silent): bug_fix, feature_add/update, code_create/modify/refactor/optimize/delete, test, configuration, commit\nTier 2 (Notify): solution, design, documentation, learning\nTier 3 (Not recorded): conversation, error (unless force_remember=true)\n\n**MANDATORY Recording Rules:**\nAI MUST call after:\n1. git commit/push/tag → type: commit\n2. npm publish → type: commit\n3. Modifying 2+ files → use files_changed\n4. Bug fixes → type: bug_fix\n5. New features → type: feature_add\n\n**Key Parameters:**\n- type: Required, determines auto-record tier\n- content: Required, MUST match project language (Chinese/English)\n- force_remember: Override to record any type\n- files_changed: For multi-file changes",
+            "Record development context with type-based 3-tier auto-memory strategy.\n\nSELF-CHECK (Review before each response):\n□ Did I just edit/create files? Call record_context immediately\n□ Did I complete a task? Call record_context immediately\n□ Am I about to say 'done' or 'complete'? Record first, then respond\n\nTRIGGER KEYWORDS:\nUser says: 'remember' | 'save this' | 'record this' | '记住' | '保存'\nUser says: 'implement' | 'fix' | 'refactor' | '实现' | '修复' | '重构'\nAI says: 'done' | 'complete' | 'finished' | '完成' | '完美' | '好的'\nAfter work completion: Call record_context before responding\n\nWHEN TO CALL:\n1. Immediately after editing any files (MOST CRITICAL)\n2. After fixing bugs → type: bug_fix\n3. After implementing features → type: feature_add\n4. After completing TODO items\n5. Before git commit/push → type: commit\n6. After modifying 2+ files → use files_changed\n\nAUTO-MEMORY STRATEGY:\nTier 1 (Silent): bug_fix, feature_add/update, code_create/modify/refactor/optimize/delete, test, configuration, commit\nTier 2 (Notify): solution, design, documentation, learning\nTier 3 (Not recorded): conversation, error (unless force_remember=true)\n\nKEY PARAMETERS:\n- type: Required, determines auto-record tier\n- content: Required, MUST match project language (Chinese/English)\n- force_remember: Override to record any type\n- files_changed: For multi-file changes",
           inputSchema: {
             type: "object",
             properties: {
@@ -345,47 +345,47 @@ export class AiMemoryMcpServer {
                 description: "Optional tags",
               },
 
-              // === 增强字段  ===
+              // === Enhanced Fields ===
               change_type: {
                 type: "string",
                 enum: ["add", "modify", "delete", "refactor", "rename"],
-                description: "🆕 Change type (auto-detected if not provided)",
+                description: "Change type (auto-detected if not provided)",
               },
               change_reason: {
                 type: "string",
-                description: "🆕 Reason for the change",
+                description: "Reason for the change",
               },
               impact_level: {
                 type: "string",
                 enum: ["breaking", "major", "minor", "patch"],
-                description: "🆕 Impact level (auto-assessed if not provided)",
+                description: "Impact level (auto-assessed if not provided)",
               },
               related_files: {
                 type: "array",
                 items: { type: "string" },
-                description: "🆕 Related file paths",
+                description: "Related file paths",
               },
               related_issues: {
                 type: "array",
                 items: { type: "string" },
                 description:
-                  '🆕 Related issue numbers (e.g., ["#123", "#456"])',
+                  'Related issue numbers (e.g., ["#123", "#456"])',
               },
               related_prs: {
                 type: "array",
                 items: { type: "string" },
-                description: '🆕 Related PR numbers (e.g., ["#789"])',
+                description: 'Related PR numbers (e.g., ["#789"])',
               },
               business_domain: {
                 type: "array",
                 items: { type: "string" },
                 description:
-                  '🆕 Business domain tags (e.g., ["auth", "payment"])',
+                  'Business domain tags (e.g., ["auth", "payment"])',
               },
               priority: {
                 type: "string",
                 enum: ["critical", "high", "medium", "low"],
-                description: "🆕 Priority level",
+                description: "Priority level",
               },
               diff_stats: {
                 type: "object",
@@ -1145,6 +1145,36 @@ export class AiMemoryMcpServer {
       // 验证必须有 session_id
       if (!sessionId) {
         throw new Error("Either session_id or project_path must be provided");
+      }
+
+      // === Built-in Pending Commit Check ===
+      // Auto-detect and merge pending git commits (silent, no user notification)
+      if (args.project_path && args.type === "commit") {
+        const pendingFile = join(args.project_path, ".devmind", "pending-commit.json");
+        if (existsSync(pendingFile)) {
+          try {
+            const pendingData = JSON.parse(readFileSync(pendingFile, "utf-8"));
+            
+            // Merge pending commit info into current record
+            if (pendingData.message && !args.content.includes(pendingData.message)) {
+              args.content = `Git Commit: ${pendingData.message}\n\n${args.content || ""}`;
+            }
+            
+            // Merge file changes if not already provided
+            if (!args.files_changed && pendingData.files && pendingData.files.length > 0) {
+              args.files_changed = pendingData.files.map((file: string) => ({
+                file_path: file,
+                change_type: "modify" as const,
+              }));
+            }
+            
+            // Delete pending file after successful merge
+            unlinkSync(pendingFile);
+            console.log(`[DevMind] Auto-merged pending commit: ${pendingData.message}`);
+          } catch (error) {
+            console.error("[DevMind] Failed to process pending commit:", error);
+          }
+        }
       }
 
       // 智能检测文件路径（如果未提供）

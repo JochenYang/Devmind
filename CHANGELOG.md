@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.7] - 2025-11-08
+
+### Improved
+
+- **Enhanced Auto-Memory Intelligence**: Optimized record_context tool description with self-check and trigger detection mechanisms
+  - Added SELF-CHECK section: AI reviews before each response ("Did I edit files? Did I complete a task?")
+  - Added TRIGGER KEYWORDS: Detects user/AI intent keywords ('remember', 'implement', 'fix', 'done', 'complete', Chinese equivalents)
+  - Added WHEN TO CALL: Explicit timing guidance (immediately after editing files, after bug fixes, before git push)
+  - Improved proactive recording behavior: AI now auto-calls record_context after completing development tasks
+  - Removed all emoji from descriptions for token efficiency and clarity
+  - Location: `src/mcp-server.ts:265-266`
+
+- **Built-in Pending Commit Detection**: Added silent auto-merge of pending git commits in record_context handler
+  - Auto-detects `.devmind/pending-commit.json` when recording commit-type contexts
+  - Silently merges pending commit message and file changes into current record
+  - Auto-deletes pending file after successful merge
+  - No exposed tool - fully internal, transparent to AI and user
+  - Complements Git Hook system for 100% reliable commit recording
+  - Location: `src/mcp-server.ts:1150-1178`
+
+- **Field Descriptions Cleaned**: Removed emoji from all enhanced field descriptions
+  - Changed comment from Chinese to English: "Enhanced Fields"
+  - Removed emoji prefixes from: change_type, change_reason, impact_level, related_files, related_issues, related_prs, business_domain, priority
+  - Maintains professional, token-efficient tool interface
+  - Location: `src/mcp-server.ts:348-388`
+
+### Changed
+
+- **Tool Description Structure**: record_context now leads with actionable self-check instead of passive rules
+  - Before: MANDATORY rules at top (passive, easily missed)
+  - After: SELF-CHECK at top (active, forces AI to review before responding)
+  - Trigger keywords explicitly listed (user and AI speech patterns)
+  - "WHEN TO CALL" section with numbered priority list
+
+### Technical Details
+
+- **Self-Check Mechanism**: AI must review 3 checkboxes before each response
+  - Did I just edit/create files? Call record_context immediately
+  - Did I complete a task? Call record_context immediately
+  - Am I about to say 'done' or 'complete'? Record first, then respond
+
+- **Trigger Keywords Detected**:
+  - User: 'remember', 'save this', 'record this', '记住', '保存', 'implement', 'fix', 'refactor', '实现', '修复', '重构'
+  - AI: 'done', 'complete', 'finished', '完成', '完美', '好的' (after work completion)
+
+- **Pending Commit Auto-Merge Logic**:
+  ```typescript
+  if (args.type === "commit" && pendingFile exists) {
+    merge pendingData.message into args.content
+    merge pendingData.files into args.files_changed
+    delete pendingFile
+  }
+  ```
+
+### Design Philosophy
+
+- **No Mode System**: Unlike memory-bank MCP, DevMind uses simpler approach
+  - No mode triggers (code/architect/ask)
+  - No file operation rules
+  - Focus: Single-purpose memory tool with enhanced LLM guidance
+  - Learning: Borrowed trigger keyword detection concept from memory-bank
+
+- **Proactive vs Reactive**: Tool description evolution
+  - v2.1.6: Passive rules ("AI MUST call after X")
+  - v2.1.7: Active self-check ("Review before responding")
+  - Goal: AI proactively calls record_context after completing work, not just when reminded
+
+### Testing Recommendations
+
+- Test AI behavior: Request feature implementation, verify AI auto-calls record_context before saying "完美" or "done"
+- Test trigger keywords: Say "记住这个方案", verify AI calls record_context with force_remember=true
+- Test pending merge: Make git commit, then call record_context with type='commit', verify pending file auto-merged and deleted
+- Test self-check: Ask AI to edit multiple files, verify record_context called immediately after edits
+
 ## [2.1.6] - 2025-11-08
 
 ### Improved
