@@ -79,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test pending merge: Make git commit, then call record_context with type='commit', verify pending file auto-merged and deleted
 - Test self-check: Ask AI to edit multiple files, verify record_context called immediately after edits
 
-## [2.1.6] - 2025-11-09
+## [2.1.6] - 2025-11-08
 
 ### Improved
 
@@ -137,7 +137,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test `semantic_search` with `type='bug_fix'` to find bug fix solutions
 - Combine filters: `{since: '7d', type: 'feature_add'}` for recent features
 
-## [2.1.5] - 2025-11-09
+## [2.1.5] - 2025-11-08
 
 ### Fixed
 
@@ -215,7 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Existing code calling `detectProjectLanguage(path)` continues to work
 - Git Hook auto-recording behavior unchanged (no conversation context)
 
-## [2.1.4] - 2025-11-09
+## [2.1.4] - 2025-11-08
 
 ### Added
 
