@@ -57,6 +57,12 @@ jobs:
             
             ### Installation
             
+            **Via npx (recommended, no installation needed):**
+            ```bash
+            npx -y devmind-mcp@${{ steps.get_version.outputs.version }}
+            ```
+            
+            **Or install globally:**
             ```bash
             npm install -g devmind-mcp@${{ steps.get_version.outputs.version }}
             ```
