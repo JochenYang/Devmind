@@ -765,6 +765,6 @@ npm run clean
 
 **DevMind MCP** - 为AI助手打造的智能上下文感知记忆系统
 
-Made with ❤️ by [Rhys](https://github.com/JochenYang)
+Made with ❤️ by [Jochen](https://github.com/JochenYang)
 
 </div>

@@ -762,6 +762,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 **DevMind MCP** - Intelligent context-aware memory for AI assistants
 
-Made with ❤️ by [Rhys](https://github.com/JochenYang)
+Made with ❤️ by [Jochen](https://github.com/JochenYang)
 
 </div>
