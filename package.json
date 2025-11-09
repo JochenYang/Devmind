@@ -1,6 +1,6 @@
 {
   "name": "devmind-mcp",
-  "version": "2.1.7",
+  "version": "2.1.8",
   "description": "DevMind MCP - AI Assistant Memory System - Pure MCP Tool",
   "main": "dist/index.js",
   "type": "module",

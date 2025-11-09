@@ -24,7 +24,6 @@ import {
 } from "./utils/file-path-detector.js";
 // UnifiedMemoryManager removed in v2.1.0 - simplified to type-based auto-memory
 import { languageDetector } from "./utils/language-detector.js";
-import { GitHookInstaller, CommitInfo } from "./git-hook-installer.js";
 import {
   AiMemoryConfig,
   ContextSearchParams,
@@ -1145,36 +1144,6 @@ export class AiMemoryMcpServer {
       // 验证必须有 session_id
       if (!sessionId) {
         throw new Error("Either session_id or project_path must be provided");
-      }
-
-      // === Built-in Pending Commit Check ===
-      // Auto-detect and merge pending git commits (silent, no user notification)
-      if (args.project_path && args.type === "commit") {
-        const pendingFile = join(args.project_path, ".devmind", "pending-commit.json");
-        if (existsSync(pendingFile)) {
-          try {
-            const pendingData = JSON.parse(readFileSync(pendingFile, "utf-8"));
-            
-            // Merge pending commit info into current record
-            if (pendingData.message && !args.content.includes(pendingData.message)) {
-              args.content = `Git Commit: ${pendingData.message}\n\n${args.content || ""}`;
-            }
-            
-            // Merge file changes if not already provided
-            if (!args.files_changed && pendingData.files && pendingData.files.length > 0) {
-              args.files_changed = pendingData.files.map((file: string) => ({
-                file_path: file,
-                change_type: "modify" as const,
-              }));
-            }
-            
-            // Delete pending file after successful merge
-            unlinkSync(pendingFile);
-            console.log(`[DevMind] Auto-merged pending commit: ${pendingData.message}`);
-          } catch (error) {
-            console.error("[DevMind] Failed to process pending commit:", error);
-          }
-        }
       }
 
       // 智能检测文件路径（如果未提供）
@@ -2302,14 +2271,6 @@ export class AiMemoryMcpServer {
 
         // 启动文件监控
         await this.startFileWatcher(projectPath, sessionId);
-
-        // 安装 Git Hook（如果有 .git 目录）
-        try {
-          await GitHookInstaller.installGitHooks(projectPath);
-        } catch (error) {
-          // Git Hook 安装失败不影响主流程
-          console.error("[DevMind] Git Hook installation failed:", error);
-        }
       }
     } catch (error) {
       // 静默失败，不影响MCP服务器启动
@@ -2435,7 +2396,6 @@ export class AiMemoryMcpServer {
       "**/*.{js,ts,jsx,tsx,py,go,rs,java,kt}",
       "**/package.json",
       "**/*.md",
-      ".devmind/pending-commit.json", // Git Hook 触发文件
     ];
 
     try {
@@ -2468,9 +2428,6 @@ export class AiMemoryMcpServer {
         .on("add", (filePath: string) => {
           this.handleAutoFileChange(sessionId, "add", filePath, projectPath);
         });
-
-      // 监听 Git Hook 触发的 commit 信息文件
-      this.setupGitCommitWatcher(projectPath, sessionId);
     } catch (error) {
       // chokidar不可用，静默失败
       console.error("[DevMind] File watcher initialization failed:", error);
@@ -2638,153 +2595,6 @@ export class AiMemoryMcpServer {
     const chars = content.length;
 
     return `[自动记录] ${actionText}文件: ${fileName} (${lines}行, ${chars}字符)`;
-  }
-
-  /**
-   * 设置 Git commit 监听器，用于自动记录提交
-   * 监听由 Git Hook 生成的 .devmind/pending-commit.json 文件
-   */
-  private async setupGitCommitWatcher(
-    projectPath: string,
-    sessionId: string
-  ): Promise<void> {
-    try {
-      const chokidar = await import("chokidar");
-      const pendingFile = join(projectPath, ".devmind", "pending-commit.json");
-
-      // 监听 pending commit 文件
-      const commitWatcher = chokidar.watch(pendingFile, {
-        persistent: true,
-        ignoreInitial: true,
-        awaitWriteFinish: {
-          stabilityThreshold: 500, // 快速响应
-          pollInterval: 100,
-        },
-      });
-
-      commitWatcher.on("add", async () => {
-        await this.handleGitCommitRecord(projectPath, sessionId, pendingFile);
-      });
-
-      commitWatcher.on("change", async () => {
-        await this.handleGitCommitRecord(projectPath, sessionId, pendingFile);
-      });
-
-      console.log("[DevMind] Git commit watcher initialized");
-    } catch (error) {
-      // Git Hook 功能失败不影响主流程
-      console.error("[DevMind] Git commit watcher setup failed:", error);
-    }
-  }
-
-  /**
-   * 从 pending 文件处理 Git commit 记录
-   */
-  private async handleGitCommitRecord(
-    projectPath: string,
-    sessionId: string,
-    pendingFile: string
-  ): Promise<void> {
-    try {
-      // 读取 commit 信息
-      if (!existsSync(pendingFile)) {
-        return;
-      }
-
-      const fileContent = readFileSync(pendingFile, "utf8");
-      const commitInfo = GitHookInstaller.parseCommitInfo(fileContent);
-
-      if (!commitInfo) {
-        console.error("[DevMind] Failed to parse commit info");
-        return;
-      }
-
-      // 检测项目语言（用于生成中文或英文内容）
-      const language = languageDetector.detectProjectLanguage(projectPath);
-
-      // 生成记录内容
-      const content = this.formatCommitContent(commitInfo, language);
-
-      // 自动记录 commit
-      await this.handleRecordContext({
-        session_id: sessionId,
-        type: ContextType.COMMIT,
-        content,
-        files_changed: commitInfo.changedFiles.map((f) => ({
-          file_path: f.path,
-          change_type: f.status,
-        })),
-        tags: ["git-commit", "auto", commitInfo.commitHash.slice(0, 7)],
-        metadata: {
-          auto_recorded: true,
-          commit_hash: commitInfo.commitHash,
-          commit_author: commitInfo.author,
-          commit_date: commitInfo.date,
-          git_hook_triggered: true,
-        },
-      });
-
-      console.log(
-        `[DevMind] ✅ Git commit auto-recorded: ${commitInfo.commitHash.slice(0, 7)}`
-      );
-
-      // 删除 pending 文件
-      try {
-        unlinkSync(pendingFile);
-      } catch (error) {
-        // 删除失败不影响记录流程
-      }
-    } catch (error) {
-      console.error("[DevMind] Failed to record Git commit:", error);
-    }
-  }
-
-  /**
-   * 根据项目语言格式化 commit 内容
-   */
-  private formatCommitContent(commitInfo: CommitInfo, language: string): string {
-    const shortHash = commitInfo.commitHash.slice(0, 7);
-    const filesCount = commitInfo.changedFiles.length;
-
-    if (language === "zh") {
-      return `Git 提交记录
-
-## 提交信息
-- **Commit**: ${shortHash}
-- **作者**: ${commitInfo.author}
-- **日期**: ${commitInfo.date}
-- **修改文件数**: ${filesCount}
-
-## 提交说明
-${commitInfo.message}
-
-## 文件变更
-${commitInfo.changedFiles
-  .map(
-    (f, idx) =>
-      `${idx + 1}. [${f.status.toUpperCase()}] ${f.path}`
-  )
-  .join("\n")}`;
-    } else {
-      return `Git Commit Record
-
-## Commit Info
-- **Commit**: ${shortHash}
-- **Author**: ${commitInfo.author}
-- **Date**: ${commitInfo.date}
-- **Files Changed**: ${filesCount}
-
-## Commit Message
-${commitInfo.message}
-
-## File Changes
-${commitInfo.changedFiles
-  .map(
-    (f, idx) =>
-      `${idx + 1}. [${f.status.toUpperCase()}] ${f.path}`
-  )
-  .join("\n")}`;
-    }
   }
 
   private async createInitialProjectContext(

@@ -5,6 +5,79 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.8] - 2025-11-09
+
+### Removed
+
+- **Git Hook System**: Completely removed unreliable Git Hook auto-recording system
+  - Issue: Git Hook only generated `pending-commit.json` but didn't auto-process it
+  - Issue: File watcher doesn't work in npx mode (short-lived processes)
+  - Issue: Pending commit detection only triggered on manual `record_context` calls
+  - Issue: Interfered with AI's natural record_context behavior after git push
+  - Solution: Rely entirely on v2.1.7's enhanced tool description (Self-Check + Trigger Keywords)
+  - Removed files: `src/git-hook-installer.ts` (249 lines)
+  - Removed methods: `setupGitCommitWatcher()`, `handleGitCommitRecord()`, `formatCommitContent()`
+  - Removed pending commit auto-merge logic from `handleRecordContext()`
+  - Removed `.devmind/pending-commit.json` monitoring from file watcher
+  - Location: `src/mcp-server.ts`
+
+### Improved
+
+- **Simplified Auto-Memory**: Now fully depends on AI proactive behavior
+  - v2.1.7's Self-Check mechanism: "Did I just edit files? Call record_context immediately"
+  - v2.1.7's Trigger Keywords: Detects 'git push', 'commit', etc. in conversation
+  - AI will call `record_context({type: "commit"})` before/after git push
+  - No hidden background processes - more reliable and transparent
+
+- **Cleaner Codebase**: Removed 400+ lines of Git Hook related code
+  - No more .git/hooks/post-commit modifications
+  - No more pending file generation and cleanup
+  - No more complex commit info parsing
+  - Simpler mental model: AI sees everything, AI decides when to record
+
+### Changed
+
+- **Git Commit Recording**: Changed from automatic (unreliable) to AI-driven (reliable)
+  - Before: Git Hook → pending file → file watcher → auto-record (often failed)
+  - After: AI detects git push intent → calls record_context with commit info
+  - More reliable: Works in all environments (IDE, CLI, npx)
+  - More transparent: User can see when recording happens
+
+### Technical Details
+
+- Removed imports: `GitHookInstaller`, `CommitInfo`
+- Removed from `setupProjectMonitoring()`: Git Hook installation logic
+- Removed from `startFileWatcher()`: `.devmind/pending-commit.json` pattern
+- Removed from `handleRecordContext()`: 33 lines of pending commit auto-merge
+- Simplified file watcher patterns: Only monitors actual code files and docs
+
+### Why This Change?
+
+**Problem**: Git Hook system added complexity but didn't deliver reliability
+- Only worked when MCP process was long-lived (not true in npx mode)
+- Created orphaned pending files when process ended
+- Confused AI by mixing manual and auto-triggered recording
+- Added 400+ lines of code for marginal benefit
+
+**Solution**: Trust the AI
+- v2.1.7 already has strong Self-Check + Trigger Keywords
+- AI is always present and can see all user actions
+- AI can call record_context with full context (not just file names)
+- Simpler code = fewer bugs = easier maintenance
+
+### Migration Guide
+
+No migration needed! Your existing memory data is unchanged.
+
+**For Git commits**: AI will now ask/remind you to record commits, or you can:
+- Say "record this commit" after pushing
+- AI will detect "git push" in conversation and proactively call record_context
+- Manual: Call record_context({type: "commit", content: "commit message"})
+
+**Removed features** (unlikely to affect anyone):
+- `.devmind/pending-commit.json` files (cleanup: delete manually if found)
+- `.git/hooks/post-commit` DevMind additions (cleanup: safe to remove)
+
 ## [2.1.7] - 2025-11-09
 
 ### Improved
