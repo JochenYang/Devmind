@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.9] - 2025-11-09
+
+### Improved
+
+- **Markdown Format Requirement**: Added explicit Markdown format specification for `content` field
+  - Issue: Different AI tools (Warp, Claude Code) used inconsistent formats (Markdown vs plain text)
+  - Solution: Explicitly require Markdown format with clear examples
+  - Added format guidelines: headers, lists, code blocks, bullet points
+  - Added "Avoid unnecessary emoji" guideline for professional documentation
+  - Provided complete examples for both Chinese and English projects
+  - Location: `src/mcp-server.ts:313`
+
+### Changed
+
+- **Content Field Description**: Enhanced from language-only to format + language specification
+  - Before: Only specified natural language (Chinese/English)
+  - After: Markdown format + natural language + structure guidelines
+  - Added code block syntax examples: \`\`\`typescript
+  - Added structure examples: headers (##), lists (-), inline code (\`)
+
+### Technical Details
+
+- Updated `record_context` tool's `content` parameter description
+- Added comprehensive Markdown examples for both languages
+- Ensures consistent format across all AI tools (Warp, Claude Code, Cursor, etc.)
+- No breaking changes: existing plain text content still works, but AI will now prefer Markdown
+
+### Benefits
+
+- **Consistency**: All AI tools will use same Markdown format
+- **Readability**: Better structured memories with headers and code blocks
+- **Searchability**: Easier to parse and search with consistent format
+- **Professional**: No random emoji, clean documentation style
+
 ## [2.1.8] - 2025-11-09
 
 ### Removed

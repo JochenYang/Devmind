@@ -310,7 +310,7 @@ export class AiMemoryMcpServer {
               },
               content: { 
                 type: "string", 
-                description: "The context content. **MUST match project's natural language (Chinese/English).**\n\nLanguage Detection Priority:\n1. User's conversation language (highest)\n2. README.md language (>30% Chinese = Chinese project)\n3. When unsure → use conversation language\n\nExamples:\n✅ Chinese conversation → 中文内容\n✅ English conversation → English content\n❌ Chinese conversation but English content" 
+                description: "The context content in Markdown format. **MUST match project's natural language (Chinese/English).**\n\nFormat Requirements:\n- Use Markdown syntax for structure (headers, lists, code blocks)\n- Code snippets: Use \`\`\`language syntax\n- Keep it concise and structured\n- Use bullet points or numbered lists for key information\n- Avoid unnecessary emoji\n\nLanguage Detection Priority:\n1. User's conversation language (highest)\n2. README.md language (>30% Chinese = Chinese project)\n3. When unsure → use conversation language\n\nExamples:\n\nChinese project:\n```markdown\n## 修复登录Bug\n\n### 问题描述\n用户登录时session丢失\n\n### 解决方案\n- 添加session持久化逻辑\n- 修改文件: \`src/auth/login.ts\`\n\n### 代码变更\n\`\`\`typescript\nconst session = await persistSession(user);\n\`\`\`\n```\n\nEnglish project:\n```markdown\n## Fix Login Bug\n\n### Problem\nSession lost during user login\n\n### Solution\n- Add session persistence logic\n- Modified file: \`src/auth/login.ts\`\n\n### Code Changes\n\`\`\`typescript\nconst session = await persistSession(user);\n\`\`\`\n```" 
               },
               file_path: { type: "string", description: "Optional file path" },
               line_start: {
