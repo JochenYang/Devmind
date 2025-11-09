@@ -633,6 +633,43 @@ Export all contexts to specified format.
 
 ---
 
+## Best Practices
+
+### Recommended User Rules for AI Tools
+
+To maximize DevMind MCP's effectiveness, add these rules to your AI assistant's configuration (e.g., Claude Desktop, Cursor, Warp rules):
+
+```markdown
+## DevMind Memory System
+
+### Usage Principles
+1. **Search First**: Use semantic_search when answering technical questions
+2. **Record Immediately**: Call record_context after completing work, before responding to user
+3. **Proactive Recording**: Don't wait for user to ask
+
+### Critical Recording Point
+**After editing any files** - This is the most important trigger, never skip.
+
+### Content Requirements
+- Markdown format with structure
+- Match project language (Chinese/English)
+- Concise and professional
+```
+
+**Why these rules?**
+- Ensures AI proactively searches memory before answering
+- Reinforces immediate recording after completing tasks
+- Maintains consistent Markdown formatting across all records
+- Reduces forgotten recordings and improves memory quality
+
+**Where to add:**
+- Claude Desktop: Add to custom instructions or system rules
+- Cursor: Add to `.cursorrules` file in project root
+- Warp: Add to AI rules/workflows
+- Other tools: Add to system prompts or user preferences
+
+---
+
 ## Development
 
 ### Setup
