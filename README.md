@@ -270,10 +270,10 @@ DevMind provides **14 powerful tools** and **1 professional prompt** for your AI
 
 #### Search & Discovery
 
-|| Tool                   | Purpose                    | Example Use                  |
-||------------------------|----------------------------|------------------------------|
-|| `semantic_search`      | AI-powered semantic search | Find related implementations |
-|| `get_related_contexts` | Find related contexts      | Explore connections          |
+|| Tool              | Purpose                       | Example Use                  |
+||-------------------|-------------------------------|------------------------------|
+|| `semantic_search` | AI-powered semantic search    | Find related implementations |
+|| `get_context`     | Get context(s) by ID(s)       | View full memory content     |
 
 **Note**: Embeddings are auto-generated on record_context. Quality scores auto-update every 24h during searches (lazy loading).
 

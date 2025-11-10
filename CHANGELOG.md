@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.10] - 2025-11-10
+
+### Improved
+
+- **Memory Query Tools Optimization**: Complete overhaul of memory query tools for better AI understanding
+  - Renamed `get_related_contexts` to `get_context` with enhanced functionality
+  - Added batch query support: accepts `context_ids` as string or string array
+  - Dual mode behavior: without `relation_type` returns full context content, with `relation_type` finds relationships
+  - Returns complete context including files from `context_files` table
+  - Location: `src/mcp-server.ts:506-536, 1828-1915`
+
+- **Natural Language Trigger Examples**: Enhanced tool descriptions with clear natural language triggers
+  - `list_contexts`: Added 'show memory', 'list memories', '查询记忆', '列出记忆' examples
+  - `semantic_search`: Added 'search memory for X', '搜索记忆', 'how did I solve X before?' examples
+  - `get_context`: Added 'show context', 'view memory', '查看记忆', '显示这条记录' examples
+  - Clarified default behaviors and workflows for each tool
+  - Location: `src/mcp-server.ts:537-626`
+
+### Fixed
+
+- **Auto-Memory Tier Classification**: Fixed incomplete type coverage in auto-memory system
+  - Added `bug_report` to SILENT_AUTO_RECORD tier (was missing)
+  - Added `feature_remove` to SILENT_AUTO_RECORD tier (was missing)
+  - All ContextType enum values now properly classified in one of three tiers
+  - Ensures consistent auto-memory behavior for all context types
+  - Location: `src/mcp-server.ts:1314-1328`
+
+### Changed
+
+- **Tool Naming**: Renamed `get_related_contexts` to `get_context` for clarity
+  - Old name implied it only finds relationships
+  - New name accurately reflects primary purpose: getting context content by ID(s)
+  - `relation_type` parameter now optional (for finding explicit relationships)
+  - Updated in both English and Chinese README documentation
+  - Location: `README.md:273-276`, `docs/zh/README.md:273-276`
+
+### Technical Details
+
+- **Batch Query Implementation**:
+  ```typescript
+  // Single ID
+  get_context({ context_ids: "abc123" })
+  
+  // Batch IDs (efficient!)
+  get_context({ context_ids: ["abc123", "def456", "xyz789"] })
+  ```
+
+- **Recommended Workflow**:
+  ```
+  list_contexts() → get IDs → get_context(batch IDs) → full content
+  semantic_search() → get IDs → get_context(batch IDs) → full content
+  ```
+
+- **Three Query Tools - Clear Separation**:
+  - `list_contexts`: Chronological browsing (newest first)
+  - `semantic_search`: Intelligent search (similarity ranked)
+  - `get_context`: View full content by ID(s)
+
+### Benefits
+
+- **No Tool Conflicts**: Clear separation of responsibilities prevents AI confusion
+- **Efficient Batch Queries**: One call to get multiple full contexts
+- **Better AI Understanding**: Natural language examples guide AI to correct tool
+- **Complete Auto-Memory**: All context types now properly handled
+- **Clearer Workflows**: AI knows when to use list vs search vs get
+
+### Testing
+
+- Verified with local test script using real project memory (127 contexts)
+- All tools tested successfully:
+  - `list_contexts`: Returned 5 most recent memory summaries ✓
+  - `get_context` (single): Retrieved complete content with files ✓
+  - `get_context` (batch): Retrieved 3 contexts in one call ✓
+  - `semantic_search`: Found 3 related memories ✓
+
 ## [2.1.9] - 2025-11-09
 
 ### Improved

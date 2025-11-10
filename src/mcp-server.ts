@@ -308,9 +308,10 @@ export class AiMemoryMcpServer {
                 description:
                   "Type of context (use detailed types like code_modify, bug_fix for better categorization)",
               },
-              content: { 
-                type: "string", 
-                description: "The context content in Markdown format. **MUST match project's natural language (Chinese/English).**\n\nFormat Requirements:\n- Use Markdown syntax for structure (headers, lists, code blocks)\n- Code snippets: Use \`\`\`language syntax\n- Keep it concise and structured\n- Use bullet points or numbered lists for key information\n- Avoid unnecessary emoji\n\nLanguage Detection Priority:\n1. User's conversation language (highest)\n2. README.md language (>30% Chinese = Chinese project)\n3. When unsure → use conversation language\n\nExamples:\n\nChinese project:\n```markdown\n## 修复登录Bug\n\n### 问题描述\n用户登录时session丢失\n\n### 解决方案\n- 添加session持久化逻辑\n- 修改文件: \`src/auth/login.ts\`\n\n### 代码变更\n\`\`\`typescript\nconst session = await persistSession(user);\n\`\`\`\n```\n\nEnglish project:\n```markdown\n## Fix Login Bug\n\n### Problem\nSession lost during user login\n\n### Solution\n- Add session persistence logic\n- Modified file: \`src/auth/login.ts\`\n\n### Code Changes\n\`\`\`typescript\nconst session = await persistSession(user);\n\`\`\`\n```" 
+              content: {
+                type: "string",
+                description:
+                  "The context content in Markdown format. **MUST match project's natural language (Chinese/English).**\n\nFormat Requirements:\n- Use Markdown syntax for structure (headers, lists, code blocks)\n- Code snippets: Use ```language syntax\n- Keep it concise and structured\n- Use bullet points or numbered lists for key information\n- Avoid unnecessary emoji\n\nLanguage Detection Priority:\n1. User's conversation language (highest)\n2. README.md language (>30% Chinese = Chinese project)\n3. When unsure → use conversation language\n\nExamples:\n\nChinese project:\n```markdown\n## 修复登录Bug\n\n### 问题描述\n用户登录时session丢失\n\n### 解决方案\n- 添加session持久化逻辑\n- 修改文件: `src/auth/login.ts`\n\n### 代码变更\n```typescript\nconst session = await persistSession(user);\n```\n```\n\nEnglish project:\n```markdown\n## Fix Login Bug\n\n### Problem\nSession lost during user login\n\n### Solution\n- Add session persistence logic\n- Modified file: `src/auth/login.ts`\n\n### Code Changes\n```typescript\nconst session = await persistSession(user);\n```\n```",
               },
               file_path: { type: "string", description: "Optional file path" },
               line_start: {
@@ -336,7 +337,8 @@ export class AiMemoryMcpServer {
               },
               language: {
                 type: "string",
-                description: "Optional programming language (e.g., 'typescript', 'python', 'go'). This is for CODE language, not natural language. For natural language (Chinese/English), write content field in the appropriate language.",
+                description:
+                  "Optional programming language (e.g., 'typescript', 'python', 'go'). This is for CODE language, not natural language. For natural language (Chinese/English), write content field in the appropriate language.",
               },
               tags: {
                 type: "array",
@@ -367,8 +369,7 @@ export class AiMemoryMcpServer {
               related_issues: {
                 type: "array",
                 items: { type: "string" },
-                description:
-                  'Related issue numbers (e.g., ["#123", "#456"])',
+                description: 'Related issue numbers (e.g., ["#123", "#456"])',
               },
               related_prs: {
                 type: "array",
@@ -378,8 +379,7 @@ export class AiMemoryMcpServer {
               business_domain: {
                 type: "array",
                 items: { type: "string" },
-                description:
-                  'Business domain tags (e.g., ["auth", "payment"])',
+                description: 'Business domain tags (e.g., ["auth", "payment"])',
               },
               priority: {
                 type: "string",
@@ -503,14 +503,19 @@ export class AiMemoryMcpServer {
         },
         // extract_file_context removed - internal use only, integrated into record_context
         {
-          name: "get_related_contexts",
-          description: "Get contexts related to a specific context",
+          name: "get_context",
+          description:
+            "Get context(s) by ID(s) or find related contexts. Primary tool for viewing recorded memory content.\n\nUse when:\n- User says: 'show context', 'view memory', '查看记忆', '显示这条记录'\n- User provides context ID(s) from list_contexts or semantic_search results\n- Need to view full content of specific memory entries\n\nBehavior:\n- Without relation_type: Returns complete context content (type, content, tags, files, metadata)\n- With relation_type: Finds explicitly related contexts\n\nSupports:\n- Single ID: context_ids: 'abc123'\n- Multiple IDs: context_ids: ['abc123', 'def456']\n- Batch retrieval for efficient viewing\n\nReturns: Full context content including Markdown content, metadata, files, tags",
           inputSchema: {
             type: "object",
             properties: {
-              context_id: {
-                type: "string",
-                description: "Context ID to find related contexts for",
+              context_ids: {
+                oneOf: [
+                  { type: "string" },
+                  { type: "array", items: { type: "string" } },
+                ],
+                description:
+                  "Single context ID or array of context IDs to retrieve. Get IDs from list_contexts or semantic_search results.",
               },
               relation_type: {
                 type: "string",
@@ -522,16 +527,17 @@ export class AiMemoryMcpServer {
                   "tests",
                   "documents",
                 ],
-                description: "Optional specific relation type",
+                description:
+                  "Optional: If provided, finds contexts with explicit relationships to the given context_ids. If omitted, returns the contexts themselves.",
               },
             },
-            required: ["context_id"],
+            required: ["context_ids"],
           },
         },
         {
           name: "semantic_search",
           description:
-            "Intelligent memory search using hybrid algorithm (semantic 70% + keyword 30%). Primary tool for finding past work and solutions.\n\nUse when:\n- Search for similar solutions or code patterns\n- Find related bug fixes or implementations\n- Discover relevant past work\n- User asks 'how did I solve X before?'\n\nReturns:\n- Ranked contexts with similarity scores\n- Content snippets\n- File associations\n- Tags and metadata\n\nParameters:\n- query: Search text (supports UUIDs, file paths, special chars)\n- project_path: Limit to specific project\n- session_id: Limit to specific session\n- file_path: Filter by file (e.g., 'src/auth/login.ts')\n- type: Filter by context type (e.g., 'bug_fix', 'solution')\n- limit: Max results (default: 10, max: 50)\n\nCache: Results cached for 5 minutes\n\nWorkflow: record_context → semantic_search → find solutions",
+            "Intelligent memory search using hybrid algorithm (semantic 70% + keyword 30%). Primary tool for finding past work and solutions.\n\nUse when user says:\n- 'search memory for X', 'find X in memory'\n- '搜索记忆', '查找记忆中的X'\n- 'how did I solve X before?', 'show me similar bugs'\n- 'what did I do with login.ts', 'find all authentication work'\n\nUse when:\n- Search for similar solutions or code patterns\n- Find related bug fixes or implementations\n- Discover relevant past work\n- User provides search keywords\n\nReturns:\n- Ranked contexts with similarity scores (0-1)\n- Content snippets (not full content)\n- File associations\n- Tags and metadata\n\nParameters:\n- query: Search text (supports UUIDs, file paths, special chars)\n- project_path: Limit to specific project\n- session_id: Limit to specific session\n- file_path: Filter by file (e.g., 'src/auth/login.ts')\n- type: Filter by context type (e.g., 'bug_fix', 'solution')\n- limit: Max results (default: 10, max: 50)\n\nCache: Results cached for 5 minutes\n\nWorkflow: record_context → semantic_search → get_context (for full content)",
           inputSchema: {
             type: "object",
             properties: {
@@ -587,7 +593,7 @@ export class AiMemoryMcpServer {
         {
           name: "list_contexts",
           description:
-            "List recorded contexts in chronological order. Use semantic_search for intelligent/ranked queries.\n\nReturns: Chronological list of contexts (newest first)\n\nParameters:\n- project_path: List all contexts for this project\n- session_id: List contexts from specific session\n- limit: Max results (default: 20)\n- since: Time filter (e.g., '24h', '7d', '30d')\n- type: Filter by context type\n\nUse when:\n- View recent work chronologically\n- Check what was recorded in a session\n- Browse all contexts for a project\n\nFor intelligent search: Use semantic_search instead\nFor relationships: Use get_related_contexts",
+            "List recorded contexts in chronological order. Use semantic_search for intelligent/ranked queries.\n\nUse when user says:\n- 'show memory', 'list memories', 'view contexts'\n- '查询记忆', '列出记忆', '显示记忆'\n- 'what did I work on', 'recent work'\n- 'show all memories' (defaults to 20, use limit parameter for more)\n\nReturns: Chronological list of contexts (newest first)\n\nParameters:\n- project_path: List all contexts for this project\n- session_id: List contexts from specific session\n- limit: Max results (default: 20)\n- since: Time filter (e.g., '24h', '7d', '30d')\n- type: Filter by context type\n\nDefault behavior (no params):\n- Lists 20 most recent contexts from ALL projects\n- Best for quick overview of recent work\n\nFor intelligent search: Use semantic_search instead\nFor viewing full content: Use get_context with returned IDs",
           inputSchema: {
             type: "object",
             properties: {
@@ -607,11 +613,13 @@ export class AiMemoryMcpServer {
               },
               since: {
                 type: "string",
-                description: "Optional time filter: '24h' (last 24 hours), '7d' (last 7 days), '30d' (last 30 days), '90d' (last 90 days). Returns contexts created after this time.",
+                description:
+                  "Optional time filter: '24h' (last 24 hours), '7d' (last 7 days), '30d' (last 30 days), '90d' (last 90 days). Returns contexts created after this time.",
               },
               type: {
                 type: "string",
-                description: "Optional context type filter (e.g., 'bug_fix', 'feature_add', 'commit'). Only returns contexts of this type.",
+                description:
+                  "Optional context type filter (e.g., 'bug_fix', 'feature_add', 'commit'). Only returns contexts of this type.",
               },
             },
           },
@@ -815,9 +823,9 @@ export class AiMemoryMcpServer {
             safeArgs as { include_stats?: boolean; limit?: number }
           );
         // extract_file_context removed
-        case "get_related_contexts":
-          return await this.handleGetRelatedContexts(
-            safeArgs as { context_id: string; relation_type?: string }
+        case "get_context":
+          return await this.handleGetContext(
+            safeArgs as { context_ids: string | string[]; relation_type?: string }
           );
         case "semantic_search":
           return await this.handleSemanticSearch(
@@ -1276,28 +1284,39 @@ export class AiMemoryMcpServer {
 
       // === 分层自动记忆策略 (v2.1.0) ===
       // 从 content 检测对话语言（简易中文字符占比检测）
-      const detectConversationLanguage = (text: string): "zh" | "en" | undefined => {
+      const detectConversationLanguage = (
+        text: string
+      ): "zh" | "en" | undefined => {
         const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
         const totalChars = text.replace(/\s/g, "").length;
         if (totalChars === 0) return undefined;
         const chineseRatio = chineseChars / totalChars;
         // 超过 30% 中文字符即判定为中文对话
-        return chineseRatio > 0.3 ? "zh" : chineseRatio > 0.05 ? undefined : "en";
+        return chineseRatio > 0.3
+          ? "zh"
+          : chineseRatio > 0.05
+          ? undefined
+          : "en";
       };
-      
+
       const conversationLang = detectConversationLanguage(args.content);
       const language = args.project_path
-        ? languageDetector.detectProjectLanguage(args.project_path, conversationLang)
+        ? languageDetector.detectProjectLanguage(
+            args.project_path,
+            conversationLang
+          )
         : conversationLang || "en";
-      
+
       const isForceRemember = args.force_remember === true;
       const memorySource = isForceRemember ? "user_explicit" : "auto_remember";
-      
+
       // 定义自动记忆的工作类型
       const SILENT_AUTO_RECORD = [
         ContextType.BUG_FIX,
+        ContextType.BUG_REPORT,
         ContextType.FEATURE_ADD,
         ContextType.FEATURE_UPDATE,
+        ContextType.FEATURE_REMOVE,
         ContextType.CODE_CREATE,
         ContextType.CODE_MODIFY,
         ContextType.CODE_REFACTOR,
@@ -1307,23 +1326,20 @@ export class AiMemoryMcpServer {
         ContextType.COMMIT,
         ContextType.CONFIGURATION,
       ];
-      
+
       const NOTIFY_AUTO_RECORD = [
         ContextType.SOLUTION,
         ContextType.DESIGN,
         ContextType.DOCUMENTATION,
         ContextType.LEARNING,
       ];
-      
-      const NO_RECORD = [
-        ContextType.CONVERSATION,
-        ContextType.ERROR,
-      ];
-      
+
+      const NO_RECORD = [ContextType.CONVERSATION, ContextType.ERROR];
+
       // 决策：是否记忆
       let shouldRecord = isForceRemember;
       let recordTier: "silent" | "notify" | "none" = "none";
-      
+
       if (!isForceRemember) {
         if (SILENT_AUTO_RECORD.includes(args.type)) {
           shouldRecord = true;
@@ -1342,13 +1358,14 @@ export class AiMemoryMcpServer {
       } else {
         recordTier = "silent"; // 用户强制记忆，使用静默模式
       }
-      
+
       // 如果不记忆，直接返回
       if (!shouldRecord) {
-        const notRecordedMessage = language === "zh"
-          ? `💬 对话未记录。\n如需记录，请设置 force_remember=true`
-          : `💬 Conversation not recorded.\nTo record, set force_remember=true`;
-        
+        const notRecordedMessage =
+          language === "zh"
+            ? `💬 对话未记录。\n如需记录，请设置 force_remember=true`
+            : `💬 Conversation not recorded.\nTo record, set force_remember=true`;
+
         return {
           content: [{ type: "text", text: notRecordedMessage }],
           isError: false,
@@ -1421,7 +1438,7 @@ export class AiMemoryMcpServer {
 
       // 构建响应消息
       let responseText = "";
-      
+
       // 根据记忆层级生成不同的响应
       const getTypeName = (type: ContextType): string => {
         const typeNames: Record<string, { zh: string; en: string }> = {
@@ -1435,24 +1452,30 @@ export class AiMemoryMcpServer {
           test: { zh: "测试", en: "Testing" },
           configuration: { zh: "配置修改", en: "Configuration" },
         };
-        
+
         const name = typeNames[type];
         return name ? (language === "zh" ? name.zh : name.en) : type;
       };
-      
+
       if (recordTier === "silent") {
         // 第一层：静默自动记忆（执行类工作）
-        responseText = language === "zh"
-          ? `✅ 已自动记录此${getTypeName(args.type)}工作`
-          : `✅ Auto-recorded this ${getTypeName(args.type)} work`;
+        responseText =
+          language === "zh"
+            ? `✅ 已自动记录此${getTypeName(args.type)}工作`
+            : `✅ Auto-recorded this ${getTypeName(args.type)} work`;
       } else if (recordTier === "notify") {
         // 第二层：通知自动记忆（方案类工作）
         const shortId = contextId.slice(0, 8);
-        responseText = language === "zh"
-          ? `💡 此${getTypeName(args.type)}已自动记录 (ID: ${shortId}...)\n   如不需要: delete_context({context_id: "${contextId}"})`
-          : `💡 This ${getTypeName(args.type)} has been auto-recorded (ID: ${shortId}...)\n   To remove: delete_context({context_id: "${contextId}"})`;
+        responseText =
+          language === "zh"
+            ? `💡 此${getTypeName(
+                args.type
+              )}已自动记录 (ID: ${shortId}...)\n   如不需要: delete_context({context_id: "${contextId}"})`
+            : `💡 This ${getTypeName(
+                args.type
+              )} has been auto-recorded (ID: ${shortId}...)\n   To remove: delete_context({context_id: "${contextId}"})`;
       }
-      
+
       responseText += `\nContext ID: ${contextId}`;
 
       // 多文件信息
@@ -1804,27 +1827,78 @@ export class AiMemoryMcpServer {
     }
   }
 
-  private async handleGetRelatedContexts(args: {
-    context_id: string;
+  private async handleGetContext(args: {
+    context_ids: string | string[];
     relation_type?: string;
   }) {
     try {
-      const relatedContexts = this.db.getRelatedContexts(
-        args.context_id,
-        args.relation_type as any
-      );
+      // Normalize context_ids to array
+      const ids = Array.isArray(args.context_ids)
+        ? args.context_ids
+        : [args.context_ids];
+
+      // If relation_type is provided, find related contexts
+      if (args.relation_type) {
+        const allRelatedContexts = [];
+        for (const id of ids) {
+          const related = this.db.getRelatedContexts(
+            id,
+            args.relation_type as any
+          );
+          allRelatedContexts.push(...related);
+        }
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Found ${allRelatedContexts.length} related contexts`,
+            },
+          ],
+          isError: false,
+          _meta: {
+            context_ids: ids,
+            relation_type: args.relation_type,
+            related_contexts: allRelatedContexts,
+          },
+        };
+      }
+
+      // Otherwise, retrieve the contexts themselves
+      const contexts = [];
+      const notFound = [];
+
+      for (const id of ids) {
+        const context = this.db.getContextById(id);
+        if (context) {
+          // Get associated files
+          const files = this.contextFileManager.getFilesByContext(id);
+          contexts.push({
+            ...context,
+            files: files,
+          });
+        } else {
+          notFound.push(id);
+        }
+      }
+
+      let message = `Retrieved ${contexts.length} context(s)`;
+      if (notFound.length > 0) {
+        message += `. Not found: ${notFound.join(", ")}`;
+      }
 
       return {
         content: [
           {
             type: "text",
-            text: `Found ${relatedContexts.length} related contexts`,
+            text: message,
           },
         ],
         isError: false,
         _meta: {
-          context_id: args.context_id,
-          related_contexts: relatedContexts,
+          requested_ids: ids,
+          contexts: contexts,
+          not_found: notFound,
         },
       };
     } catch (error) {
@@ -1832,7 +1906,7 @@ export class AiMemoryMcpServer {
         content: [
           {
             type: "text",
-            text: `Failed to get related contexts: ${
+            text: `Failed to get context(s): ${
               error instanceof Error ? error.message : "Unknown error"
             }`,
           },
@@ -1854,7 +1928,7 @@ export class AiMemoryMcpServer {
     use_cache?: boolean;
   }) {
     try {
-      // 🔄 懒加载：检查是否需要更新质量分
+      // 懒加载：检查是否需要更新质量分
       await this.checkAndUpdateQualityScoresInBackground();
 
       if (!this.vectorSearch) {
@@ -1936,7 +2010,7 @@ export class AiMemoryMcpServer {
         results = results.filter((ctx) => ctx.type === args.type);
       }
 
-      // 🚀 记录搜索命中，更新质量评分
+      // 记录搜索命中，更新质量评分
       results.forEach((context) => {
         this.db.recordContextSearch(context.id);
       });
@@ -2221,7 +2295,7 @@ export class AiMemoryMcpServer {
   /**
    * @deprecated v2.1.2: 不再使用严格的项目检测
    * 任何存在的目录都可以成为项目（开箱即用理念）
-   * 
+   *
    * 保留此方法仅为向后兼容，但不在自动监控流程中使用
    */
   private isProjectDirectory(dirPath: string): boolean {
@@ -2711,19 +2785,19 @@ Happy coding! 🚀`;
       if (args.since) {
         const now = Date.now();
         let cutoffTime: number;
-        
-        if (args.since === '24h') {
+
+        if (args.since === "24h") {
           cutoffTime = now - 24 * 60 * 60 * 1000;
-        } else if (args.since === '7d') {
+        } else if (args.since === "7d") {
           cutoffTime = now - 7 * 24 * 60 * 60 * 1000;
-        } else if (args.since === '30d') {
+        } else if (args.since === "30d") {
           cutoffTime = now - 30 * 24 * 60 * 60 * 1000;
-        } else if (args.since === '90d') {
+        } else if (args.since === "90d") {
           cutoffTime = now - 90 * 24 * 60 * 60 * 1000;
         } else {
           cutoffTime = 0; // 无效值，不过滤
         }
-        
+
         if (cutoffTime > 0) {
           contexts = contexts.filter((ctx) => {
             const createdTime = new Date(ctx.created_at).getTime();
@@ -2932,7 +3006,7 @@ Happy coding! 🚀`;
             feedback_recorded: true,
             feedback_action: userFeedback.action,
             learning_applied: false,
-            note: "Feedback learning system pending reimplementation in v2.2.0"
+            note: "Feedback learning system pending reimplementation in v2.2.0",
           };
 
           updatedFields.push("user_feedback");
@@ -3267,14 +3341,16 @@ ${
   private async checkAndUpdateQualityScoresInBackground(): Promise<void> {
     try {
       // 检查上次更新时间
-      const lastUpdateKey = 'last_quality_update';
+      const lastUpdateKey = "last_quality_update";
       const lastUpdate = this.qualityUpdateTimestamp || 0;
       const now = Date.now();
       const hoursSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60);
 
       // 如果距离上次更新超过24小时，触发后台更新
       if (hoursSinceUpdate >= 24) {
-        console.error('[DevMind] Quality scores outdated, triggering background update...');
+        console.error(
+          "[DevMind] Quality scores outdated, triggering background update..."
+        );
         this.qualityUpdateTimestamp = now; // 立即更新时间戳，避免重复触发
 
         // 异步执行，不阻塞搜索
@@ -3282,12 +3358,12 @@ ${
           limit: 200, // 每次更新最多200条
           force_all: false,
         }).catch((error) => {
-          console.error('[DevMind] Background quality update failed:', error);
+          console.error("[DevMind] Background quality update failed:", error);
         });
       }
     } catch (error) {
       // 静默失败，不影响搜索
-      console.error('[DevMind] Quality check failed:', error);
+      console.error("[DevMind] Quality check failed:", error);
     }
   }
 
