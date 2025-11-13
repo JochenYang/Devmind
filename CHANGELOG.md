@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.11] - 2025-11-13
+
+### Fixed
+
+- **Project Root Directory Detection**: Fixed duplicate project/session creation for subdirectories
+  - Issue: `D:\codes\test` and `D:\codes\test\ceshi` created separate project IDs
+  - Solution: Added `findProjectRoot()` utility to detect real project root by searching upward for `.git`, `package.json`, etc.
+  - Now subdirectories correctly share parent project's session pool
+  - Priority: `.git` > project config files (`package.json`, `pyproject.toml`, `go.mod`, etc.) > original path
+  - Location: `src/utils/project-root-finder.ts` (new file, 131 lines)
+  - Location: `src/session-manager.ts:28-34, 138-141`
+
+### Improved
+
+- **Tool Description Optimization**: Enhanced `record_context` description for better AI recall after context compression
+  - Issue: After conversation context compression, AI forgets to proactively call `record_context`
+  - Root cause: Compression algorithms discard "procedural knowledge" (when to call tools)
+  - Solution: Based on MCP official specification (modelcontextprotocol.io/specification/2025-06-18/server/tools)
+  - Optimizations:
+    - **First sentence with bold**: "**CALL IMMEDIATELY after editing files.**" (highest visual weight)
+    - **Removed checkboxes**: Unicode checkboxes easily discarded during compression
+    - **Simplified to core triggers**: From 15 lines to 10 lines, removing redundancy
+    - **High-weight keywords**: "IMMEDIATELY", "CRITICAL", "NOW" preserved during compression
+    - **MCP-compliant format**: "Human-readable description of functionality" standard
+  - Other tools unchanged: `semantic_search`, `list_contexts`, etc. are user-triggered, not AI-proactive
+  - Location: `src/mcp-server.ts:264-265`
+
+### Technical Details
+
+- **Project Root Finder**:
+  - Searches up to 10 levels for project indicators
+  - Supports 17+ project file types across multiple languages
+  - Windows and Unix path handling
+  - Returns original path if no indicators found
+  - Example: `D:\codes\test\src\components` → `D:\codes\test` (found `.git`)
+
+- **MCP Specification Insights**:
+  - **Tools**: model-controlled (AI auto-discovers and invokes)
+  - **Prompts**: user-controlled (triggered by slash commands)
+  - **Resources**: application-driven (UI selection by user)
+  - Only `record_context` needs AI-proactive optimization
+
+### Benefits
+
+- **No Duplicate Projects**: One project root, one session pool, regardless of cwd
+- **Better Context Persistence**: AI more likely to remember recording after compression
+- **Cleaner Memory**: Subdirectory work properly grouped under parent project
+- **MCP Standards Compliant**: Tool descriptions follow official best practices
+
 ## [2.1.10] - 2025-11-10
 
 ### Improved

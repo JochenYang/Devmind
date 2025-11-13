@@ -10,6 +10,7 @@ import {
   AiMemoryConfig,
 } from "./types.js";
 import { normalizeProjectPath } from "./utils/path-normalizer.js";
+import { findProjectRoot } from "./utils/project-root-finder.js";
 
 export class SessionManager {
   private db: DatabaseManager;
@@ -25,7 +26,12 @@ export class SessionManager {
    * 根据项目路径创建或获取项目
    */
   async getOrCreateProject(projectPath: string): Promise<Project> {
-    const normalizedPath = normalizeProjectPath(projectPath);
+    // 1. 查找真实的项目根目录（向上查找 .git、package.json 等标识）
+    const projectRoot = findProjectRoot(projectPath);
+    const normalizedPath = normalizeProjectPath(projectRoot);
+    
+    console.error(`[SessionManager] Project path resolution: ${projectPath} -> ${normalizedPath}`);
+    
     let project = this.db.getProjectByPath(normalizedPath);
 
     if (!project) {
@@ -130,7 +136,9 @@ export class SessionManager {
    * 获取项目的当前活跃会话
    */
   async getCurrentSession(projectPath: string): Promise<string | null> {
-    const normalizedPath = normalizeProjectPath(projectPath);
+    // 查找真实的项目根目录
+    const projectRoot = findProjectRoot(projectPath);
+    const normalizedPath = normalizeProjectPath(projectRoot);
 
     // 先检查内存中的活跃会话
     if (this.activeSessions.has(normalizedPath)) {
