@@ -228,6 +228,30 @@ devmind-mcp/
 
 ---
 
+## AI 如何使用 DevMind
+
+每次开发会话遵循以下步骤：
+
+1. **会话初始化**
+   - 调用 `get_current_session` 或让其自动创建
+   - 说"检查记忆中..."并调用 `list_contexts(limit: 5)`
+
+2. **开发过程中**
+   - **关键**: 编辑文件后立即调用 `record_context`
+   - 根据工作类型使用: bug_fix, feature_add, code_modify
+   - 内容必须使用项目语言（中文/英文）
+
+3. **完成任务前**
+   - 在说"完成"之前先记录
+   - 多文件修改使用 `files_changed`
+
+4. **用户询问历史时**
+   - 使用 `semantic_search` 进行智能查询
+   - 使用 `list_contexts` 进行时间顺序浏览
+   - 使用 `get_context` 查看完整详情
+
+---
+
 ## 使用指南
 
 ### MCP工具速查
@@ -633,43 +657,6 @@ await update_context(contextId, {
 - 基于历史启用上下文感知响应
 - 维护用户偏好和项目细节
 - 支持与AI的长期关系建立
-
----
-
-## 最佳实践
-
-### AI工具推荐用户规则
-
-为了最大化 DevMind MCP 的效果，建议将以下规则添加到你的 AI 助手配置中（例如 Claude Desktop、Cursor、Warp 规则）：
-
-```markdown
-## DevMind Memory System
-
-### Usage Principles
-1. **Search First**: Use semantic_search when answering technical questions
-2. **Record Immediately**: Call record_context after completing work, before responding to user
-3. **Proactive Recording**: Don't wait for user to ask
-
-### Critical Recording Point
-**After editing any files** - This is the most important trigger, never skip.
-
-### Content Requirements
-- Markdown format with structure
-- Match project language (Chinese/English)
-- Concise and professional
-```
-
-**为什么需要这些规则？**
-- 确保 AI 在回答前主动搜索记忆
-- 强化完成任务后立即记录的行为
-- 保持所有记录使用一致的 Markdown 格式
-- 减少遗忘记录，提高记忆质量
-
-**在哪里添加：**
-- Claude Desktop：添加到自定义指令或系统规则
-- Cursor：添加到项目根目录的 `.cursorrules` 文件
-- Warp：添加到 AI 规则/工作流
-- 其他工具：添加到系统提示词或用户偏好设置
 
 ---
 

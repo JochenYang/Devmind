@@ -228,6 +228,30 @@ In your AI assistant, try:
 
 ---
 
+## How AI Should Use DevMind
+
+Follow these steps for each development session:
+
+1. **Session Initialization**
+   - Start by calling `get_current_session` or let it auto-create
+   - Say "Checking memory..." and call `list_contexts(limit: 5)`
+
+2. **During Development**
+   - **CRITICAL**: Call `record_context` IMMEDIATELY after editing files
+   - Use type: bug_fix, feature_add, code_modify based on work type
+   - Content MUST be in project's language (Chinese/English)
+
+3. **Before Completing Tasks**
+   - Record before saying "done" or "complete"
+   - Use `files_changed` for multi-file modifications
+
+4. **When User Asks About History**
+   - Use `semantic_search` for intelligent queries
+   - Use `list_contexts` for chronological browsing
+   - Use `get_context` to view full details
+
+---
+
 ## Usage Guide
 
 ### MCP Tools Quick Reference
@@ -630,43 +654,6 @@ Export all contexts to specified format.
 - Enable context-aware responses based on history
 - Maintain user preferences and project specifics
 - Support long-term relationship building with AI
-
----
-
-## Best Practices
-
-### Recommended User Rules for AI Tools
-
-To maximize DevMind MCP's effectiveness, add these rules to your AI assistant's configuration (e.g., Claude Desktop, Cursor, Warp rules):
-
-```markdown
-## DevMind Memory System
-
-### Usage Principles
-1. **Search First**: Use semantic_search when answering technical questions
-2. **Record Immediately**: Call record_context after completing work, before responding to user
-3. **Proactive Recording**: Don't wait for user to ask
-
-### Critical Recording Point
-**After editing any files** - This is the most important trigger, never skip.
-
-### Content Requirements
-- Markdown format with structure
-- Match project language (Chinese/English)
-- Concise and professional
-```
-
-**Why these rules?**
-- Ensures AI proactively searches memory before answering
-- Reinforces immediate recording after completing tasks
-- Maintains consistent Markdown formatting across all records
-- Reduces forgotten recordings and improves memory quality
-
-**Where to add:**
-- Claude Desktop: Add to custom instructions or system rules
-- Cursor: Add to `.cursorrules` file in project root
-- Warp: Add to AI rules/workflows
-- Other tools: Add to system prompts or user preferences
 
 ---
 
