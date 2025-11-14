@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.12] - 2025-11-14
+
+### Fixed
+
+- **Package Distribution**: Fixed missing compiled files in npm package
+  - Issue: v2.1.11 published without `session-manager.js` and other critical JS files in dist folder
+  - Symptom: `ERR_MODULE_NOT_FOUND` error when connecting via npx
+  - Root cause: Incomplete build artifacts included in published package
+  - Solution: Clean rebuild with verified dist folder contents before publishing
+  - All TypeScript files now properly compiled and included: `*.js`, `*.d.ts`, `*.js.map`, `*.d.ts.map`
+  - Verified files: `session-manager.js`, `utils/project-root-finder.js`, and all other modules
+
+### Technical Details
+
+- Ensured complete `dist/` folder structure in published package
+- Verified all modules from v2.1.11 features are properly compiled
+- Package now works correctly with npx without manual installation
+
+### Upgrade Instructions
+
+- If using npx: Clear cache with `npx clear-npx-cache` or wait for automatic refresh
+- If installed globally: Run `npm install -g devmind-mcp@latest`
+- If installed locally: Run `npm install devmind-mcp@latest` in your project
+
 ## [2.1.11] - 2025-11-13
 
 ### Fixed
