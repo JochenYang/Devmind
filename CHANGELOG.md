@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.13] - 2025-11-19
+
+### Enhanced
+
+- **Delete Session Tool Improvement**: Backward-compatible enhancement to `delete_session` tool
+  - Can now delete by `project_id` (from `list_projects`) or traditional `session_id`
+  - When using `project_id`: deletes ALL sessions and contexts of that project
+  - UX improvement: Eliminates need for users to query session_id before deletion
+  - Tool description optimized (-20 tokens vs multi-step workflow)
+  - Parameter validation: requires exactly one of session_id or project_id
+  - Location: `src/mcp-server.ts:689-704, 868-869, 3082-3203`
+
+- **List Projects Output Enhancement**: Improved readability and deletion workflow
+  - Changed "ID" to "Project ID" for clarity
+  - Changed "Sessions: X (Y active)" to "Sessions: X total (Y active)"
+  - Added "Active Session: `session_id`" showing most recent active session
+  - Added deletion hint: "To delete: `delete_session({project_id: "xxx"})`" when contexts exist
+  - Helps users quickly identify and delete projects using project_id
+  - Location: `src/mcp-server.ts:1692-1700, 1724-1725, 1736-1765`
+
+### Fixed
+
+- **Legacy Duplicate Projects Cleanup**: Cleaned up parent/child directory duplicate sessions
+  - Issue: Pre-v2.1.11 installations had duplicate projects for subdirectories
+  - Deleted 3 duplicate sessions: `d:\d\codes\test`, `d:\d\codes\pancode\pancode`, `d:\d\codes\games\aetheria`
+  - Total contexts cleaned: 9 (6 + 1 + 2)
+  - Note: v2.1.11 already fixed the root cause, this was cleanup of legacy data
+
+### Technical Details
+
+- **delete_session Backward Compatibility**:
+  ```typescript
+  // Old way (still works)
+  delete_session({ session_id: "abc123" })
+  
+  // New way (batch delete project)
+  delete_session({ project_id: "def456" })
+  ```
+
+- **Token Optimization**:
+  - Tool description: +20 tokens (added project_id parameter)
+  - Workflow savings: -150 tokens (eliminates list_contexts → find session_id steps)
+  - Net benefit: Saves tokens and improves UX
+
+### Benefits
+
+- **Simpler Deletion**: Delete entire projects without querying session_id first
+- **Better Visibility**: `list_projects` now shows active session and deletion hints
+- **Backward Compatible**: Old session_id method still works perfectly
+- **Cleaner Database**: Legacy duplicate projects removed
+
 ## [2.1.12] - 2025-11-14
 
 ### Fixed

@@ -688,16 +688,19 @@ export class AiMemoryMcpServer {
         {
           name: "delete_session",
           description:
-            "Delete a session and all its contexts (use with caution)",
+            "Delete session(s) and contexts. Use session_id OR project_id (from list_projects).",
           inputSchema: {
             type: "object",
             properties: {
               session_id: {
                 type: "string",
-                description: "Session ID to delete",
+                description: "Session ID (from get_current_session)",
+              },
+              project_id: {
+                type: "string",
+                description: "Delete ALL sessions of this project (from list_projects)",
               },
             },
-            required: ["session_id"],
           },
         },
         // generate_embeddings removed - automated in record_context background task
@@ -863,7 +866,7 @@ export class AiMemoryMcpServer {
           );
         case "delete_session":
           return await this.handleDeleteSession(
-            safeArgs as { session_id: string }
+            safeArgs as { session_id?: string; project_id?: string }
           );
         case "project_analysis_engineer":
           return await this.handleProjectAnalysisEngineerTool(
@@ -1686,6 +1689,16 @@ export class AiMemoryMcpServer {
         const contextsCount = this.db.getProjectContextsCount(project.id);
         const activeSessions = sessions.filter((s) => s.status === "active");
 
+        // Get main active session (most recent)
+        const mainActiveSession =
+          activeSessions.length > 0
+            ? activeSessions.sort(
+                (a, b) =>
+                  new Date(b.started_at).getTime() -
+                  new Date(a.started_at).getTime()
+              )[0]
+            : null;
+
         // 获取最后活动时间
         let lastActivity = project.created_at;
         if (sessions.length > 0) {
@@ -1709,6 +1722,7 @@ export class AiMemoryMcpServer {
             total_contexts: contextsCount,
             last_activity: lastActivity,
             created_at: project.created_at,
+            main_active_session_id: mainActiveSession?.id,
           },
         };
       });
@@ -1719,7 +1733,7 @@ export class AiMemoryMcpServer {
       projectsWithStats.forEach((project, index) => {
         outputLines.push(`${index + 1}. **${project.name}**`);
         outputLines.push(`   - Path: \`${project.path}\``);
-        outputLines.push(`   - ID: ${project.id}`);
+        outputLines.push(`   - Project ID: \`${project.id}\``);
         if (project.language)
           outputLines.push(`   - Language: ${project.language}`);
         if (project.framework)
@@ -1729,13 +1743,26 @@ export class AiMemoryMcpServer {
           outputLines.push(`   - 📊 Statistics:`);
           outputLines.push(`     - Contexts: ${project.stats.total_contexts}`);
           outputLines.push(
-            `     - Sessions: ${project.stats.total_sessions} (${project.stats.active_sessions} active)`
+            `     - Sessions: ${project.stats.total_sessions} total (${project.stats.active_sessions} active)`
           );
+
+          if (project.stats.main_active_session_id) {
+            outputLines.push(
+              `     - Active Session: \`${project.stats.main_active_session_id}\``
+            );
+          }
+
           outputLines.push(
             `     - Last Activity: ${new Date(
               project.stats.last_activity
             ).toLocaleString()}`
           );
+
+          if (project.stats.total_contexts > 0) {
+            outputLines.push(
+              `   - 🗑️  To delete: \`delete_session({project_id: "${project.id}"})\``
+            );
+          }
         }
         outputLines.push("");
       });
@@ -3076,47 +3103,125 @@ Happy coding! 🚀`;
     }
   }
 
-  private async handleDeleteSession(args: { session_id: string }) {
+  private async handleDeleteSession(args: {
+    session_id?: string;
+    project_id?: string;
+  }) {
     try {
-      // First check if session exists and get context count
-      const session = this.db.getSession(args.session_id);
-      if (!session) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `Session with ID ${args.session_id} not found`
-        );
+      // Parameter validation
+      if (!args.session_id && !args.project_id) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Error: Provide either session_id or project_id",
+            },
+          ],
+          isError: true,
+        };
       }
 
-      const contexts = this.db.getContextsBySession(args.session_id);
-      const contextCount = contexts.length;
+      if (args.session_id && args.project_id) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Error: Cannot provide both session_id and project_id",
+            },
+          ],
+          isError: true,
+        };
+      }
 
-      // Delete the session (this will cascade delete all contexts due to foreign key constraint)
-      const deleted = this.db.deleteSession(args.session_id);
+      // New: Delete all sessions by project_id
+      if (args.project_id) {
+        const sessions = this.db.getSessionsByProject(args.project_id);
 
-      if (deleted) {
+        if (sessions.length === 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: `No sessions found for project ${args.project_id}`,
+              },
+            ],
+            isError: false,
+          };
+        }
+
+        let totalContexts = 0;
+        for (const session of sessions) {
+          const contexts = this.db.getContextsBySession(session.id);
+          totalContexts += contexts.length;
+          this.db.deleteSession(session.id);
+        }
+
         return {
           content: [
             {
               type: "text",
               text:
-                `Successfully deleted session: ${args.session_id}\n` +
-                `Name: ${session.name}\n` +
-                `Contexts deleted: ${contextCount}\n` +
-                `⚠️  This action cannot be undone!`,
+                `✅ Deleted project: ${args.project_id}\n` +
+                `Sessions: ${sessions.length}\n` +
+                `Contexts: ${totalContexts}\n` +
+                `⚠️  Cannot be undone!`,
             },
           ],
+          isError: false,
           _meta: {
-            deleted_session_id: args.session_id,
-            deleted_contexts_count: contextCount,
+            deleted_project_id: args.project_id,
+            deleted_sessions_count: sessions.length,
+            deleted_contexts_count: totalContexts,
             success: true,
           },
         };
-      } else {
-        throw new Error("Delete operation failed");
       }
+
+      // Original: Delete by session_id
+      const session = this.db.getSession(args.session_id!);
+      if (!session) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Session not found: ${args.session_id}`,
+            },
+          ],
+          isError: false,
+        };
+      }
+
+      const contexts = this.db.getContextsBySession(args.session_id!);
+      this.db.deleteSession(args.session_id!);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `✅ Deleted session: ${args.session_id}\n` +
+              `Name: ${session.name}\n` +
+              `Contexts: ${contexts.length}\n` +
+              `⚠️  Cannot be undone!`,
+          },
+        ],
+        isError: false,
+        _meta: {
+          deleted_session_id: args.session_id,
+          deleted_contexts_count: contexts.length,
+          success: true,
+        },
+      };
     } catch (error) {
       return {
-        content: [{ type: "text", text: `Failed to delete session: ${error}` }],
+        content: [
+          {
+            type: "text",
+            text: `Failed to delete: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+        ],
         isError: true,
       };
     }
