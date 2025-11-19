@@ -25,13 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helps users quickly identify and delete projects using project_id
   - Location: `src/mcp-server.ts:1692-1700, 1724-1725, 1736-1765`
 
-### Fixed
-
-- **Legacy Duplicate Projects Cleanup**: Cleaned up parent/child directory duplicate sessions
-  - Issue: Pre-v2.1.11 installations had duplicate projects for subdirectories
-  - Deleted 3 duplicate sessions: `d:\d\codes\test`, `d:\d\codes\pancode\pancode`, `d:\d\codes\games\aetheria`
-  - Total contexts cleaned: 9 (6 + 1 + 2)
-  - Note: v2.1.11 already fixed the root cause, this was cleanup of legacy data
 
 ### Technical Details
 
