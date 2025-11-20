@@ -180,7 +180,12 @@ export class FilePathDetector {
       if (ctx.file_path) {
         // 越近的记录置信度越高
         const recency = 1 - (index * 0.1);
-        const confidence = Math.max(0.4, 0.6 * recency);
+        let confidence = Math.max(0.4, 0.6 * recency);
+
+        // 降低配置文件的置信度 (v2.1.14 fix)
+        if (this.isConfigFile(ctx.file_path)) {
+          confidence *= 0.3; // 配置文件置信度降低70%
+        }
 
         suggestions.push({
           path: ctx.file_path,
@@ -192,6 +197,23 @@ export class FilePathDetector {
     });
 
     return suggestions;
+  }
+
+  /**
+   * 判断是否为配置文件
+   */
+  private isConfigFile(filePath: string): boolean {
+    const configPatterns = [
+      /\.claude\//i,
+      /\.vscode\//i,
+      /\.idea\//i,
+      /settings\.json$/i,
+      /\.env$/i,
+      /\.gitignore$/i,
+      /package-lock\.json$/i,
+      /yarn\.lock$/i,
+    ];
+    return configPatterns.some(pattern => pattern.test(filePath));
   }
 
   /**

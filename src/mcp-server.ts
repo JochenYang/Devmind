@@ -36,6 +36,7 @@ import { join, dirname, resolve } from "path";
 import { homedir } from "os";
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
 import { normalizeProjectPath } from "./utils/path-normalizer.js";
+import { findProjectRoot } from "./utils/project-root-finder.js";
 
 export class AiMemoryMcpServer {
   private server: Server;
@@ -2770,20 +2771,22 @@ Happy coding! 🚀`;
         // List by session ID
         contexts = this.db.getContextsBySession(args.session_id, limit);
       } else if (args.project_path) {
-        // List by project path - get project ID first
-        const project = this.db.getProjectByPath(args.project_path);
+        // List by project path - find project root first (v2.1.14 fix)
+        const projectRoot = await findProjectRoot(args.project_path);
+        const project = this.db.getProjectByPath(projectRoot);
         if (!project) {
           return {
             content: [
               {
                 type: "text",
-                text: `No project found for path: ${args.project_path}. The project may not have been initialized yet.`,
+                text: `No project found for path: ${args.project_path} (resolved to: ${projectRoot}). The project may not have been initialized yet.`,
               },
             ],
             isError: false,
             _meta: {
               total_contexts: 0,
               contexts: [],
+              resolved_root: projectRoot,
             },
           };
         }

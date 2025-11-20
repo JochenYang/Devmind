@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.14] - 2025-11-20
+
+### Fixed
+
+- **list_contexts Subdirectory Query Issue**: Fixed subdirectory queries not finding parent project contexts
+  - Issue: `list_contexts({project_path: "D:\\codes\\test\\ui-ux-test"})` returned "No project found"
+  - Root cause: L2774 used `getProjectByPath()` directly without finding project root
+  - Solution: Added `findProjectRoot()` before querying (consistent with v2.1.11 fix)
+  - Now subdirectories correctly resolve to parent project root
+  - Location: `src/mcp-server.ts:2774-2775`
+
+- **Auto-detected File Path Always Same Config File**: Optimized file path detection to prioritize code files
+  - Issue: `auto-detected file` always showed `.claude/settings.local.json` (70% confidence)
+  - Root cause: Context-inference used recent context files without filtering config files
+  - Solution: Added `isConfigFile()` check to reduce config file confidence by 70%
+  - Config patterns filtered: `.claude/`, `.vscode/`, `.idea/`, `settings.json`, `.env`, `.gitignore`, lock files
+  - Result: Code files (`.ts`, `.js`, `.py`) now have higher priority than config files
+  - Location: `src/utils/file-path-detector.ts:185-217`
+
+### Improved
+
+- **File Path Detection Logic**: Better prioritization of code files over configuration files
+  - Git changes (staged/modified): 0.95/0.85 confidence (highest priority)
+  - Content analysis: 0.75 confidence
+  - Recent code files: 0.4-0.6 confidence
+  - Recent config files: 0.12-0.18 confidence (reduced 70%)
+
+### Technical Details
+
+- **list_contexts Flow**:
+  ```typescript
+  // Before v2.1.14
+  project_path → getProjectByPath() → Not found (if subdirectory)
+  
+  // After v2.1.14
+  project_path → findProjectRoot() → getProjectByPath() → Found!
+  ```
+
+- **File Detection Priority** (descending):
+  1. Git staged files (0.95)
+  2. Git modified files (0.85)
+  3. Content-mentioned files (0.75)
+  4. Git untracked files (0.70)
+  5. Recent code files (0.4-0.6)
+  6. Recent config files (0.12-0.18) ← NEW: Reduced by 70%
+
+### Benefits
+
+- **Consistent Subdirectory Behavior**: All query tools now handle subdirectories correctly
+- **Better File Suggestions**: Auto-detection prioritizes actual code files over config
+- **Reduced False Positives**: Config files no longer dominate detection results
+- **Improved UX**: Users see relevant file paths instead of repeated config file names
+
 ## [2.1.13] - 2025-11-19
 
 ### Enhanced
