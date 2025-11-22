@@ -1124,16 +1124,37 @@ export class AiMemoryMcpServer {
       // 自动获取或创建会话（如果未提供 session_id）
       let sessionId = args.session_id;
       let autoSessionMeta: any = {};
+      let inferredProjectPath = args.project_path;
 
-      if (!sessionId && args.project_path) {
+      // v2.1.15: 如果两个参数都没提供，自动推断当前工作目录
+      if (!sessionId && !inferredProjectPath) {
+        const potentialDirs = [
+          process.env.INIT_CWD, // npm/npx初始目录
+          process.env.PWD, // Unix工作目录
+          process.env.CD, // Windows当前目录
+          process.cwd(), // 最后兜底
+        ].filter(Boolean) as string[];
+
+        // 找到第一个有效目录
+        for (const dir of potentialDirs) {
+          if (existsSync(dir)) {
+            inferredProjectPath = dir;
+            autoSessionMeta.inferred_project_path = true;
+            break;
+          }
+        }
+      }
+
+      if (!sessionId && inferredProjectPath) {
         // 尝试获取活跃会话
         const currentSessionId = await this.sessionManager.getCurrentSession(
-          args.project_path
+          inferredProjectPath
         );
 
         if (currentSessionId) {
           sessionId = currentSessionId;
           autoSessionMeta = {
+            ...autoSessionMeta,
             auto_session: true,
             session_source: "existing_active",
             session_id: sessionId,
@@ -1141,11 +1162,12 @@ export class AiMemoryMcpServer {
         } else {
           // 创建新会话
           sessionId = await this.sessionManager.createSession({
-            project_path: args.project_path,
+            project_path: inferredProjectPath,
             tool_used: "auto",
             name: "Auto-created session",
           });
           autoSessionMeta = {
+            ...autoSessionMeta,
             auto_session: true,
             session_source: "newly_created",
             session_id: sessionId,
@@ -1155,7 +1177,10 @@ export class AiMemoryMcpServer {
 
       // 验证必须有 session_id
       if (!sessionId) {
-        throw new Error("Either session_id or project_path must be provided");
+        throw new Error(
+          "Either session_id or project_path must be provided. " +
+          "Could not infer project path from current working directory."
+        );
       }
 
       // 智能检测文件路径（如果未提供）

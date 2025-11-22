@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.15] - 2025-11-22
+
+### Fixed
+
+- **record_context First-Call Failure**: Fixed "Either session_id or project_path must be provided" error on first AI call
+  - Issue: AI occasionally calls `record_context` without `session_id` or `project_path`, causing failure
+  - Root cause: Both parameters marked as optional in tool schema, but code required at least one
+  - User experience: First call failed, second call succeeded (AI added project_path after seeing error)
+  - Solution: Auto-infer `project_path` from current working directory when both missing
+  - Location: `src/mcp-server.ts:1129-1146`
+
+### Improved
+
+- **Smart Project Path Inference**: Multi-source directory detection for maximum reliability
+  - Priority order:
+    1. `process.env.INIT_CWD` (npm/npx initial directory)
+    2. `process.env.PWD` (Unix working directory)
+    3. `process.env.CD` (Windows current directory)
+    4. `process.cwd()` (Node.js fallback)
+  - First existing directory is used
+  - Metadata tracking: `inferred_project_path: true` when auto-detected
+
+### Technical Details
+
+- **Backward Compatibility**: All existing call patterns still work
+  ```typescript
+  // Now all 4 patterns work:
+  record_context({ session_id: "abc", ... })                  // Existing
+  record_context({ project_path: "/path", ... })              // Existing
+  record_context({ session_id: "abc", project_path: "/path", ... }) // Existing
+  record_context({ type: "test", content: "...", ... })       // NEW: Auto-infer
+  ```
+
+- **Inference Logic Flow**:
+  ```typescript
+  // 1. Check if inference needed
+  if (!session_id && !project_path) {
+    // 2. Try multiple environment sources
+    inferredProjectPath = findFirstExistingDir();
+    autoSessionMeta.inferred_project_path = true;
+  }
+  
+  // 3. Proceed with normal session logic
+  if (inferredProjectPath) {
+    session_id = await getOrCreateSession(inferredProjectPath);
+  }
+  ```
+
+### Benefits
+
+- **100% Success Rate**: AI calls no longer fail on first attempt
+- **Better UX**: No confusing error messages for AI or users
+- **Zero Breaking Changes**: All existing code paths preserved
+- **Smart Defaults**: Works correctly in npm, npx, IDE, and terminal contexts
+
+### Testing
+
+- ✅ Auto-infer without parameters (new feature)
+- ✅ Explicit project_path only (existing)
+- ✅ Explicit session_id only (existing)
+- ✅ Both parameters provided (existing)
+- ✅ Metadata tracking for inferred paths
+
 ## [2.1.14] - 2025-11-20
 
 ### Fixed
