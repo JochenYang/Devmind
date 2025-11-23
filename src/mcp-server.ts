@@ -24,6 +24,14 @@ import {
 } from "./utils/file-path-detector.js";
 // UnifiedMemoryManager removed in v2.1.0 - simplified to type-based auto-memory
 import { languageDetector } from "./utils/language-detector.js";
+
+// === AI Enhancement Imports (v2.2.0) ===
+import { QueryEnhancer } from "./utils/query-enhancer.js";
+import { AutoMemoryClassifier } from "./utils/auto-memory-classifier.js";
+import { ContextEnricher } from "./utils/context-enricher.js";
+import { BatchProcessor } from "./utils/batch-processor.js";
+import { performanceOptimizer } from "./utils/performance-optimizer.js";
+
 import {
   AiMemoryConfig,
   ContextSearchParams,
@@ -53,7 +61,12 @@ export class AiMemoryMcpServer {
   private fileWatcher: any = null;
   private lastNotifiedFiles: Map<string, number> = new Map(); // 记录已提示的文件和时间
   private qualityUpdateTimestamp: number = 0; // 质量分上次更新时间戳
-  // unifiedMemoryManager removed in v2.1.0
+
+  // === AI Enhancement Components (v2.2.0) ===
+  private queryEnhancer: QueryEnhancer;
+  private memoryClassifier: AutoMemoryClassifier;
+  private contextEnricher: ContextEnricher;
+  private batchProcessor: BatchProcessor;
 
   // 真实日期记录函数
   private getCurrentRealDate(): string {
@@ -131,6 +144,12 @@ export class AiMemoryMcpServer {
     this.graphGenerator = new MemoryGraphGenerator(this.db);
     this.contextFileManager = new ContextFileManager(this.db);
 
+    // === Initialize AI Enhancement Components (v2.2.0) ===
+    this.queryEnhancer = new QueryEnhancer();
+    this.memoryClassifier = new AutoMemoryClassifier();
+    this.contextEnricher = new ContextEnricher();
+    this.batchProcessor = new BatchProcessor(this.db);
+
     // 初始化自动记录过滤器
     this.autoRecordFilter = new AutoRecordFilter({
       minChangeInterval: 30000, // 30秒
@@ -155,7 +174,7 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: "devmind-mcp",
-        version: "1.9.0",
+        version: "2.2.0",
       },
       {
         capabilities: {
@@ -1213,19 +1232,46 @@ export class AiMemoryMcpServer {
               });
 
               if (suggestions.length > 0) {
-                const topSuggestion = suggestions[0];
-                detectedFilePath = topSuggestion.path;
-                pathDetectionMeta = {
-                  auto_detected: true,
-                  confidence: topSuggestion.confidence,
-                  source: topSuggestion.source,
-                  reason: topSuggestion.reason,
-                  all_suggestions: suggestions.slice(0, 3).map((s) => ({
-                    path: detector.getRelativePath(s.path),
-                    confidence: s.confidence,
-                    source: s.source,
-                  })),
-                };
+                // 如果有多个高置信度的文件建议，自动转换为多文件变更
+                if (suggestions.length > 1 && suggestions[0].confidence > 0.6) {
+                  // 转换为files_changed格式（仅在用户未提供时）
+                  if (!args.files_changed) {
+                    args.files_changed = suggestions
+                      .slice(0, 5) // 最多5个文件
+                      .map(s => ({
+                        file_path: s.path,
+                        change_type: s.source.includes('git') ? 'modify' : undefined,
+                      }));
+                  }
+
+                  // 清空单一文件路径，使用多文件格式
+                  detectedFilePath = undefined;
+                  pathDetectionMeta = {
+                    auto_detected: true,
+                    multi_file_auto_detected: true,
+                    confidence: suggestions[0].confidence,
+                    detected_files: suggestions.slice(0, 5).map(s => ({
+                      path: detector.getRelativePath(s.path),
+                      confidence: s.confidence,
+                      source: s.source
+                    }))
+                  };
+                } else {
+                  // 单文件场景
+                  const topSuggestion = suggestions[0];
+                  detectedFilePath = topSuggestion.path;
+                  pathDetectionMeta = {
+                    auto_detected: true,
+                    confidence: topSuggestion.confidence,
+                    source: topSuggestion.source,
+                    reason: topSuggestion.reason,
+                    all_suggestions: suggestions.slice(0, 3).map((s) => ({
+                      path: detector.getRelativePath(s.path),
+                      confidence: s.confidence,
+                      source: s.source,
+                    })),
+                  };
+                }
               }
             } catch (error) {
               console.error(
@@ -1406,11 +1452,63 @@ export class AiMemoryMcpServer {
         };
       }
 
+      // === AI Enhancement (v2.2.0): Auto-classify context type ===
+      let finalType = args.type;
+      let autoClassificationMeta: any = {};
+      if (!args.type || args.type === "code" || args.type === "conversation") {
+        try {
+          const classification = this.memoryClassifier.classify(args.content, {
+            ...args.metadata,
+            filePath: detectedFilePath,
+            change_type: args.change_type,
+            diff_stats: args.diff_stats,
+          });
+
+          if (classification.confidence > 0.7) {
+            finalType = classification.type;
+            autoClassificationMeta = {
+              auto_classified: true,
+              original_type: args.type,
+              classified_type: classification.type,
+              confidence: classification.confidence,
+              reasoning: classification.reasoning,
+              changeType: classification.changeType,
+              impactLevel: classification.impactLevel,
+            };
+          }
+        } catch (error) {
+          console.error("[AI Enhancement] Auto-classification failed:", error);
+        }
+      }
+
+      // === AI Enhancement (v2.2.0): Enrich context with additional metadata ===
+      let enrichmentResult: any = {};
+      try {
+        enrichmentResult = this.contextEnricher.enrich(
+          args.content,
+          detectedFilePath,
+          {
+            ...args.metadata,
+            change_type: args.change_type,
+            diff_stats: args.diff_stats,
+          }
+        );
+      } catch (error) {
+        console.error("[AI Enhancement] Context enrichment failed:", error);
+      }
+
       const mergedMetadata = {
         ...(args.metadata || {}),
         ...extractedContext.metadata, // 包含自动提取的 affected_functions, affected_classes 等
         ...enhancedMetadata, // 用户提供的增强字段
         ...lineRangesData,
+        // AI Enhancement: Add enriched metadata
+        ...(Object.keys(enrichmentResult).length > 0
+          ? { ai_enrichment: enrichmentResult }
+          : {}),
+        ...(Object.keys(autoClassificationMeta).length > 0
+          ? { auto_classification: autoClassificationMeta }
+          : {}),
         ...(Object.keys(pathDetectionMeta).length > 0
           ? { path_detection: pathDetectionMeta }
           : {}),
@@ -1419,11 +1517,12 @@ export class AiMemoryMcpServer {
           : {}),
         memory_source: memorySource,
         record_tier: recordTier,
+        ai_enhanced: true, // Mark as AI enhanced
       };
 
       const contextId = this.db.createContext({
         session_id: sessionId,
-        type: args.type,
+        type: finalType,
         content: args.content,
         file_path: undefined, // 不再使用单一 file_path，改用 context_files 表
         line_start: finalLineStart,
@@ -2008,6 +2107,26 @@ export class AiMemoryMcpServer {
         }
       }
 
+      // === AI Enhancement (v2.2.0): Enhance search query ===
+      let enhancedQuery = args.query;
+      let queryEnhancementMeta: any = {};
+      try {
+        const enhancement = this.queryEnhancer.enhance(args.query);
+
+        if (enhancement.keywords.length > 0) {
+          enhancedQuery = enhancement.enhanced;
+          queryEnhancementMeta = {
+            original_query: args.query,
+            enhanced_query: enhancedQuery,
+            added_keywords: enhancement.keywords,
+            intent_type: enhancement.intent,
+            confidence: enhancement.confidence,
+          };
+        }
+      } catch (error) {
+        console.error("[AI Enhancement] Query enhancement failed:", error);
+      }
+
       // 获取用于搜索的contexts
       const allContexts = this.db.getContextsForVectorSearch(
         projectId,
@@ -2045,14 +2164,14 @@ export class AiMemoryMcpServer {
 
       // 获取关键词搜索结果作为基线
       const keywordResults = this.db.searchContexts(
-        args.query,
+        enhancedQuery,
         projectId,
         searchParams.limit
       );
 
       // 执行混合搜索
       let results = await this.vectorSearch.hybridSearch(
-        args.query,
+        enhancedQuery,
         keywordResults,
         allContexts,
         searchParams
@@ -2155,10 +2274,12 @@ export class AiMemoryMcpServer {
         isError: false,
         _meta: {
           query: args.query,
+          enhanced_query: enhancedQuery,
           total_contexts_searched: allContexts.length,
           results_count: formattedResults.length,
           results: formattedResults,
           search_params: searchParams,
+          query_enhancement: queryEnhancementMeta,
         },
       };
     } catch (error) {

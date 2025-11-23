@@ -16,10 +16,34 @@ export class SessionManager {
   private db: DatabaseManager;
   private config: AiMemoryConfig;
   private activeSessions: Map<string, string> = new Map(); // projectPath -> sessionId
+  private sessionCache: Map<string, any> = new Map(); // sessionId -> sessionData
+  private lastAccessedProject: string | null = null; // 追踪最近访问的项目
 
   constructor(db: DatabaseManager, config: AiMemoryConfig) {
     this.db = db;
     this.config = config;
+    this.initializeSessionCache();
+  }
+
+  /**
+   * 初始化会话缓存
+   */
+  private initializeSessionCache(): void {
+    // 预加载所有活跃会话到缓存
+    try {
+      const projects = this.db.getAllProjects();
+      projects.forEach((project: any) => {
+        const activeSessions = this.db.getActiveSessions(project.id);
+        activeSessions.forEach(session => {
+          this.activeSessions.set(project.path, session.id);
+          this.sessionCache.set(session.id, session);
+          this.lastAccessedProject = project.path;
+        });
+      });
+      console.error(`[SessionManager] Preloaded ${this.activeSessions.size} active sessions`);
+    } catch (error) {
+      console.error('[SessionManager] Failed to preload sessions:', error);
+    }
   }
 
   /**
@@ -54,14 +78,29 @@ export class SessionManager {
   }
 
   /**
-   * 创建新的开发会话或复用现有活跃会话
+   * 创建新的开发会话或复用现有活跃会话（增强版）
    * @param params 会话创建参数
    * @param params.force 是否强制创建新会话（默认false，会复用现有活跃会话）
+   * @param params.autoDetectTool 是否自动检测工具类型（默认true）
    */
   async createSession(
-    params: SessionCreateParams & { force?: boolean }
+    params: SessionCreateParams & { force?: boolean; autoDetectTool?: boolean }
   ): Promise<string> {
-    const project = await this.getOrCreateProject(params.project_path);
+    // 自动检测项目路径（如果不提供）
+    let projectPath = params.project_path;
+    if (!projectPath) {
+      projectPath = this.autoDetectProjectPath() || process.cwd();
+      console.error(`[SessionManager] Auto-detected project path: ${projectPath}`);
+    }
+
+    const project = await this.getOrCreateProject(projectPath);
+
+    // 自动检测工具类型（如果启用且未提供）
+    let toolUsed = params.tool_used;
+    if (params.autoDetectTool !== false && !toolUsed) {
+      toolUsed = this.detectCurrentTool();
+      console.error(`[SessionManager] Auto-detected tool: ${toolUsed}`);
+    }
 
     // 检查是否已有活跃会话
     const activeSessions = this.db.getActiveSessions(project.id);
@@ -70,9 +109,10 @@ export class SessionManager {
     if (!params.force && activeSessions.length > 0) {
       const existingSession = activeSessions[0];
       this.activeSessions.set(project.path, existingSession.id);
+      this.sessionCache.set(existingSession.id, existingSession);
 
       console.error(
-        `[DevMind] Reusing existing active session: ${existingSession.id} (${existingSession.tool_used} -> ${params.tool_used})`
+        `[DevMind] Reusing existing active session: ${existingSession.id} (${existingSession.tool_used} -> ${toolUsed})`
       );
 
       // 可选：更新会话的tool_used记录（记录跨工具使用）
@@ -82,13 +122,17 @@ export class SessionManager {
       if (!currentMetadata.tools_used) {
         currentMetadata.tools_used = [existingSession.tool_used];
       }
-      if (!currentMetadata.tools_used.includes(params.tool_used)) {
-        currentMetadata.tools_used.push(params.tool_used);
-        currentMetadata.last_tool = params.tool_used;
+      if (!currentMetadata.tools_used.includes(toolUsed)) {
+        currentMetadata.tools_used.push(toolUsed);
+        currentMetadata.last_tool = toolUsed;
         currentMetadata.last_access = new Date().toISOString();
 
-        // 更新元数据
+        // 更新元数据和缓存
         this.db.updateSession(existingSession.id, {
+          metadata: JSON.stringify(currentMetadata),
+        });
+        this.sessionCache.set(existingSession.id, {
+          ...existingSession,
           metadata: JSON.stringify(currentMetadata),
         });
       }
@@ -133,21 +177,38 @@ export class SessionManager {
   }
 
   /**
-   * 获取项目的当前活跃会话
+   * 获取项目的当前活跃会话（增强版 - 支持自动推断）
+   * @param projectPath 项目路径（可选，如果不提供会自动推断）
+   * @returns 会话ID或null
    */
-  async getCurrentSession(projectPath: string): Promise<string | null> {
+  async getCurrentSession(projectPath?: string): Promise<string | null> {
+    // 如果没有提供projectPath，尝试自动推断
+    if (!projectPath) {
+      projectPath = this.autoDetectProjectPath();
+      console.error(`[SessionManager] Auto-detected project path: ${projectPath}`);
+    }
+
+    if (!projectPath) {
+      console.error('[SessionManager] No project path available and auto-detection failed');
+      return null;
+    }
+
     // 查找真实的项目根目录
     const projectRoot = findProjectRoot(projectPath);
     const normalizedPath = normalizeProjectPath(projectRoot);
 
+    // 更新最近访问的项目
+    this.lastAccessedProject = normalizedPath;
+
     // 先检查内存中的活跃会话
     if (this.activeSessions.has(normalizedPath)) {
       const sessionId = this.activeSessions.get(normalizedPath)!;
-      const session = this.db.getSession(sessionId);
+      const session = this.sessionCache.get(sessionId) || this.db.getSession(sessionId);
       if (session && session.status === "active") {
         return sessionId;
       } else {
         this.activeSessions.delete(normalizedPath);
+        this.sessionCache.delete(sessionId);
       }
     }
 
@@ -158,11 +219,121 @@ export class SessionManager {
       if (activeSessions.length > 0) {
         const sessionId = activeSessions[0].id;
         this.activeSessions.set(normalizedPath, sessionId);
+        this.sessionCache.set(sessionId, activeSessions[0]);
         return sessionId;
       }
     }
 
     return null;
+  }
+
+  /**
+   * 自动检测当前项目路径（多源推断）
+   * @returns 检测到的项目路径或undefined
+   */
+  private autoDetectProjectPath(): string | undefined {
+    // 优先级顺序（参考v2.1.15实现）
+    const potentialPaths = [
+      process.env.INIT_CWD,      // npm/npx初始目录
+      process.env.PWD,            // Unix工作目录
+      process.env.CD,             // Windows当前目录
+      process.cwd(),              // Node.js当前目录
+    ].filter(Boolean) as string[];
+
+    // 找到第一个存在的目录
+    for (const dir of potentialPaths) {
+      try {
+        if (existsSync(dir)) {
+          return normalizeProjectPath(dir);
+        }
+      } catch (error) {
+        // 跳过无法访问的目录
+        continue;
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * 自动检测当前使用的工具类型
+   * @returns 工具类型字符串
+   */
+  private detectCurrentTool(): string {
+    // 尝试从环境变量检测
+    const toolFromEnv = process.env.DEVMIND_TOOL_TYPE ||
+                       process.env.VSCODE_INJECTION_PATH ||
+                       process.env.CURSOR_PATH ||
+                       process.env.CLIENT_NAME;
+
+    if (toolFromEnv) {
+      // 转换为标准工具名称
+      if (toolFromEnv.includes('vscode') || toolFromEnv.includes('VSCode')) {
+        return 'vscode';
+      } else if (toolFromEnv.includes('cursor') || toolFromEnv.includes('Cursor')) {
+        return 'cursor';
+      } else if (toolFromEnv.includes('claude') || toolFromEnv.includes('Claude')) {
+        return 'claude-desktop';
+      }
+    }
+
+    // 检测运行方式
+    const execPath = process.execPath || '';
+    if (execPath.includes('code') || execPath.includes('Code')) {
+      return 'vscode';
+    } else if (execPath.includes('cursor') || execPath.includes('Cursor')) {
+      return 'cursor';
+    }
+
+    // 默认返回通用工具
+    return 'cli';
+  }
+
+  /**
+   * 获取缓存的会话数据
+   */
+  getCachedSession(sessionId: string): any {
+    return this.sessionCache.get(sessionId);
+  }
+
+  /**
+   * 更新会话缓存
+   */
+  updateSessionCache(sessionId: string, sessionData: any): void {
+    this.sessionCache.set(sessionId, sessionData);
+  }
+
+  /**
+   * 获取最近访问的项目路径
+   */
+  getLastAccessedProject(): string | null {
+    return this.lastAccessedProject;
+  }
+
+  /**
+   * 清除过期的会话缓存
+   */
+  cleanupExpiredCache(): void {
+    const now = Date.now();
+    const maxAge = 24 * 60 * 60 * 1000; // 24小时
+
+    for (const [sessionId, session] of this.sessionCache.entries()) {
+      if (session.ended_at) {
+        const endedAt = new Date(session.ended_at).getTime();
+        if (now - endedAt > maxAge) {
+          this.sessionCache.delete(sessionId);
+          // 也要从activeSessions中移除
+          for (const [path, sId] of this.activeSessions.entries()) {
+            if (sId === sessionId) {
+              this.activeSessions.delete(path);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    console.error(`[SessionManager] Cache cleanup completed. Active sessions: ${this.sessionCache.size}`);
   }
 
   /**
