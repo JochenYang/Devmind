@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2025-11-23
+
+### Fixed
+
+- **AI Auto-Classification Bug**: Fixed "NOT NULL constraint failed: contexts.type" error when calling record_context without type parameter
+  - Issue: Auto-classifier confidence threshold (0.7) was too high, causing classification to fail
+  - Solution: Lowered confidence threshold from 0.7 to 0.5 to enable more flexible classification
+  - Added default fallback: "conversation" type when no type is provided
+  - Location: `src/mcp-server.ts:1456-1467`
+
+### Technical Details
+
+- **Confidence Threshold**: Changed from 0.7 to 0.5 for auto-classification
+- **Default Type**: Added fallback to "conversation" when args.type is undefined
+- **Backward Compatible**: All existing usage patterns remain unchanged
+
+---
+
 ## [2.2.0] - 2025-11-23
 
 ### Major Features

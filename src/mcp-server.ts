@@ -1453,7 +1453,7 @@ export class AiMemoryMcpServer {
       }
 
       // === AI Enhancement (v2.2.0): Auto-classify context type ===
-      let finalType = args.type;
+      let finalType = args.type || "conversation"; // Default fallback
       let autoClassificationMeta: any = {};
       if (!args.type || args.type === "code" || args.type === "conversation") {
         try {
@@ -1464,7 +1464,7 @@ export class AiMemoryMcpServer {
             diff_stats: args.diff_stats,
           });
 
-          if (classification.confidence > 0.7) {
+          if (classification.confidence > 0.5) { // Lowered from 0.7 to 0.5
             finalType = classification.type;
             autoClassificationMeta = {
               auto_classified: true,
