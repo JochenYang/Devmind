@@ -1589,18 +1589,18 @@ export class AiMemoryMcpServer {
         // 第一层：静默自动记忆（执行类工作）
         responseText =
           language === "zh"
-            ? `✅ 已自动记录此${getTypeName(args.type)}工作`
-            : `✅ Auto-recorded this ${getTypeName(args.type)} work`;
+            ? `✅ 已自动记录此${getTypeName(finalType)}工作`
+            : `✅ Auto-recorded this ${getTypeName(finalType)} work`;
       } else if (recordTier === "notify") {
         // 第二层：通知自动记忆（方案类工作）
         const shortId = contextId.slice(0, 8);
         responseText =
           language === "zh"
             ? `💡 此${getTypeName(
-                args.type
+                finalType
               )}已自动记录 (ID: ${shortId}...)\n   如不需要: delete_context({context_id: "${contextId}"})`
             : `💡 This ${getTypeName(
-                args.type
+                finalType
               )} has been auto-recorded (ID: ${shortId}...)\n   To remove: delete_context({context_id: "${contextId}"})`;
       }
 
