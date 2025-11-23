@@ -473,7 +473,7 @@ export class AiMemoryMcpServer {
                   "Force record regardless of type (default: false). Use when user explicitly says 'remember this' or 'save this'. Overrides all type-based auto-record logic and has highest priority.",
               },
             },
-            required: ["type", "content"],
+            required: ["content"], // type is optional for AI auto-classification
           },
         },
         {

@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.2] - 2025-11-23
+
+### Fixed
+
+- **MCP Tool Schema Issue**: Fixed "NOT NULL constraint failed: contexts.type" error by making `type` parameter optional in MCP tool schema
+  - Issue: MCP tool schema required `type` parameter, preventing AI auto-classification from working
+  - Solution: Changed `required: ["type", "content"]` to `required: ["content"]` in record_context tool schema
+  - Now AI can automatically classify context types when no type is provided
+  - Location: `src/mcp-server.ts:476`
+
+### Technical Details
+
+- **Schema Change**: `type` field is now optional in record_context MCP tool
+- **AI Auto-Classification**: Works when type is not provided
+- **Backward Compatible**: Existing usage with type parameter continues to work
+
+---
+
 ## [2.2.1] - 2025-11-23
 
 ### Fixed
