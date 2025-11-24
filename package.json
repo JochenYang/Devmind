@@ -1,6 +1,6 @@
 {
   "name": "devmind-mcp",
-  "version": "2.2.3",
+  "version": "2.2.4",
   "description": "DevMind MCP - AI Assistant Memory System - Pure MCP Tool",
   "main": "dist/index.js",
   "type": "module",
@@ -51,5 +51,14 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }
