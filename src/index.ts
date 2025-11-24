@@ -31,11 +31,64 @@ function loadConfig(): AiMemoryConfig {
 }
 
 /**
+ * 解析命令行参数
+ */
+function parseArgs(): { version?: boolean; help?: boolean } {
+  const args: { version?: boolean; help?: boolean } = {};
+  const cliArgs = process.argv.slice(2);
+
+  for (const arg of cliArgs) {
+    switch (arg) {
+      case '--version':
+      case '-v':
+        args.version = true;
+        break;
+      case '--help':
+      case '-h':
+        args.help = true;
+        break;
+    }
+  }
+
+  return args;
+}
+
+/**
  * 主函数
  */
 async function main() {
+  // 先处理命令行参数
+  const args = parseArgs();
+
+  // 获取包版本
+  const packageJson = JSON.parse(
+    readFileSync(new URL('../package.json', import.meta.url), 'utf-8')
+  );
+
+  if (args.version) {
+    console.log(packageJson.version);
+    process.exit(0);
+  }
+
+  if (args.help) {
+    console.log(`
+DevMind MCP - AI Assistant Memory System
+Version: ${packageJson.version}
+
+Usage:
+  npx devmind-mcp [options]
+
+Options:
+  -v, --version    Show version number
+  -h, --help       Show help information
+
+For more information, visit: https://github.com/JochenYang/Devmind-MCP
+`);
+    process.exit(0);
+  }
+
   let server: AiMemoryMcpServer | null = null;
-  
+
   // 优雅退出函数
   const gracefulShutdown = async (signal: string) => {
     console.error(`\n收到 ${signal} 信号，正在关闭服务器...`);
@@ -95,7 +148,7 @@ async function main() {
   }
 }
 
-// 无条件启动，因为MCP客户端会直接调用这个文件
+// 启动主程序（自动处理命令行参数）
 main();
 
 export { AiMemoryMcpServer };

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.5] - 2025-11-24
+
+### Added
+
+- **Command-line Arguments Support**: Added support for CLI arguments
+  - `--version` / `-v`: Display version number and exit
+  - `--help` / `-h`: Show help information
+  - No longer starts MCP server when checking version
+
+### Fixed
+
+- **CLI Version Check**: Fixed the issue where `npx devmind-mcp@latest --version` would incorrectly start the MCP server instead of displaying version
+
+### Technical Details
+
+- **Exit Behavior**: Properly exits after displaying version/help information
+- **User Experience**: Provides clear help text with usage instructions
+- **GitHub Link**: Includes reference to GitHub repository in help output
+
+---
+
 ## [2.2.4] - 2025-11-24
 
 ### Changed
