@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.7] - 2025-11-28
+
+### Added
+
+- **Memory Reminder in Tool Responses**: Auto-appends reminder when unrecorded file changes detected
+  - Checks PendingMemoryTracker after each tool execution
+  - Appends `[MEMORY REMINDER]` with pending file list to tool response
+  - Skips reminder for `record_context` and `verify_work_recorded` tools
+  - Shows up to 5 pending files with count indicator
+
+### Technical Details
+
+- **wrapWithReminder()**: New method wraps tool results with memory reminder
+- **executeAndWrap()**: Helper function for consistent reminder injection
+- **NO_REMINDER_TOOLS**: Set of tools excluded from reminder (prevents loops)
+
+---
+
 ## [2.2.6] - 2025-11-28
 
 ### Optimized

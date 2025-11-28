@@ -72,6 +72,12 @@ export class AiMemoryMcpServer {
   // === Pending Memory Tracker (v2.2.6) ===
   private pendingMemoryTracker: PendingMemoryTracker;
 
+  // Tools that should NOT trigger memory reminder (to avoid infinite loops)
+  private readonly NO_REMINDER_TOOLS = new Set([
+    "record_context",
+    "verify_work_recorded",
+  ]);
+
   // 真实日期记录函数
   private getCurrentRealDate(): string {
     return new Date().toISOString();
@@ -193,6 +199,62 @@ export class AiMemoryMcpServer {
     );
 
     this.setupHandlers();
+  }
+
+  /**
+   * Generate memory reminder if there are unrecorded files
+   * Returns null if no reminder needed
+   */
+  private generateMemoryReminder(): {
+    pending_count: number;
+    pending_files: string[];
+    action: string;
+  } | null {
+    const unrecordedFiles = this.pendingMemoryTracker.getUnrecorded();
+
+    if (unrecordedFiles.length === 0) {
+      return null;
+    }
+
+    return {
+      pending_count: unrecordedFiles.length,
+      pending_files: unrecordedFiles.slice(0, 5), // Show max 5 files
+      action: "Call record_context NOW to save your work before responding to user.",
+    };
+  }
+
+  /**
+   * Wrap tool result with memory reminder if needed
+   */
+  private wrapWithReminder(
+    toolName: string,
+    result: { content: Array<{ type: string; text: string }> }
+  ): { content: Array<{ type: string; text: string }> } {
+    // Skip reminder for certain tools
+    if (this.NO_REMINDER_TOOLS.has(toolName)) {
+      return result;
+    }
+
+    const reminder = this.generateMemoryReminder();
+    if (!reminder) {
+      return result;
+    }
+
+    // Add reminder to the result
+    const reminderText = `\n\n---\n[MEMORY REMINDER] ${reminder.pending_count} file(s) edited but not recorded: ${reminder.pending_files.join(", ")}${reminder.pending_count > 5 ? ` (+${reminder.pending_count - 5} more)` : ""}. ${reminder.action}`;
+
+    // Append reminder to the last text content
+    const newContent = [...result.content];
+    if (newContent.length > 0 && newContent[newContent.length - 1].type === "text") {
+      newContent[newContent.length - 1] = {
+        ...newContent[newContent.length - 1],
+        text: newContent[newContent.length - 1].text + reminderText,
+      };
+    } else {
+      newContent.push({ type: "text", text: reminderText });
+    }
+
+    return { content: newContent };
   }
 
   private initializeDatabase(): void {
@@ -697,100 +759,104 @@ export class AiMemoryMcpServer {
       // Ensure args is at least an empty object to prevent destructuring errors
       const safeArgs = args || {};
 
+      // Execute tool and wrap result with memory reminder
+      const executeAndWrap = async (
+        handler: () => Promise<{ content: Array<{ type: string; text: string }> }>
+      ) => {
+        const result = await handler();
+        return this.wrapWithReminder(name, result);
+      };
+
       switch (name) {
         case "create_session":
-          return await this.handleCreateSession(
-            safeArgs as unknown as SessionCreateParams
+          return executeAndWrap(() =>
+            this.handleCreateSession(safeArgs as unknown as SessionCreateParams)
           );
         case "record_context":
-          return await this.handleRecordContext(
+          return this.handleRecordContext(
             safeArgs as unknown as RecordContextParams
           );
         case "verify_work_recorded":
-          return await this.handleVerifyWorkRecorded(
+          return this.handleVerifyWorkRecorded(
             safeArgs as { work_summary: string; project_path?: string }
           );
         case "end_session":
-          return await this.handleEndSession(
-            safeArgs as { session_id: string }
+          return executeAndWrap(() =>
+            this.handleEndSession(safeArgs as { session_id: string })
           );
         case "get_current_session":
-          return await this.handleGetCurrentSession(
-            safeArgs as { project_path: string }
+          return executeAndWrap(() =>
+            this.handleGetCurrentSession(safeArgs as { project_path: string })
           );
         case "list_projects":
-          return await this.handleListProjects(
-            safeArgs as { include_stats?: boolean; limit?: number }
+          return executeAndWrap(() =>
+            this.handleListProjects(safeArgs as { include_stats?: boolean; limit?: number })
           );
-        // extract_file_context removed
         case "get_context":
-          return await this.handleGetContext(
-            safeArgs as { context_ids: string | string[]; relation_type?: string }
+          return executeAndWrap(() =>
+            this.handleGetContext(
+              safeArgs as { context_ids: string | string[]; relation_type?: string }
+            )
           );
         case "semantic_search":
-          return await this.handleSemanticSearch(
-            safeArgs as {
+          return executeAndWrap(() =>
+            this.handleSemanticSearch(safeArgs as {
               query: string;
               project_path?: string;
               session_id?: string;
               limit?: number;
               similarity_threshold?: number;
               hybrid_weight?: number;
-            }
+            })
           );
-        // generate_embeddings removed
         case "list_contexts":
-          return await this.handleListContexts(
-            safeArgs as {
+          return executeAndWrap(() =>
+            this.handleListContexts(safeArgs as {
               session_id?: string;
               project_path?: string;
               limit?: number;
-            }
+            })
           );
         case "delete_context":
-          return await this.handleDeleteContext(
-            safeArgs as { context_id: string }
+          return executeAndWrap(() =>
+            this.handleDeleteContext(safeArgs as { context_id: string })
           );
         case "update_context":
-          return await this.handleUpdateContext(
-            safeArgs as {
+          return executeAndWrap(() =>
+            this.handleUpdateContext(safeArgs as {
               context_id: string;
               content?: string;
               tags?: string[];
               quality_score?: number;
               metadata?: object;
-            }
+            })
           );
         case "delete_session":
-          return await this.handleDeleteSession(
-            safeArgs as { session_id?: string; project_id?: string }
+          return executeAndWrap(() =>
+            this.handleDeleteSession(safeArgs as { session_id?: string; project_id?: string })
           );
         case "project_analysis_engineer":
-          return await this.handleProjectAnalysisEngineerTool(
-            safeArgs as {
+          return executeAndWrap(() =>
+            this.handleProjectAnalysisEngineerTool(safeArgs as {
               project_path: string;
               analysis_focus?: string;
               doc_style?: string;
               auto_save?: boolean;
               language?: string;
-            }
+            })
           );
-        // optimize_project_memory removed
-        // update_quality_scores removed
         case "export_memory_graph":
-          return await this.handleExportMemoryGraph(
-            safeArgs as {
+          return executeAndWrap(() =>
+            this.handleExportMemoryGraph(safeArgs as {
               project_id: string;
               max_nodes?: number;
               focus_type?: string;
               output_path?: string;
-            }
+            })
           );
         case "get_memory_status":
-          return await this.handleGetMemoryStatus(
-            safeArgs as {
-              project_path?: string;
-            }
+          return executeAndWrap(() =>
+            this.handleGetMemoryStatus(safeArgs as { project_path?: string })
           );
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
