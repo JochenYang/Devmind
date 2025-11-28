@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.6] - 2025-11-28
+
+### Optimized
+
+- **Tool Description Token Optimization**: Reduced tool descriptions by 72% (1888 → 528 tokens)
+  - All 21 tools optimized for concise, clear descriptions
+  - Maintains AI comprehension while reducing context overhead
+  - `record_context`: 339 → 87 tokens (retains MANDATORY language)
+  - `semantic_search`: 269 → 41 tokens
+  - `list_contexts`: 208 → 23 tokens
+  - `get_context`: 174 → 27 tokens
+  - `export_memory_graph`: 183 → 27 tokens
+
+### Added
+
+- **PendingMemoryTracker**: New class to track unrecorded file changes
+  - Tracks files edited but not yet recorded to memory
+  - Supports session-based filtering
+  - Integrates with `verify_work_recorded` tool
+
+- **verify_work_recorded Tool**: New checkpoint tool for AI self-verification
+  - Checks if recent file edits have been recorded
+  - Suggests appropriate context types based on work summary
+  - Helps ensure memory completeness before responding to user
+
+### Changed
+
+- **record_context Description**: Rewritten with mandatory language
+  - Uses MANDATORY, IMMEDIATELY, INCOMPLETE keywords
+  - Includes SELF-CHECK prompts for AI
+  - Warns about losing work context
+  - Supports user keywords (remember/save/记住/保存)
+
+### Technical Details
+
+- **Token Efficiency**: Reduced MCP initialization context overhead
+- **AI Calling Improvement**: Clearer descriptions improve AI tool selection
+- **No Breaking Changes**: All existing functionality preserved
+
+---
+
 ## [2.2.5] - 2025-11-24
 
 ### Added

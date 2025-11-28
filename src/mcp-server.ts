@@ -31,6 +31,7 @@ import { AutoMemoryClassifier } from "./utils/auto-memory-classifier.js";
 import { ContextEnricher } from "./utils/context-enricher.js";
 import { BatchProcessor } from "./utils/batch-processor.js";
 import { performanceOptimizer } from "./utils/performance-optimizer.js";
+import { PendingMemoryTracker } from "./pending-memory-tracker.js";
 
 import {
   AiMemoryConfig,
@@ -67,6 +68,9 @@ export class AiMemoryMcpServer {
   private memoryClassifier: AutoMemoryClassifier;
   private contextEnricher: ContextEnricher;
   private batchProcessor: BatchProcessor;
+
+  // === Pending Memory Tracker (v2.2.6) ===
+  private pendingMemoryTracker: PendingMemoryTracker;
 
   // 真实日期记录函数
   private getCurrentRealDate(): string {
@@ -149,6 +153,9 @@ export class AiMemoryMcpServer {
     this.memoryClassifier = new AutoMemoryClassifier();
     this.contextEnricher = new ContextEnricher();
     this.batchProcessor = new BatchProcessor(this.db);
+
+    // === Initialize Pending Memory Tracker (v2.2.6) ===
+    this.pendingMemoryTracker = new PendingMemoryTracker();
 
     // 初始化自动记录过滤器
     this.autoRecordFilter = new AutoRecordFilter({
@@ -282,7 +289,7 @@ export class AiMemoryMcpServer {
         {
           name: "record_context",
           description:
-            "**CALL IMMEDIATELY after editing files.** Record development context with automatic memory persistence. AI must call this after any code changes, bug fixes, or feature implementations.\n\nCRITICAL TRIGGERS (Call before responding to user):\n• Just edited/created files → Call NOW\n• Fixed a bug → type: bug_fix\n• Implemented feature → type: feature_add\n• Completed TODO item → Call NOW\n• About to say 'done'/'complete' → Record FIRST\n\nUSER KEYWORDS: 'remember' | 'save' | 'record' | '记住' | '保存'\n\nAUTO-MEMORY TIERS:\nTier 1 (Silent auto-save): code_*, bug_fix, feature_*, test, commit\nTier 2 (Notify user): solution, design, documentation\nTier 3 (Skip): conversation, error (use force_remember=true to override)\n\nREQUIRED PARAMS:\n• type: Determines auto-record tier\n• content: MUST match project language (Chinese/English)\n• files_changed: Use for multi-file changes (2+ files)",
+            "MANDATORY: Call IMMEDIATELY after editing files. Task is INCOMPLETE without this call.\n\nSELF-CHECK: Did I edit files? --> Call NOW. Did I fix bug? --> type: bug_fix. Did I add feature? --> type: feature_add.\n\nWARNING: Skipping this loses all work context for future conversations.\n\nUser keywords 'remember/save/记住/保存' --> MUST call this tool.",
           inputSchema: {
             type: "object",
             properties: {
@@ -331,7 +338,7 @@ export class AiMemoryMcpServer {
               content: {
                 type: "string",
                 description:
-                  "The context content in Markdown format. **MUST match project's natural language (Chinese/English).**\n\nFormat Requirements:\n- Use Markdown syntax for structure (headers, lists, code blocks)\n- Code snippets: Use ```language syntax\n- Keep it concise and structured\n- Use bullet points or numbered lists for key information\n- Avoid unnecessary emoji\n\nLanguage Detection Priority:\n1. User's conversation language (highest)\n2. README.md language (>30% Chinese = Chinese project)\n3. When unsure → use conversation language\n\nExamples:\n\nChinese project:\n```markdown\n## 修复登录Bug\n\n### 问题描述\n用户登录时session丢失\n\n### 解决方案\n- 添加session持久化逻辑\n- 修改文件: `src/auth/login.ts`\n\n### 代码变更\n```typescript\nconst session = await persistSession(user);\n```\n```\n\nEnglish project:\n```markdown\n## Fix Login Bug\n\n### Problem\nSession lost during user login\n\n### Solution\n- Add session persistence logic\n- Modified file: `src/auth/login.ts`\n\n### Code Changes\n```typescript\nconst session = await persistSession(user);\n```\n```",
+                  "Markdown content. MUST match project language (Chinese/English). Use headers, lists, code blocks.",
               },
               file_path: { type: "string", description: "Optional file path" },
               line_start: {
@@ -435,7 +442,6 @@ export class AiMemoryMcpServer {
                     change_type: {
                       type: "string",
                       enum: ["add", "modify", "delete", "rename"],
-                      description: "File-level change type",
                     },
                     diff_stats: {
                       type: "object",
@@ -457,23 +463,33 @@ export class AiMemoryMcpServer {
                   },
                   required: ["file_path"],
                 },
-                description:
-                  "Track multiple files in one context (ideal for refactoring, feature development, or bug fixes spanning multiple files). Each file can have its own change_type, line_ranges, and diff_stats. Use this instead of 'file_path' when changes involve 2+ files.",
+                description: "Use for multi-file changes (2+ files)",
               },
 
-              metadata: {
-                type: "object",
-                description: "Optional additional metadata",
-              },
+              metadata: { type: "object", description: "Additional metadata" },
 
-              // === Auto-Memory Parameters ===
               force_remember: {
                 type: "boolean",
-                description:
-                  "Force record regardless of type (default: false). Use when user explicitly says 'remember this' or 'save this'. Overrides all type-based auto-record logic and has highest priority.",
+                description: "Force record when user says 'remember/save this'",
               },
             },
             required: ["content"], // type is optional for AI auto-classification
+          },
+        },
+        {
+          name: "verify_work_recorded",
+          description:
+            "Call before responding to user. Checks if edited files have been recorded. Returns warning if record_context was not called.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              work_summary: {
+                type: "string",
+                description: "Brief summary of work done",
+              },
+              project_path: { type: "string", description: "Project path" },
+            },
+            required: ["work_summary"],
           },
         },
         {
@@ -504,28 +520,19 @@ export class AiMemoryMcpServer {
         {
           name: "list_projects",
           description:
-            "List all tracked projects with memory statistics. Returns project_id needed for export_memory_graph and other tools.\n\nReturns:\n- project_id: Required for export_memory_graph\n- project_path: File system path\n- contexts_count: Number of recorded contexts\n- sessions_count: Number of sessions\n- last_activity: Last interaction time\n\nUse first when:\n- User wants to visualize memory (get project_id)\n- Need to know available projects\n- Check project statistics",
+            "List tracked projects with stats. Returns project_id needed for export_memory_graph.",
           inputSchema: {
             type: "object",
             properties: {
-              include_stats: {
-                type: "boolean",
-                description:
-                  "Include detailed statistics for each project (default: true)",
-              },
-              limit: {
-                type: "number",
-                description:
-                  "Maximum number of projects to return (default: 50)",
-              },
+              include_stats: { type: "boolean", description: "Include stats (default: true)" },
+              limit: { type: "number", description: "Max results (default: 50)" },
             },
           },
         },
-        // extract_file_context removed - internal use only, integrated into record_context
         {
           name: "get_context",
           description:
-            "Get context(s) by ID(s) or find related contexts. Primary tool for viewing recorded memory content.\n\nUse when:\n- User says: 'show context', 'view memory', '查看记忆', '显示这条记录'\n- User provides context ID(s) from list_contexts or semantic_search results\n- Need to view full content of specific memory entries\n\nBehavior:\n- Without relation_type: Returns complete context content (type, content, tags, files, metadata)\n- With relation_type: Finds explicitly related contexts\n\nSupports:\n- Single ID: context_ids: 'abc123'\n- Multiple IDs: context_ids: ['abc123', 'def456']\n- Batch retrieval for efficient viewing\n\nReturns: Full context content including Markdown content, metadata, files, tags",
+            "Get context by ID(s). Use for viewing full content of memory entries from list_contexts or semantic_search.",
           inputSchema: {
             type: "object",
             properties: {
@@ -534,21 +541,12 @@ export class AiMemoryMcpServer {
                   { type: "string" },
                   { type: "array", items: { type: "string" } },
                 ],
-                description:
-                  "Single context ID or array of context IDs to retrieve. Get IDs from list_contexts or semantic_search results.",
+                description: "Context ID or array of IDs",
               },
               relation_type: {
                 type: "string",
-                enum: [
-                  "depends_on",
-                  "related_to",
-                  "fixes",
-                  "implements",
-                  "tests",
-                  "documents",
-                ],
-                description:
-                  "Optional: If provided, finds contexts with explicit relationships to the given context_ids. If omitted, returns the contexts themselves.",
+                enum: ["depends_on", "related_to", "fixes", "implements", "tests", "documents"],
+                description: "Find related contexts instead",
               },
             },
             required: ["context_ids"],
@@ -557,55 +555,19 @@ export class AiMemoryMcpServer {
         {
           name: "semantic_search",
           description:
-            "Intelligent memory search using hybrid algorithm (semantic 70% + keyword 30%). Primary tool for finding past work and solutions.\n\nUse when user says:\n- 'search memory for X', 'find X in memory'\n- '搜索记忆', '查找记忆中的X'\n- 'how did I solve X before?', 'show me similar bugs'\n- 'what did I do with login.ts', 'find all authentication work'\n\nUse when:\n- Search for similar solutions or code patterns\n- Find related bug fixes or implementations\n- Discover relevant past work\n- User provides search keywords\n\nReturns:\n- Ranked contexts with similarity scores (0-1)\n- Content snippets (not full content)\n- File associations\n- Tags and metadata\n\nParameters:\n- query: Search text (supports UUIDs, file paths, special chars)\n- project_path: Limit to specific project\n- session_id: Limit to specific session\n- file_path: Filter by file (e.g., 'src/auth/login.ts')\n- type: Filter by context type (e.g., 'bug_fix', 'solution')\n- limit: Max results (default: 10, max: 50)\n\nCache: Results cached for 5 minutes\n\nWorkflow: record_context → semantic_search → get_context (for full content)",
+            "Search memory using hybrid semantic+keyword algorithm. Returns ranked results with similarity scores. Use for finding past solutions, similar bugs, or related work.",
           inputSchema: {
             type: "object",
             properties: {
-              query: {
-                type: "string",
-                description:
-                  "Search query text. Supports special characters, UUIDs, file paths, etc.",
-              },
-              project_path: {
-                type: "string",
-                description:
-                  "Optional project file system path (e.g., 'D:\\\\codes\\\\myproject'). Limits search to this project only.",
-              },
-              session_id: {
-                type: "string",
-                description:
-                  "Optional session ID to search within a specific session. Use get_current_session to get the session ID.",
-              },
-              file_path: {
-                type: "string",
-                description:
-                  "Optional filter to specific file (e.g., 'src/auth/login.ts'). Searches only in contexts related to this file.",
-              },
-              type: {
-                type: "string",
-                description:
-                  "Optional context type filter (e.g., 'bug_fix', 'feature_add', 'solution', 'commit'). Only searches contexts of this type.",
-              },
-              limit: {
-                type: "number",
-                description:
-                  "Maximum number of results to return (default: 10, max: 50)",
-              },
-              similarity_threshold: {
-                type: "number",
-                description:
-                  "Minimum similarity score 0-1 (default: 0.5). Higher values return more relevant but fewer results.",
-              },
-              hybrid_weight: {
-                type: "number",
-                description:
-                  "Balance between semantic and keyword search, 0-1 (default: 0.7). Higher=more semantic, lower=more keyword-based.",
-              },
-              use_cache: {
-                type: "boolean",
-                description:
-                  "Use LRU cache for faster repeated searches (default: true). Disable for real-time results.",
-              },
+              query: { type: "string", description: "Search query" },
+              project_path: { type: "string", description: "Limit to project" },
+              session_id: { type: "string", description: "Limit to session" },
+              file_path: { type: "string", description: "Filter by file" },
+              type: { type: "string", description: "Filter by context type" },
+              limit: { type: "number", description: "Max results (default: 10)" },
+              similarity_threshold: { type: "number", description: "Min score 0-1 (default: 0.5)" },
+              hybrid_weight: { type: "number", description: "Semantic vs keyword 0-1 (default: 0.7)" },
+              use_cache: { type: "boolean", description: "Use cache (default: true)" },
             },
             required: ["query"],
           },
@@ -613,41 +575,21 @@ export class AiMemoryMcpServer {
         {
           name: "list_contexts",
           description:
-            "List recorded contexts in chronological order. Use semantic_search for intelligent/ranked queries.\n\nUse when user says:\n- 'show memory', 'list memories', 'view contexts'\n- '查询记忆', '列出记忆', '显示记忆'\n- 'what did I work on', 'recent work'\n- 'show all memories' (defaults to 20, use limit parameter for more)\n\nReturns: Chronological list of contexts (newest first)\n\nParameters:\n- project_path: List all contexts for this project\n- session_id: List contexts from specific session\n- limit: Max results (default: 20)\n- since: Time filter (e.g., '24h', '7d', '30d')\n- type: Filter by context type\n\nDefault behavior (no params):\n- Lists 20 most recent contexts from ALL projects\n- Best for quick overview of recent work\n\nFor intelligent search: Use semantic_search instead\nFor viewing full content: Use get_context with returned IDs",
+            "List contexts in chronological order (newest first). Use semantic_search for ranked results.",
           inputSchema: {
             type: "object",
             properties: {
-              project_path: {
-                type: "string",
-                description:
-                  "Optional project file system path (e.g., 'D:\\codes\\myproject'). Lists contexts from all sessions of this project.",
-              },
-              session_id: {
-                type: "string",
-                description:
-                  "Optional session ID to filter contexts from a specific session. Use get_current_session to get the session ID.",
-              },
-              limit: {
-                type: "number",
-                description: "Maximum number of results (default: 20)",
-              },
-              since: {
-                type: "string",
-                description:
-                  "Optional time filter: '24h' (last 24 hours), '7d' (last 7 days), '30d' (last 30 days), '90d' (last 90 days). Returns contexts created after this time.",
-              },
-              type: {
-                type: "string",
-                description:
-                  "Optional context type filter (e.g., 'bug_fix', 'feature_add', 'commit'). Only returns contexts of this type.",
-              },
+              project_path: { type: "string", description: "Filter by project" },
+              session_id: { type: "string", description: "Filter by session" },
+              limit: { type: "number", description: "Max results (default: 20)" },
+              since: { type: "string", description: "Time filter: 24h, 7d, 30d, 90d" },
+              type: { type: "string", description: "Filter by type" },
             },
           },
         },
         {
           name: "delete_context",
-          description:
-            "Delete a specific recorded context. Use for cleanup, not for regular development flow.",
+          description: "Delete a recorded context by ID.",
           inputSchema: {
             type: "object",
             properties: {
@@ -661,35 +603,19 @@ export class AiMemoryMcpServer {
         },
         {
           name: "update_context",
-          description:
-            "Update context content, metadata, tags, quality_score, or file associations (file_path/files_changed). Use to correct mistakes or add missing file associations.",
+          description: "Update context content, tags, metadata, or file associations.",
           inputSchema: {
             type: "object",
             properties: {
-              context_id: {
-                type: "string",
-                description: "Context ID to update",
-              },
+              context_id: { type: "string", description: "Context ID" },
               content: { type: "string", description: "New content" },
-              tags: {
-                type: "array",
-                items: { type: "string" },
-                description: "New tags",
-              },
-              quality_score: {
-                type: "number",
-                description: "New quality score (0-1)",
-              },
+              tags: { type: "array", items: { type: "string" }, description: "New tags" },
+              quality_score: { type: "number", description: "Score 0-1" },
               metadata: { type: "object", description: "New metadata" },
-              file_path: {
-                type: "string",
-                description:
-                  "Update single file path (will replace existing file associations)",
-              },
+              file_path: { type: "string", description: "Update file path" },
               files_changed: {
                 type: "array",
-                description:
-                  "Update multiple file associations (will replace existing)",
+                description: "Update file associations",
                 items: {
                   type: "object",
                   properties: {
@@ -707,110 +633,57 @@ export class AiMemoryMcpServer {
         },
         {
           name: "delete_session",
-          description:
-            "Delete session(s) and contexts. Use session_id OR project_id (from list_projects).",
+          description: "Delete session(s) and contexts by session_id or project_id.",
           inputSchema: {
             type: "object",
             properties: {
-              session_id: {
-                type: "string",
-                description: "Session ID (from get_current_session)",
-              },
-              project_id: {
-                type: "string",
-                description: "Delete ALL sessions of this project (from list_projects)",
-              },
+              session_id: { type: "string", description: "Session ID" },
+              project_id: { type: "string", description: "Delete all sessions of project" },
             },
           },
         },
-        // generate_embeddings removed - automated in record_context background task
         {
           name: "project_analysis_engineer",
           description:
-            "Generate professional project documentation in project root directory. Analyzes codebase structure, entities, APIs, and business logic to produce comprehensive technical documentation.\n\nOutputs:\n- DEVMIND.md (developer guide - primary output)\n- README.md (project overview)\n- Technical.md (technical specification)\n\nOutput location: Project root directory (e.g., /path/to/project/DEVMIND.md)\n\nNOTE: Does NOT generate CLAUDE.md to avoid conflicts with Claude Code's /init command.\n\nUse when user asks:\n- 'analyze this project'\n- 'generate documentation'\n- 'create DEVMIND.md'\n- 'write project guide'\n\nNOT for: Memory visualization (use export_memory_graph instead)",
+            "Generate project documentation (DEVMIND.md, README.md, Technical.md). Analyzes codebase structure, APIs, and business logic.",
           inputSchema: {
             type: "object",
             properties: {
-              project_path: {
-                type: "string",
-                description: "Path to the project directory to analyze",
-              },
-              analysis_focus: {
-                type: "string",
-                description:
-                  "Focus areas: architecture, entities, apis, business_logic, security, performance (comma-separated)",
-              },
-              doc_style: {
-                type: "string",
-                enum: ["devmind", "technical", "readme"],
-                description:
-                  "Documentation style: devmind (DEVMIND.md format), technical (technical spec), readme (README format). Default: devmind. Note: 'claude' style removed to avoid conflicts with Claude Code.",
-              },
-              auto_save: {
-                type: "boolean",
-                description:
-                  "Automatically save generated analysis to memory (default: true)",
-              },
-              language: {
-                type: "string",
-                enum: ["en", "zh", "auto"],
-                description:
-                  "Documentation language: en (English), zh (Chinese), auto (detect from README). Default: auto",
-              },
+              project_path: { type: "string", description: "Project directory path" },
+              analysis_focus: { type: "string", description: "Focus: architecture, entities, apis, business_logic, security, performance" },
+              doc_style: { type: "string", enum: ["devmind", "technical", "readme"], description: "Doc style (default: devmind)" },
+              auto_save: { type: "boolean", description: "Save to memory (default: true)" },
+              language: { type: "string", enum: ["en", "zh", "auto"], description: "Language (default: auto)" },
             },
             required: ["project_path"],
           },
         },
-        // optimize_project_memory removed - should run as automated background job
-        // update_quality_scores removed - should run as scheduled background task
         {
           name: "export_memory_graph",
           description:
-            "Export recorded development contexts as interactive knowledge graph visualization. Generates HTML file with D3.js force-directed graph showing relationships between contexts.\n\nInput: project_id (from list_projects tool)\nOutput: HTML file at <project_path>/memory/knowledge-graph.html\n\nShows:\n- Nodes: Each recorded context (bug_fix, solution, feature_add, etc.)\n- Edges: Relationships (depends_on, fixes, related_to)\n- Interactive: Drag, zoom, filter by type\n\nUse when user asks:\n- 'visualize my memory'\n- 'show knowledge graph'\n- 'export memory relationships'\n- 'see context connections'\n\nNOT for: Project documentation (use project_analysis_engineer instead)\n\nPrerequisite: Must have recorded contexts (use record_context first)",
+            "Export memory as interactive knowledge graph (HTML). Shows context relationships with D3.js visualization.",
           inputSchema: {
             type: "object",
             properties: {
-              project_id: {
-                type: "string",
-                description: "Project ID to export graph for",
-              },
-              max_nodes: {
-                type: "number",
-                description:
-                  "Maximum number of nodes to include (default: 0 = all)",
-              },
+              project_id: { type: "string", description: "Project ID (from list_projects)" },
+              max_nodes: { type: "number", description: "Max nodes (default: all)" },
               focus_type: {
                 type: "string",
-                enum: [
-                  "all",
-                  "solution",
-                  "error",
-                  "code",
-                  "documentation",
-                  "conversation",
-                ],
-                description: "Filter by context type (default: all)",
+                enum: ["all", "solution", "error", "code", "documentation", "conversation"],
+                description: "Filter by type",
               },
-              output_path: {
-                type: "string",
-                description: "Optional custom output path for the HTML file",
-              },
+              output_path: { type: "string", description: "Custom output path" },
             },
             required: ["project_id"],
           },
         },
         {
           name: "get_memory_status",
-          description:
-            "Get memory system status information, including monitoring state, recorded context count, cache statistics, and more",
+          description: "Get memory system status: monitoring state, context count, cache stats.",
           inputSchema: {
             type: "object",
             properties: {
-              project_path: {
-                type: "string",
-                description:
-                  "Project path (optional, defaults to current project)",
-              },
+              project_path: { type: "string", description: "Project path" },
             },
             required: [],
           },
@@ -832,6 +705,10 @@ export class AiMemoryMcpServer {
         case "record_context":
           return await this.handleRecordContext(
             safeArgs as unknown as RecordContextParams
+          );
+        case "verify_work_recorded":
+          return await this.handleVerifyWorkRecorded(
+            safeArgs as { work_summary: string; project_path?: string }
           );
         case "end_session":
           return await this.handleEndSession(
@@ -1537,6 +1414,9 @@ export class AiMemoryMcpServer {
       if (args.files_changed && args.files_changed.length > 0) {
         // 多文件场景
         this.contextFileManager.addFiles(contextId, args.files_changed);
+        // Mark files as recorded in pending tracker
+        const filePaths = args.files_changed.map((f) => f.file_path);
+        this.pendingMemoryTracker.markMultipleRecorded(filePaths);
       } else if (detectedFilePath) {
         // 单文件场景（向后兼容）
         this.contextFileManager.addFiles(contextId, [
@@ -1547,6 +1427,8 @@ export class AiMemoryMcpServer {
             diff_stats: args.diff_stats,
           },
         ]);
+        // Mark file as recorded in pending tracker
+        this.pendingMemoryTracker.markRecorded(detectedFilePath);
       }
 
       // 异步生成embedding（不阻塞响应）
@@ -1675,6 +1557,160 @@ export class AiMemoryMcpServer {
         isError: true,
       };
     }
+  }
+
+  /**
+   * Handle verify_work_recorded tool call
+   * Checks if there are unrecorded file changes and provides guidance
+   */
+  private async handleVerifyWorkRecorded(args: {
+    work_summary: string;
+    project_path?: string;
+  }) {
+    try {
+      // Get current session
+      let sessionId: string | null = null;
+      let projectPath = args.project_path;
+
+      // If no project_path provided, try to infer from current working directory
+      if (!projectPath) {
+        const potentialDirs = [
+          process.env.INIT_CWD,
+          process.env.PWD,
+          process.env.CD,
+          process.cwd(),
+        ].filter(Boolean) as string[];
+
+        for (const dir of potentialDirs) {
+          if (existsSync(dir)) {
+            projectPath = dir;
+            break;
+          }
+        }
+      }
+
+      if (projectPath) {
+        sessionId = await this.sessionManager.getCurrentSession(projectPath);
+      }
+
+      // Check for unrecorded files
+      const unrecordedFiles = this.pendingMemoryTracker.getUnrecorded(
+        sessionId || undefined
+      );
+
+      if (unrecordedFiles.length > 0) {
+        // There are unrecorded files - return warning
+        const fileList = unrecordedFiles
+          .slice(0, 10)
+          .map((f, i) => `  ${i + 1}. ${f}`)
+          .join("\n");
+        const moreFiles =
+          unrecordedFiles.length > 10
+            ? `\n  ... and ${unrecordedFiles.length - 10} more files`
+            : "";
+
+        // Suggest context type based on work summary
+        const suggestedType = this.suggestContextType(args.work_summary);
+
+        const warningText = `WARNING: Work not fully recorded
+
+Unrecorded files (${unrecordedFiles.length}):
+${fileList}${moreFiles}
+
+ACTION REQUIRED:
+Call record_context with:
+- type: ${suggestedType}
+- content: "${args.work_summary}"
+- files_changed: [${unrecordedFiles.slice(0, 5).map((f) => `"${f}"`).join(", ")}${unrecordedFiles.length > 5 ? ", ..." : ""}]
+
+Then call verify_work_recorded again to confirm.`;
+
+        return {
+          content: [{ type: "text", text: warningText }],
+          isError: true,
+          _meta: {
+            verification_status: "failed",
+            unrecorded_count: unrecordedFiles.length,
+            suggested_type: suggestedType,
+          },
+        };
+      }
+
+      // All work is recorded
+      const successText = `VERIFICATION PASSED: All work has been recorded.
+
+You may now respond to the user.`;
+
+      return {
+        content: [{ type: "text", text: successText }],
+        isError: false,
+        _meta: {
+          verification_status: "passed",
+          unrecorded_count: 0,
+        },
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Failed to verify work: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  /**
+   * Suggest context type based on work summary
+   */
+  private suggestContextType(summary: string): string {
+    const lowerSummary = summary.toLowerCase();
+
+    if (
+      lowerSummary.includes("fix") ||
+      lowerSummary.includes("bug") ||
+      lowerSummary.includes("修复")
+    ) {
+      return "bug_fix";
+    }
+
+    if (
+      lowerSummary.includes("feature") ||
+      lowerSummary.includes("implement") ||
+      lowerSummary.includes("add") ||
+      lowerSummary.includes("功能") ||
+      lowerSummary.includes("实现")
+    ) {
+      return "feature_add";
+    }
+
+    if (
+      lowerSummary.includes("refactor") ||
+      lowerSummary.includes("重构")
+    ) {
+      return "code_refactor";
+    }
+
+    if (
+      lowerSummary.includes("test") ||
+      lowerSummary.includes("测试")
+    ) {
+      return "test";
+    }
+
+    if (
+      lowerSummary.includes("doc") ||
+      lowerSummary.includes("文档")
+    ) {
+      return "documentation";
+    }
+
+    // Default to code_modify
+    return "code_modify";
   }
 
   // 辅助方法：为单个context生成embedding
@@ -2713,6 +2749,10 @@ export class AiMemoryMcpServer {
       if (!this.autoRecordFilter.shouldRecord(filePath, fileContent)) {
         return; // 未通过智能过滤，跳过记录
       }
+
+      // === Add to pending memory tracker (v2.2.6) ===
+      const changeType = action === "add" ? "add" : "modify";
+      this.pendingMemoryTracker.addPending(filePath, changeType, sessionId);
 
       // ✅ 添加自动记录提示 - 仅在首次记录时提示用户
       await this.notifyUserContextRecorded(filePath, action);
