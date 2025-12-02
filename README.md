@@ -442,26 +442,9 @@ Create `.devmind.json` in your project root:
 | `auto_cleanup`      | boolean | `true`                 | Enable automatic cleanup of old contexts |
 | `vector_dimensions` | number  | `1536`                 | Vector embedding dimensions              |
 
-### Smart Recording Guidelines
+### Recommended Memory Strategy
 
-DevMind uses a **3-tier type-based auto-memory strategy**:
-
-**Tier 1 (Silent Auto-Record):**
-- `bug_fix`, `feature_add`, `feature_update`, `code_modify`, `code_refactor`, `code_optimize`
-- Technical execution is automatically recorded without confirmation
-
-**Tier 2 (Notify Auto-Record):**
-- `solution`, `design`, `learning`, `documentation`
-- Auto-recorded with deletion notice (user can remove if not needed)
-
-**Tier 3 (No Auto-Record):**
-- `conversation`, `error` - Only recorded when `force_remember=true`
-
-**Best Practices:**
-- Use `semantic_search` before answering technical questions
-- Single file: use `file_path` + `line_ranges`
-- Multiple files: use `files_changed` array
-- User says "remember this": set `force_remember=true`
+AI assistants should call the `record_context` tool immediately after every code edit to ensure all changes are properly recorded in the project memory.
 
 
 

@@ -49,11 +49,7 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 
 #### 主要功能
 
-- **类型驱动自动记忆** - 基于上下文类型的简化智能记录
-  - Tier 1: 自动记录技术执行（bug_fix、feature_add、code_modify）- 静默
-  - Tier 2: 自动记录并通知（solution、design、documentation）- 可删除
-  - Tier 3: 不自动记录（conversation、error）- 除非 force_remember=true
-- **智能记忆** - 通过 MCP 协议实现 AI 驱动的上下文记录
+- **智能记忆** - AI 助手在每次代码编辑后自动调用 record_context 工具记录变更
 - **语义搜索** - AI驱动的向量嵌入搜索,查找相关上下文
 - **持久存储** - 基于SQLite的本地存储,完全私密
 - **混合搜索** - 结合关键词和语义搜索,获得最佳结果
@@ -440,26 +436,9 @@ const analysis = await project_analysis_engineer({
 | `auto_cleanup`      | boolean | `true`                 | 启用旧上下文自动清理 |
 | `vector_dimensions` | number  | `1536`                 | 向量嵌入维度         |
 
-### 智能记录指南
+### 推荐的记忆策略
 
-DevMind 使用 **3层类型驱动自动记忆策略**：
-
-**Tier 1 (静默自动记录):**
-- `bug_fix`、`feature_add`、`feature_update`、`code_modify`、`code_refactor`、`code_optimize`
-- 技术执行自动记录，无需确认
-
-**Tier 2 (通知自动记录):**
-- `solution`、`design`、`learning`、`documentation`
-- 自动记录并提示删除通知（用户可根据需要移除）
-
-**Tier 3 (不自动记录):**
-- `conversation`、`error` - 仅当 `force_remember=true` 时记录
-
-**最佳实践：**
-- 回答技术问题前使用 `semantic_search`
-- 单文件：使用 `file_path` + `line_ranges`
-- 多文件：使用 `files_changed` 数组
-- 用户说“记住这个”：设置 `force_remember=true`
+AI 助手应该在每次代码编辑后立即调用 `record_context` 工具，确保所有变更都被正确记录到项目记忆中。
 
 ### 完整MCP配置示例
 
