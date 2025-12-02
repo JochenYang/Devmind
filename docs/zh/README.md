@@ -264,9 +264,10 @@ DevMind为您的AI助手提供 **14个强大工具** 和 **1个专业提示**:
 
 #### 项目管理
 
-| 工具            | 用途                                 | 使用示例     |
-|-----------------|--------------------------------------|--------------|
-| `list_projects` | [RECOMMENDED] 列出所有项目和统计信息 | 查看跟踪项目 |
+| 工具                     | 用途                                 | 使用示例         |
+|--------------------------|--------------------------------------|------------------|
+| `list_projects`          | [RECOMMENDED] 列出所有项目和统计信息 | 查看跟踪项目     |
+| `cleanup_empty_projects` | 清理没有记忆的空项目记录             | 清理无用项目数据 |
 
 #### 会话管理
 
@@ -588,6 +589,30 @@ await update_context(contextId, {
 #### `delete_context(id: string): Promise<boolean>`
 
 通过ID删除上下文。
+
+---
+
+#### `cleanup_empty_projects(options?: CleanupOptions): Promise<CleanupResult>`
+
+清理没有任何记忆的空项目记录。
+
+**参数:**
+
+- `dry_run` (boolean) - 仅预览将被删除的项目，不实际删除 (默认: true)
+
+**返回:** 清理结果对象
+
+**示例:**
+
+```typescript
+// 预览将被删除的空项目
+const preview = await cleanup_empty_projects({ dry_run: true });
+console.log(`将删除 ${preview.deleted_count} 个空项目`);
+
+// 实际删除空项目
+const result = await cleanup_empty_projects({ dry_run: false });
+console.log(`已删除 ${result.deleted_count} 个空项目`);
+```
 
 ---
 

@@ -268,9 +268,10 @@ DevMind provides **14 powerful tools** and **1 professional prompt** for your AI
 
 #### Project Management
 
-| Tool            | Purpose                                    | Example Use               |
-|-----------------|--------------------------------------------|---------------------------|
-| `list_projects` | [RECOMMENDED] List all projects with stats | Overview tracked projects |
+| Tool                     | Purpose                                    | Example Use                   |
+|--------------------------|--------------------------------------------|-------------------------------|
+| `list_projects`          | [RECOMMENDED] List all projects with stats | Overview tracked projects     |
+| `cleanup_empty_projects` | Clean up empty projects with no memories   | Remove unused project records |
 
 #### Session Management
 
@@ -596,6 +597,30 @@ await update_context(contextId, {
 #### `delete_context(id: string): Promise<boolean>`
 
 Delete context by ID.
+
+---
+
+#### `cleanup_empty_projects(options?: CleanupOptions): Promise<CleanupResult>`
+
+Clean up empty project records that have no associated memories.
+
+**Parameters:**
+
+- `dry_run` (boolean) - Preview projects to be deleted without actually deleting (default: true)
+
+**Returns:** Cleanup result object
+
+**Example:**
+
+```typescript
+// Preview empty projects to be deleted
+const preview = await cleanup_empty_projects({ dry_run: true });
+console.log(`Will delete ${preview.deleted_count} empty projects`);
+
+// Actually delete empty projects
+const result = await cleanup_empty_projects({ dry_run: false });
+console.log(`Deleted ${result.deleted_count} empty projects`);
+```
 
 ---
 

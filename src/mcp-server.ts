@@ -219,7 +219,8 @@ export class AiMemoryMcpServer {
     return {
       pending_count: unrecordedFiles.length,
       pending_files: unrecordedFiles.slice(0, 5), // Show max 5 files
-      action: "Call record_context NOW to save your work before responding to user.",
+      action:
+        "Call record_context NOW to save your work before responding to user.",
     };
   }
 
@@ -241,11 +242,18 @@ export class AiMemoryMcpServer {
     }
 
     // Add reminder to the result
-    const reminderText = `\n\n---\n[MEMORY REMINDER] ${reminder.pending_count} file(s) edited but not recorded: ${reminder.pending_files.join(", ")}${reminder.pending_count > 5 ? ` (+${reminder.pending_count - 5} more)` : ""}. ${reminder.action}`;
+    const reminderText = `\n\n---\n[MEMORY REMINDER] ${
+      reminder.pending_count
+    } file(s) edited but not recorded: ${reminder.pending_files.join(", ")}${
+      reminder.pending_count > 5 ? ` (+${reminder.pending_count - 5} more)` : ""
+    }. ${reminder.action}`;
 
     // Append reminder to the last text content
     const newContent = [...result.content];
-    if (newContent.length > 0 && newContent[newContent.length - 1].type === "text") {
+    if (
+      newContent.length > 0 &&
+      newContent[newContent.length - 1].type === "text"
+    ) {
       newContent[newContent.length - 1] = {
         ...newContent[newContent.length - 1],
         text: newContent[newContent.length - 1].text + reminderText,
@@ -586,8 +594,14 @@ export class AiMemoryMcpServer {
           inputSchema: {
             type: "object",
             properties: {
-              include_stats: { type: "boolean", description: "Include stats (default: true)" },
-              limit: { type: "number", description: "Max results (default: 50)" },
+              include_stats: {
+                type: "boolean",
+                description: "Include stats (default: true)",
+              },
+              limit: {
+                type: "number",
+                description: "Max results (default: 50)",
+              },
             },
           },
         },
@@ -607,7 +621,14 @@ export class AiMemoryMcpServer {
               },
               relation_type: {
                 type: "string",
-                enum: ["depends_on", "related_to", "fixes", "implements", "tests", "documents"],
+                enum: [
+                  "depends_on",
+                  "related_to",
+                  "fixes",
+                  "implements",
+                  "tests",
+                  "documents",
+                ],
                 description: "Find related contexts instead",
               },
             },
@@ -626,10 +647,22 @@ export class AiMemoryMcpServer {
               session_id: { type: "string", description: "Limit to session" },
               file_path: { type: "string", description: "Filter by file" },
               type: { type: "string", description: "Filter by context type" },
-              limit: { type: "number", description: "Max results (default: 10)" },
-              similarity_threshold: { type: "number", description: "Min score 0-1 (default: 0.5)" },
-              hybrid_weight: { type: "number", description: "Semantic vs keyword 0-1 (default: 0.7)" },
-              use_cache: { type: "boolean", description: "Use cache (default: true)" },
+              limit: {
+                type: "number",
+                description: "Max results (default: 10)",
+              },
+              similarity_threshold: {
+                type: "number",
+                description: "Min score 0-1 (default: 0.5)",
+              },
+              hybrid_weight: {
+                type: "number",
+                description: "Semantic vs keyword 0-1 (default: 0.7)",
+              },
+              use_cache: {
+                type: "boolean",
+                description: "Use cache (default: true)",
+              },
             },
             required: ["query"],
           },
@@ -641,10 +674,19 @@ export class AiMemoryMcpServer {
           inputSchema: {
             type: "object",
             properties: {
-              project_path: { type: "string", description: "Filter by project" },
+              project_path: {
+                type: "string",
+                description: "Filter by project",
+              },
               session_id: { type: "string", description: "Filter by session" },
-              limit: { type: "number", description: "Max results (default: 20)" },
-              since: { type: "string", description: "Time filter: 24h, 7d, 30d, 90d" },
+              limit: {
+                type: "number",
+                description: "Max results (default: 20)",
+              },
+              since: {
+                type: "string",
+                description: "Time filter: 24h, 7d, 30d, 90d",
+              },
               type: { type: "string", description: "Filter by type" },
             },
           },
@@ -665,13 +707,18 @@ export class AiMemoryMcpServer {
         },
         {
           name: "update_context",
-          description: "Update context content, tags, metadata, or file associations.",
+          description:
+            "Update context content, tags, metadata, or file associations.",
           inputSchema: {
             type: "object",
             properties: {
               context_id: { type: "string", description: "Context ID" },
               content: { type: "string", description: "New content" },
-              tags: { type: "array", items: { type: "string" }, description: "New tags" },
+              tags: {
+                type: "array",
+                items: { type: "string" },
+                description: "New tags",
+              },
               quality_score: { type: "number", description: "Score 0-1" },
               metadata: { type: "object", description: "New metadata" },
               file_path: { type: "string", description: "Update file path" },
@@ -695,12 +742,16 @@ export class AiMemoryMcpServer {
         },
         {
           name: "delete_session",
-          description: "Delete session(s) and contexts by session_id or project_id.",
+          description:
+            "Delete session(s) and contexts by session_id or project_id.",
           inputSchema: {
             type: "object",
             properties: {
               session_id: { type: "string", description: "Session ID" },
-              project_id: { type: "string", description: "Delete all sessions of project" },
+              project_id: {
+                type: "string",
+                description: "Delete all sessions of project",
+              },
             },
           },
         },
@@ -711,11 +762,29 @@ export class AiMemoryMcpServer {
           inputSchema: {
             type: "object",
             properties: {
-              project_path: { type: "string", description: "Project directory path" },
-              analysis_focus: { type: "string", description: "Focus: architecture, entities, apis, business_logic, security, performance" },
-              doc_style: { type: "string", enum: ["devmind", "technical", "readme"], description: "Doc style (default: devmind)" },
-              auto_save: { type: "boolean", description: "Save to memory (default: true)" },
-              language: { type: "string", enum: ["en", "zh", "auto"], description: "Language (default: auto)" },
+              project_path: {
+                type: "string",
+                description: "Project directory path",
+              },
+              analysis_focus: {
+                type: "string",
+                description:
+                  "Focus: architecture, entities, apis, business_logic, security, performance",
+              },
+              doc_style: {
+                type: "string",
+                enum: ["devmind", "technical", "readme"],
+                description: "Doc style (default: devmind)",
+              },
+              auto_save: {
+                type: "boolean",
+                description: "Save to memory (default: true)",
+              },
+              language: {
+                type: "string",
+                enum: ["en", "zh", "auto"],
+                description: "Language (default: auto)",
+              },
             },
             required: ["project_path"],
           },
@@ -727,27 +796,65 @@ export class AiMemoryMcpServer {
           inputSchema: {
             type: "object",
             properties: {
-              project_id: { type: "string", description: "Project ID (from list_projects)" },
-              max_nodes: { type: "number", description: "Max nodes (default: all)" },
+              project_id: {
+                type: "string",
+                description: "Project ID (from list_projects)",
+              },
+              max_nodes: {
+                type: "number",
+                description: "Max nodes (default: all)",
+              },
               focus_type: {
                 type: "string",
-                enum: ["all", "solution", "error", "code", "documentation", "conversation"],
+                enum: [
+                  "all",
+                  "solution",
+                  "error",
+                  "code",
+                  "documentation",
+                  "conversation",
+                ],
                 description: "Filter by type",
               },
-              output_path: { type: "string", description: "Custom output path" },
+              output_path: {
+                type: "string",
+                description: "Custom output path",
+              },
             },
             required: ["project_id"],
           },
         },
         {
           name: "get_memory_status",
-          description: "Get memory system status: monitoring state, context count, cache stats.",
+          description:
+            "Get memory system status: monitoring state, context count, cache stats.",
           inputSchema: {
             type: "object",
             properties: {
               project_path: { type: "string", description: "Project path" },
             },
             required: [],
+          },
+        },
+        {
+          name: "cleanup_empty_projects",
+          description:
+            "Clean up empty projects (projects with no memory contexts). Returns list of empty projects and optionally deletes them.",
+          inputSchema: {
+            type: "object",
+            properties: {
+              dry_run: {
+                type: "boolean",
+                description:
+                  "If true, only list empty projects without deleting (default: true)",
+              },
+              project_ids: {
+                type: "array",
+                items: { type: "string" },
+                description:
+                  "Optional: specific project IDs to delete. If not provided, deletes all empty projects.",
+              },
+            },
           },
         },
       ],
@@ -761,7 +868,9 @@ export class AiMemoryMcpServer {
 
       // Execute tool and wrap result with memory reminder
       const executeAndWrap = async (
-        handler: () => Promise<{ content: Array<{ type: string; text: string }> }>
+        handler: () => Promise<{
+          content: Array<{ type: string; text: string }>;
+        }>
       ) => {
         const result = await handler();
         return this.wrapWithReminder(name, result);
@@ -790,32 +899,41 @@ export class AiMemoryMcpServer {
           );
         case "list_projects":
           return executeAndWrap(() =>
-            this.handleListProjects(safeArgs as { include_stats?: boolean; limit?: number })
+            this.handleListProjects(
+              safeArgs as { include_stats?: boolean; limit?: number }
+            )
           );
         case "get_context":
           return executeAndWrap(() =>
             this.handleGetContext(
-              safeArgs as { context_ids: string | string[]; relation_type?: string }
+              safeArgs as {
+                context_ids: string | string[];
+                relation_type?: string;
+              }
             )
           );
         case "semantic_search":
           return executeAndWrap(() =>
-            this.handleSemanticSearch(safeArgs as {
-              query: string;
-              project_path?: string;
-              session_id?: string;
-              limit?: number;
-              similarity_threshold?: number;
-              hybrid_weight?: number;
-            })
+            this.handleSemanticSearch(
+              safeArgs as {
+                query: string;
+                project_path?: string;
+                session_id?: string;
+                limit?: number;
+                similarity_threshold?: number;
+                hybrid_weight?: number;
+              }
+            )
           );
         case "list_contexts":
           return executeAndWrap(() =>
-            this.handleListContexts(safeArgs as {
-              session_id?: string;
-              project_path?: string;
-              limit?: number;
-            })
+            this.handleListContexts(
+              safeArgs as {
+                session_id?: string;
+                project_path?: string;
+                limit?: number;
+              }
+            )
           );
         case "delete_context":
           return executeAndWrap(() =>
@@ -823,40 +941,54 @@ export class AiMemoryMcpServer {
           );
         case "update_context":
           return executeAndWrap(() =>
-            this.handleUpdateContext(safeArgs as {
-              context_id: string;
-              content?: string;
-              tags?: string[];
-              quality_score?: number;
-              metadata?: object;
-            })
+            this.handleUpdateContext(
+              safeArgs as {
+                context_id: string;
+                content?: string;
+                tags?: string[];
+                quality_score?: number;
+                metadata?: object;
+              }
+            )
           );
         case "delete_session":
           return executeAndWrap(() =>
-            this.handleDeleteSession(safeArgs as { session_id?: string; project_id?: string })
+            this.handleDeleteSession(
+              safeArgs as { session_id?: string; project_id?: string }
+            )
           );
         case "project_analysis_engineer":
           return executeAndWrap(() =>
-            this.handleProjectAnalysisEngineerTool(safeArgs as {
-              project_path: string;
-              analysis_focus?: string;
-              doc_style?: string;
-              auto_save?: boolean;
-              language?: string;
-            })
+            this.handleProjectAnalysisEngineerTool(
+              safeArgs as {
+                project_path: string;
+                analysis_focus?: string;
+                doc_style?: string;
+                auto_save?: boolean;
+                language?: string;
+              }
+            )
           );
         case "export_memory_graph":
           return executeAndWrap(() =>
-            this.handleExportMemoryGraph(safeArgs as {
-              project_id: string;
-              max_nodes?: number;
-              focus_type?: string;
-              output_path?: string;
-            })
+            this.handleExportMemoryGraph(
+              safeArgs as {
+                project_id: string;
+                max_nodes?: number;
+                focus_type?: string;
+                output_path?: string;
+              }
+            )
           );
         case "get_memory_status":
           return executeAndWrap(() =>
             this.handleGetMemoryStatus(safeArgs as { project_path?: string })
+          );
+        case "cleanup_empty_projects":
+          return executeAndWrap(() =>
+            this.handleCleanupEmptyProjects(
+              safeArgs as { dry_run?: boolean; project_ids?: string[] }
+            )
           );
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
@@ -1141,7 +1273,7 @@ export class AiMemoryMcpServer {
       if (!sessionId) {
         throw new Error(
           "Either session_id or project_path must be provided. " +
-          "Could not infer project path from current working directory."
+            "Could not infer project path from current working directory."
         );
       }
 
@@ -1181,9 +1313,11 @@ export class AiMemoryMcpServer {
                   if (!args.files_changed) {
                     args.files_changed = suggestions
                       .slice(0, 5) // 最多5个文件
-                      .map(s => ({
+                      .map((s) => ({
                         file_path: s.path,
-                        change_type: s.source.includes('git') ? 'modify' : undefined,
+                        change_type: s.source.includes("git")
+                          ? "modify"
+                          : undefined,
                       }));
                   }
 
@@ -1193,11 +1327,11 @@ export class AiMemoryMcpServer {
                     auto_detected: true,
                     multi_file_auto_detected: true,
                     confidence: suggestions[0].confidence,
-                    detected_files: suggestions.slice(0, 5).map(s => ({
+                    detected_files: suggestions.slice(0, 5).map((s) => ({
                       path: detector.getRelativePath(s.path),
                       confidence: s.confidence,
-                      source: s.source
-                    }))
+                      source: s.source,
+                    })),
                   };
                 } else {
                   // 单文件场景
@@ -1407,7 +1541,8 @@ export class AiMemoryMcpServer {
             diff_stats: args.diff_stats,
           });
 
-          if (classification.confidence > 0.5) { // Lowered from 0.7 to 0.5
+          if (classification.confidence > 0.5) {
+            // Lowered from 0.7 to 0.5
             finalType = classification.type;
             autoClassificationMeta = {
               auto_classified: true,
@@ -1687,7 +1822,10 @@ ACTION REQUIRED:
 Call record_context with:
 - type: ${suggestedType}
 - content: "${args.work_summary}"
-- files_changed: [${unrecordedFiles.slice(0, 5).map((f) => `"${f}"`).join(", ")}${unrecordedFiles.length > 5 ? ", ..." : ""}]
+- files_changed: [${unrecordedFiles
+          .slice(0, 5)
+          .map((f) => `"${f}"`)
+          .join(", ")}${unrecordedFiles.length > 5 ? ", ..." : ""}]
 
 Then call verify_work_recorded again to confirm.`;
 
@@ -1754,24 +1892,15 @@ You may now respond to the user.`;
       return "feature_add";
     }
 
-    if (
-      lowerSummary.includes("refactor") ||
-      lowerSummary.includes("重构")
-    ) {
+    if (lowerSummary.includes("refactor") || lowerSummary.includes("重构")) {
       return "code_refactor";
     }
 
-    if (
-      lowerSummary.includes("test") ||
-      lowerSummary.includes("测试")
-    ) {
+    if (lowerSummary.includes("test") || lowerSummary.includes("测试")) {
       return "test";
     }
 
-    if (
-      lowerSummary.includes("doc") ||
-      lowerSummary.includes("文档")
-    ) {
+    if (lowerSummary.includes("doc") || lowerSummary.includes("文档")) {
       return "documentation";
     }
 
@@ -3686,6 +3815,143 @@ ${
           {
             type: "text",
             text: `Failed to get memory status: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  /**
+   * 🧹 Clean up empty projects (projects with no contexts)
+   */
+  private async handleCleanupEmptyProjects(args: {
+    dry_run?: boolean;
+    project_ids?: string[];
+  }) {
+    try {
+      const dryRun = args.dry_run !== false; // Default to true
+      const emptyProjects = this.db.getEmptyProjects();
+
+      if (emptyProjects.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "✅ No empty projects found. All projects have memory contexts.",
+            },
+          ],
+          isError: false,
+        };
+      }
+
+      // Filter by specific project IDs if provided
+      const projectsToProcess = args.project_ids
+        ? emptyProjects.filter((p) => args.project_ids!.includes(p.id))
+        : emptyProjects;
+
+      if (projectsToProcess.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "No matching empty projects found for the specified IDs.",
+            },
+          ],
+          isError: false,
+        };
+      }
+
+      // Dry run: just list empty projects
+      if (dryRun) {
+        const projectList = projectsToProcess
+          .map(
+            (p, i) =>
+              `${i + 1}. **${p.name}**\n` +
+              `   - ID: \`${p.id}\`\n` +
+              `   - Path: ${p.path}\n` +
+              `   - Sessions: ${p.session_count}\n` +
+              `   - Last accessed: ${this.formatDateForUser(
+                new Date(p.last_accessed)
+              )}`
+          )
+          .join("\n\n");
+
+        return {
+          content: [
+            {
+              type: "text",
+              text:
+                `# 🧹 Empty Projects Found\n\n` +
+                `Found **${projectsToProcess.length}** empty project(s) with no memory contexts:\n\n` +
+                `${projectList}\n\n` +
+                `---\n\n` +
+                `💡 **To delete these projects**, call:\n` +
+                `\`\`\`\n` +
+                `cleanup_empty_projects({ dry_run: false })\n` +
+                `\`\`\`\n\n` +
+                `Or delete specific projects:\n` +
+                `\`\`\`\n` +
+                `cleanup_empty_projects({ \n` +
+                `  dry_run: false,\n` +
+                `  project_ids: ["${projectsToProcess[0].id}"]\n` +
+                `})\n` +
+                `\`\`\``,
+            },
+          ],
+          isError: false,
+          _meta: {
+            empty_projects_count: projectsToProcess.length,
+            projects: projectsToProcess.map((p) => ({
+              id: p.id,
+              name: p.name,
+              path: p.path,
+              session_count: p.session_count,
+            })),
+          },
+        };
+      }
+
+      // Actually delete projects
+      const projectIds = projectsToProcess.map((p) => p.id);
+      const result = this.db.deleteProjects(projectIds);
+
+      const deletedList = projectsToProcess
+        .map((p, i) => `${i + 1}. ${p.name} (${p.path})`)
+        .join("\n");
+
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `# ✅ Empty Projects Cleaned Up\n\n` +
+              `Successfully deleted **${result.deleted_projects}** empty project(s):\n\n` +
+              `${deletedList}\n\n` +
+              `---\n\n` +
+              `📊 **Statistics:**\n` +
+              `- Projects deleted: ${result.deleted_projects}\n` +
+              `- Sessions deleted: ${result.deleted_sessions}\n` +
+              `- Contexts deleted: ${result.deleted_contexts}\n\n` +
+              `⚠️  **This action cannot be undone!**`,
+          },
+        ],
+        isError: false,
+        _meta: {
+          deleted_projects: result.deleted_projects,
+          deleted_sessions: result.deleted_sessions,
+          deleted_contexts: result.deleted_contexts,
+          project_ids: projectIds,
+        },
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Failed to cleanup empty projects: ${
               error instanceof Error ? error.message : "Unknown error"
             }`,
           },

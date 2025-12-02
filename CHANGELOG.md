@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.8] - 2025-12-02
+
+### Added
+
+- **cleanup_empty_projects Tool**: New MCP tool for cleaning up empty project records
+  - Removes project records that have no associated memory contexts
+  - Supports safe preview mode with `dry_run: true` (default)
+  - Actual deletion with `dry_run: false`
+  - Returns cleanup result with deleted project count and details
+  - Helps maintain clean database by removing unused project entries
+  - Location: `src/mcp-server.ts`, `src/database.ts`
+
+### Improved
+
+- **Database Management**: Enhanced project deletion capabilities
+  - Added `getEmptyProjects()`: Query projects with zero contexts
+  - Added `deleteProject()`: Delete single project with cascade
+  - Added `deleteProjects()`: Batch delete multiple projects
+  - Enabled foreign key constraints for proper cascade deletion
+  - All deletions properly cascade to sessions, contexts, and related tables
+  - Location: `src/database.ts`
+
+### Documentation
+
+- **README Updates**: Added comprehensive documentation for new cleanup tool
+  - Added to Project Management tools section (Chinese & English)
+  - Added detailed API reference with parameters and examples
+  - Included usage examples for both preview and actual deletion modes
+  - Location: `README.md`, `docs/zh/README.md`
+
+### Technical Details
+
+- **Foreign Key Constraints**: Enabled `PRAGMA foreign_keys = ON` in database constructor
+- **Cascade Deletion**: Proper cleanup of sessions, contexts, embeddings, and relationships
+- **Safe by Default**: `dry_run: true` prevents accidental data loss
+- **Batch Operations**: Efficient deletion of multiple empty projects
+
+---
+
 ## [2.2.7] - 2025-11-28
 
 ### Added

@@ -21,6 +21,8 @@ export class DatabaseManager {
 
   constructor(dbPath: string) {
     this.db = new Database(dbPath);
+    // Enable foreign key constraints
+    this.db.pragma("foreign_keys = ON");
     this.initializeTables();
     this.createIndexes();
 
@@ -345,6 +347,97 @@ export class DatabaseManager {
     `;
     const stmt = this.db.prepare(sql);
     return (limit ? stmt.all(limit) : stmt.all()) as Project[];
+  }
+
+  /**
+   * Get empty projects (projects with no contexts)
+   */
+  getEmptyProjects(): Array<Project & { session_count: number }> {
+    const stmt = this.db.prepare(`
+      SELECT 
+        p.*,
+        COUNT(DISTINCT s.id) as session_count
+      FROM projects p
+      LEFT JOIN sessions s ON p.id = s.project_id
+      LEFT JOIN contexts c ON s.id = c.session_id
+      GROUP BY p.id
+      HAVING COUNT(c.id) = 0
+      ORDER BY p.last_accessed DESC
+    `);
+    return stmt.all() as Array<Project & { session_count: number }>;
+  }
+
+  /**
+   * Delete a project and all its sessions/contexts
+   */
+  deleteProject(projectId: string): {
+    success: boolean;
+    deleted_sessions: number;
+    deleted_contexts: number;
+  } {
+    const transaction = this.db.transaction(() => {
+      // Get counts before deletion
+      const sessions = this.getSessionsByProject(projectId);
+      let totalContexts = 0;
+
+      for (const session of sessions) {
+        const contexts = this.getContextsBySession(session.id);
+        totalContexts += contexts.length;
+      }
+
+      // Delete project (cascade will delete sessions and contexts)
+      const stmt = this.db.prepare("DELETE FROM projects WHERE id = ?");
+      stmt.run(projectId);
+
+      return {
+        success: true,
+        deleted_sessions: sessions.length,
+        deleted_contexts: totalContexts,
+      };
+    });
+
+    return transaction();
+  }
+
+  /**
+   * Delete multiple projects in batch
+   */
+  deleteProjects(projectIds: string[]): {
+    success: boolean;
+    deleted_projects: number;
+    deleted_sessions: number;
+    deleted_contexts: number;
+  } {
+    const transaction = this.db.transaction(() => {
+      let totalSessions = 0;
+      let totalContexts = 0;
+
+      for (const projectId of projectIds) {
+        const sessions = this.getSessionsByProject(projectId);
+        totalSessions += sessions.length;
+
+        for (const session of sessions) {
+          const contexts = this.getContextsBySession(session.id);
+          totalContexts += contexts.length;
+        }
+      }
+
+      // Delete all projects
+      const placeholders = projectIds.map(() => "?").join(",");
+      const stmt = this.db.prepare(
+        `DELETE FROM projects WHERE id IN (${placeholders})`
+      );
+      stmt.run(...projectIds);
+
+      return {
+        success: true,
+        deleted_projects: projectIds.length,
+        deleted_sessions: totalSessions,
+        deleted_contexts: totalContexts,
+      };
+    });
+
+    return transaction();
   }
 
   getProjectSessions(projectId: string): Session[] {
