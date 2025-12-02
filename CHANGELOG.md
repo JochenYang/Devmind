@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.9] - 2025-12-02
+
+### Removed
+
+- **verify_work_recorded Tool**: Removed as standalone MCP tool (functionality now built-in)
+  - Issue: Redundant with v2.2.7's automatic memory reminder system
+  - Confusion: AI didn't know whether to call this tool or rely on automatic reminders
+  - Solution: Rely entirely on `wrapWithReminder()` automatic system
+  - All tools (except `record_context`) now automatically show memory reminders
+  - No action needed: Memory tracking still works automatically
+  - Location: `src/mcp-server.ts`
+
+### Improved
+
+- **Enhanced Memory Reminder System**: Upgraded `wrapWithReminder()` with more detailed information
+  - Increased file display limit: 5 → 10 files
+  - Shows change type for each file: (add), (modify), or (delete)
+  - Provides context type suggestions: bug_fix, feature_add, code_modify, etc.
+  - Better formatted output with warning emoji (⚠️) for visibility
+  - Uses `getPendingDetails()` for richer file information
+  - Location: `src/mcp-server.ts`
+
+### Technical Details
+
+- **Built-in Memory Reminder**: `wrapWithReminder()` automatically appends reminders to all tool responses
+- **PendingMemoryTracker**: Tracks unrecorded file changes with change types across all tools
+- **Automatic Detection**: Shows up to 10 pending files with change types and total count
+- **Smart Filtering**: Skips reminder for `record_context` to avoid loops
+- **Rich Context**: Displays file paths with change types for better decision making
+
+---
+
 ## [2.2.8] - 2025-12-02
 
 ### Added

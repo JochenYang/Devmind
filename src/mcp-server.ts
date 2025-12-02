@@ -73,10 +73,7 @@ export class AiMemoryMcpServer {
   private pendingMemoryTracker: PendingMemoryTracker;
 
   // Tools that should NOT trigger memory reminder (to avoid infinite loops)
-  private readonly NO_REMINDER_TOOLS = new Set([
-    "record_context",
-    "verify_work_recorded",
-  ]);
+  private readonly NO_REMINDER_TOOLS = new Set(["record_context"]);
 
   // 真实日期记录函数
   private getCurrentRealDate(): string {
@@ -207,20 +204,26 @@ export class AiMemoryMcpServer {
    */
   private generateMemoryReminder(): {
     pending_count: number;
-    pending_files: string[];
+    pending_details: Array<{ file: string; type: string }>;
     action: string;
   } | null {
-    const unrecordedFiles = this.pendingMemoryTracker.getUnrecorded();
+    const pendingDetails = this.pendingMemoryTracker.getPendingDetails();
 
-    if (unrecordedFiles.length === 0) {
+    if (pendingDetails.length === 0) {
       return null;
     }
 
+    // Format file details with change type
+    const fileDetails = pendingDetails.slice(0, 10).map((detail) => ({
+      file: detail.filePath,
+      type: detail.changeType,
+    }));
+
     return {
-      pending_count: unrecordedFiles.length,
-      pending_files: unrecordedFiles.slice(0, 5), // Show max 5 files
+      pending_count: pendingDetails.length,
+      pending_details: fileDetails,
       action:
-        "Call record_context NOW to save your work before responding to user.",
+        "Call record_context NOW with appropriate type (bug_fix, feature_add, code_modify, etc.) before responding to user.",
     };
   }
 
@@ -241,12 +244,21 @@ export class AiMemoryMcpServer {
       return result;
     }
 
+    // Format file list with change types
+    const fileList = reminder.pending_details
+      .map((detail) => `${detail.file} (${detail.type})`)
+      .join(", ");
+
+    const moreFilesText =
+      reminder.pending_count > 10
+        ? ` (+${reminder.pending_count - 10} more)`
+        : "";
+
     // Add reminder to the result
-    const reminderText = `\n\n---\n[MEMORY REMINDER] ${
-      reminder.pending_count
-    } file(s) edited but not recorded: ${reminder.pending_files.join(", ")}${
-      reminder.pending_count > 5 ? ` (+${reminder.pending_count - 5} more)` : ""
-    }. ${reminder.action}`;
+    const reminderText = `\n\n---\n⚠️ [MEMORY REMINDER] ${reminder.pending_count} file(s) edited but not recorded:
+${fileList}${moreFilesText}
+
+${reminder.action}`;
 
     // Append reminder to the last text content
     const newContent = [...result.content];
@@ -544,22 +556,6 @@ export class AiMemoryMcpServer {
               },
             },
             required: ["content"], // type is optional for AI auto-classification
-          },
-        },
-        {
-          name: "verify_work_recorded",
-          description:
-            "Call before responding to user. Checks if edited files have been recorded. Returns warning if record_context was not called.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              work_summary: {
-                type: "string",
-                description: "Brief summary of work done",
-              },
-              project_path: { type: "string", description: "Project path" },
-            },
-            required: ["work_summary"],
           },
         },
         {
@@ -884,10 +880,6 @@ export class AiMemoryMcpServer {
         case "record_context":
           return this.handleRecordContext(
             safeArgs as unknown as RecordContextParams
-          );
-        case "verify_work_recorded":
-          return this.handleVerifyWorkRecorded(
-            safeArgs as { work_summary: string; project_path?: string }
           );
         case "end_session":
           return executeAndWrap(() =>
@@ -1751,114 +1743,6 @@ export class AiMemoryMcpServer {
           {
             type: "text",
             text: `Failed to record context: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-
-  /**
-   * Handle verify_work_recorded tool call
-   * Checks if there are unrecorded file changes and provides guidance
-   */
-  private async handleVerifyWorkRecorded(args: {
-    work_summary: string;
-    project_path?: string;
-  }) {
-    try {
-      // Get current session
-      let sessionId: string | null = null;
-      let projectPath = args.project_path;
-
-      // If no project_path provided, try to infer from current working directory
-      if (!projectPath) {
-        const potentialDirs = [
-          process.env.INIT_CWD,
-          process.env.PWD,
-          process.env.CD,
-          process.cwd(),
-        ].filter(Boolean) as string[];
-
-        for (const dir of potentialDirs) {
-          if (existsSync(dir)) {
-            projectPath = dir;
-            break;
-          }
-        }
-      }
-
-      if (projectPath) {
-        sessionId = await this.sessionManager.getCurrentSession(projectPath);
-      }
-
-      // Check for unrecorded files
-      const unrecordedFiles = this.pendingMemoryTracker.getUnrecorded(
-        sessionId || undefined
-      );
-
-      if (unrecordedFiles.length > 0) {
-        // There are unrecorded files - return warning
-        const fileList = unrecordedFiles
-          .slice(0, 10)
-          .map((f, i) => `  ${i + 1}. ${f}`)
-          .join("\n");
-        const moreFiles =
-          unrecordedFiles.length > 10
-            ? `\n  ... and ${unrecordedFiles.length - 10} more files`
-            : "";
-
-        // Suggest context type based on work summary
-        const suggestedType = this.suggestContextType(args.work_summary);
-
-        const warningText = `WARNING: Work not fully recorded
-
-Unrecorded files (${unrecordedFiles.length}):
-${fileList}${moreFiles}
-
-ACTION REQUIRED:
-Call record_context with:
-- type: ${suggestedType}
-- content: "${args.work_summary}"
-- files_changed: [${unrecordedFiles
-          .slice(0, 5)
-          .map((f) => `"${f}"`)
-          .join(", ")}${unrecordedFiles.length > 5 ? ", ..." : ""}]
-
-Then call verify_work_recorded again to confirm.`;
-
-        return {
-          content: [{ type: "text", text: warningText }],
-          isError: true,
-          _meta: {
-            verification_status: "failed",
-            unrecorded_count: unrecordedFiles.length,
-            suggested_type: suggestedType,
-          },
-        };
-      }
-
-      // All work is recorded
-      const successText = `VERIFICATION PASSED: All work has been recorded.
-
-You may now respond to the user.`;
-
-      return {
-        content: [{ type: "text", text: successText }],
-        isError: false,
-        _meta: {
-          verification_status: "passed",
-          unrecorded_count: 0,
-        },
-      };
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Failed to verify work: ${
               error instanceof Error ? error.message : "Unknown error"
             }`,
           },
