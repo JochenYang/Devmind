@@ -119,11 +119,15 @@ devmind-mcp/
 │   ├── database.ts                  # SQLite storage engine
 │   ├── vector-search.ts             # Semantic search with embeddings
 │   ├── session-manager.ts           # Session & context management
+│   ├── pending-memory-tracker.ts    # Unrecorded file tracking (v2.2.6+)
 │   ├── content-extractor.ts         # Code analysis & extraction
 │   ├── content-quality-assessor.ts  # Content quality scoring
 │   ├── quality-score-calculator.ts  # Multi-dimensional quality scoring
 │   ├── auto-record-filter.ts        # Smart deduplication
 │   ├── context-file-manager.ts      # File change tracking
+│   ├── performance-optimizer.ts     # Performance optimizer (v2.2.0+)
+│   ├── search-cache.ts              # Search cache
+│   ├── smart-confirmation-system.ts # Smart confirmation system
 │   ├── types.ts                     # Type definitions
 │   ├── index.ts                     # Main entry point
 │   │
@@ -135,13 +139,20 @@ devmind-mcp/
 │   │   │   ├── NodeBuilder.ts         # Node construction & labeling
 │   │   │   └── EdgeBuilder.ts         # Edge/relationship building
 │   │   └── templates/
-│   │       └── HTMLGenerator.ts       # HTML visualization generator
+│   │       ├── HTMLGenerator.ts       # HTML visualization generator
+│   │       └── HTMLGeneratorCytoscape.ts  # Cytoscape graph generator
 │   │
 │   ├── utils/
 │   │   ├── file-path-detector.ts    # Intelligent file detection
 │   │   ├── git-diff-parser.ts       # Git diff parsing
 │   │   ├── path-normalizer.ts       # Cross-platform path handling
-│   │   └── query-enhancer.ts        # Search query enhancement
+│   │   ├── project-root-finder.ts   # Project root finder (v2.1.11+)
+│   │   ├── language-detector.ts     # Programming language detection
+│   │   ├── query-enhancer.ts        # Search query enhancement (v2.2.0+)
+│   │   ├── auto-memory-classifier.ts # Auto memory classification (v2.2.0+)
+│   │   ├── context-enricher.ts      # Context enrichment (v2.2.0+)
+│   │   ├── batch-processor.ts       # Batch processor (v2.2.0+)
+│   │   └── performance-optimizer.ts # Performance optimization (v2.2.0+)
 │   │
 │   └── project-indexer/
 │       ├── index.ts                 # Project analyzer entry
@@ -159,7 +170,8 @@ devmind-mcp/
 │
 ├── dist/                            # Compiled output
 ├── scripts/                         # Maintenance scripts
-└── docs/zh/                         # Chinese documentation
+├── docs/zh/                         # Chinese documentation
+└── tests/                           # Test files
 ```
 
 ---
@@ -445,7 +457,13 @@ Create `.devmind.json` in your project root:
 
 ### Recommended Memory Strategy
 
-AI assistants should call the `record_context` tool immediately after every code edit to ensure all changes are properly recorded in the project memory.
+As a development assistant, your primary responsibility is to ensure every code edit is properly recorded.
+
+**Mandatory Rules:**
+- Call `record_context` tool IMMEDIATELY after completing any code modification
+- This is NOT optional - it's a required part of the workflow
+- When user says "remember", "save", "记住", or "保存", MUST call this tool
+- Not calling this tool means work is INCOMPLETE and all changes will be lost in future conversations
 
 
 

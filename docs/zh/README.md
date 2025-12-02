@@ -114,11 +114,15 @@ devmind-mcp/
 │   ├── database.ts                  # SQLite存储引擎
 │   ├── vector-search.ts             # 语义搜索（嵌入向量）
 │   ├── session-manager.ts           # 会话与上下文管理
+│   ├── pending-memory-tracker.ts    # 未记录文件追踪 (v2.2.6+)
 │   ├── content-extractor.ts         # 代码分析与提取
 │   ├── content-quality-assessor.ts  # 内容质量评分
 │   ├── quality-score-calculator.ts  # 多维度质量评分
 │   ├── auto-record-filter.ts        # 智能去重
 │   ├── context-file-manager.ts      # 文件变更追踪
+│   ├── performance-optimizer.ts     # 性能优化器 (v2.2.0+)
+│   ├── search-cache.ts              # 搜索缓存
+│   ├── smart-confirmation-system.ts # 智能确认系统
 │   ├── types.ts                     # 类型定义
 │   ├── index.ts                     # 主入口
 │   │
@@ -130,13 +134,20 @@ devmind-mcp/
 │   │   │   ├── NodeBuilder.ts         # 节点构建与标签生成
 │   │   │   └── EdgeBuilder.ts         # 边/关系构建
 │   │   └── templates/
-│   │       └── HTMLGenerator.ts       # HTML可视化生成器
+│   │       ├── HTMLGenerator.ts       # HTML可视化生成器
+│   │       └── HTMLGeneratorCytoscape.ts  # Cytoscape图谱生成器
 │   │
 │   ├── utils/
 │   │   ├── file-path-detector.ts    # 智能文件检测
 │   │   ├── git-diff-parser.ts       # Git diff解析
 │   │   ├── path-normalizer.ts       # 跨平台路径处理
-│   │   └── query-enhancer.ts        # 搜索查询增强
+│   │   ├── project-root-finder.ts   # 项目根目录查找 (v2.1.11+)
+│   │   ├── language-detector.ts     # 编程语言检测
+│   │   ├── query-enhancer.ts        # 搜索查询增强 (v2.2.0+)
+│   │   ├── auto-memory-classifier.ts # 自动记忆分类 (v2.2.0+)
+│   │   ├── context-enricher.ts      # 上下文增强 (v2.2.0+)
+│   │   ├── batch-processor.ts       # 批处理器 (v2.2.0+)
+│   │   └── performance-optimizer.ts # 性能优化 (v2.2.0+)
 │   │
 │   └── project-indexer/
 │       ├── index.ts                 # 项目分析器入口
@@ -154,7 +165,8 @@ devmind-mcp/
 │
 ├── dist/                            # 编译输出
 ├── scripts/                         # 维护脚本
-└── docs/zh/                         # 中文文档
+├── docs/zh/                         # 中文文档
+└── tests/                           # 测试文件
 ```
 ```
 
@@ -439,7 +451,13 @@ const analysis = await project_analysis_engineer({
 
 ### 推荐的记忆策略
 
-AI 助手应该在每次代码编辑后立即调用 `record_context` 工具，确保所有变更都被正确记录到项目记忆中。
+作为开发助手，你的首要职责是确保每次代码编辑都被正确记录。
+
+**强制规则：**
+- 完成任何代码修改后，必须立即调用 `record_context` 工具
+- 这不是可选项，而是工作流程的必要组成部分
+- 用户说"记住"、"保存"、"remember"、"save"时，必须调用此工具
+- 不调用此工具意味着工作未完成，所有变更将在未来对话中丢失
 
 ### 完整MCP配置示例
 
