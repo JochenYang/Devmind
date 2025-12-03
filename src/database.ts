@@ -676,7 +676,29 @@ export class DatabaseManager {
   deleteContext(contextId: string): boolean {
     const stmt = this.db.prepare("DELETE FROM contexts WHERE id = ?");
     const result = stmt.run(contextId);
+
+    // 每删除10个上下文后自动清理数据库
+    if (result.changes > 0) {
+      this.incrementDeleteCounter();
+    }
+
     return result.changes > 0;
+  }
+
+  private deleteCounter = 0;
+  private incrementDeleteCounter(): void {
+    this.deleteCounter++;
+    if (this.deleteCounter >= 10) {
+      this.deleteCounter = 0;
+      // 异步执行 VACUUM，不阻塞删除操作
+      setImmediate(() => {
+        try {
+          this.vacuum();
+        } catch (error) {
+          // 静默失败，不影响主流程
+        }
+      });
+    }
   }
 
   updateContext(

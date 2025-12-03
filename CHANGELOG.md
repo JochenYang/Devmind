@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2025-12-03
+
+### Added
+
+- **Auto Database Cleanup**: Automatic VACUUM execution after deletions
+  - Executes VACUUM every 10 context deletions
+  - Asynchronous execution using `setImmediate()` to avoid blocking
+  - Silent failure strategy - never interrupts main operations
+  - Reduces database file size by reclaiming deleted space
+  - Example: 8.2MB → 3MB after cleanup (5MB reclaimed)
+  - Location: `src/database.ts` `deleteContext()` and `incrementDeleteCounter()`
+
+### Fixed
+
+- **Database File Size Issue**: Database file no longer grows indefinitely after deletions
+  - SQLite marks deleted space as reusable but doesn't shrink file automatically
+  - Now automatically reclaims space through periodic VACUUM operations
+  - Improves disk space efficiency for long-running instances
+
+### Changed
+
+- **Documentation Updates**: Updated product references from "Claude Desktop" to "Claude Code"
+  - Updated all README files (English and Chinese)
+  - Fixed architecture diagram alignment issues
+  - Corrected tool count from 14 to 15 in documentation
+
 ## [2.3.0] - 2025-12-03
 
 ### Added
