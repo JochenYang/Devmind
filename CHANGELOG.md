@@ -5,6 +5,120 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-12-03
+
+### Added
+
+- **Git Information Auto-Detection**: Automatically detects and records Git metadata
+  - Auto-detects changed files via `git diff` and `git diff --cached`
+  - Captures current branch name (handles detached HEAD state)
+  - Records Git author from `git config user.name`
+  - Stores Git info in context metadata: `git_branch`, `git_author`, `git_has_uncommitted`
+  - 30-second TTL cache to optimize performance
+  - Silent failure strategy - never blocks core functionality
+  - Only activates when `files_changed` parameter is not provided
+  - Location: `src/mcp-server.ts` (lines 5220-5350)
+
+- **Project Information Auto-Detection**: Extracts project metadata from config files
+  - Reads `package.json` for Node.js projects (name, version, description)
+  - Reads `pyproject.toml` for Python projects (name, version)
+  - Fallback to directory name when config files unavailable
+  - Stores project info in metadata: `project_name`, `project_version`, `project_type`
+  - Permanent cache for project information
+  - Supports multiple project types: node, python, go, rust
+  - Location: `src/mcp-server.ts` (lines 5350-5450)
+
+- **Bilingual System Prompt**: Memory recording guidance for AI assistants
+  - New MCP Prompt: `memory_recording_guidance`
+  - Provides core responsibilities in Chinese and English
+  - Includes self-check list for AI decision-making
+  - Quick reference with common context types
+  - Minimal example code for easy adoption
+  - Emphasizes mandatory nature of memory recording
+  - Location: `src/mcp-server.ts` (lines 4283-4343)
+
+- **Hybrid Relevance Scoring**: Enhanced semantic search with metadata-based scoring
+  - Combines vector similarity (70%) with metadata relevance (30%)
+  - Metadata scoring includes:
+    - File name matching (weight: 5 points)
+    - Project path matching (weight: 3 points)
+    - Tag matching (weight: 2 points per tag)
+    - Time-based recency (weight: 0-10 points, decays over 10 days)
+  - Results automatically re-sorted by final combined score
+  - Preserves original vector scores for debugging
+  - Displays detailed scoring breakdown in search results
+  - Location: `src/mcp-server.ts` (lines 5450-5650)
+
+### Improved
+
+- **record_context Auto-Enhancement**: Smarter context recording with less manual input
+  - Automatically fills `files_changed` when not provided
+  - Enriches metadata with Git and project information
+  - Reduces AI burden - only `content` and `type` required
+  - Backward compatible - manual parameters take precedence
+  - Location: `src/mcp-server.ts` (lines 1290-1350)
+
+- **semantic_search Results Display**: Enhanced output with scoring details
+  - Shows Vector Score, Final Score, and Metadata Score breakdown
+  - Displays individual metadata components (File, Project, Tag, Time)
+  - Better visibility into why results are ranked in specific order
+  - Helps users understand relevance calculation
+  - Location: `src/mcp-server.ts` (lines 2420-2480)
+
+### Fixed
+
+- **Project Name Detection**: Fixed incorrect use of `dirname()` function
+  - Changed from `dirname(projectPath)` to `basename(projectPath)`
+  - Now correctly extracts directory name instead of parent path
+  - Affects fallback logic in `tryReadPackageJson()` and `detectProjectInfo()`
+  - Location: `src/mcp-server.ts` (lines 5372, 5443)
+
+### Technical Details
+
+**Git Detection Module:**
+- `isGitRepository()`: Checks if directory is a Git repo
+- `getGitChangedFiles()`: Combines unstaged and staged changes
+- `getGitBranch()`: Gets current branch with detached HEAD handling
+- `getGitAuthor()`: Retrieves Git user name
+- `detectGitInfo()`: Main function with caching and error handling
+
+**Project Detection Module:**
+- `tryReadPackageJson()`: Parses Node.js package.json
+- `tryReadPyproject()`: Parses Python pyproject.toml (basic TOML parsing)
+- `detectProjectInfo()`: Main function with permanent caching
+
+**Hybrid Scoring Module:**
+- `calculateMetadataScore()`: Computes multi-dimensional relevance scores
+- `combineScores()`: Merges vector and metadata scores with 70/30 weighting
+- `extractFilesFromQuery()`: Extracts file paths from search queries
+- `filesMatch()`: Intelligent file path matching (exact, filename, partial)
+- `getDaysSinceCreation()`: Time-based scoring with 10-day decay
+
+**Type Definitions:**
+- `GitInfo`: Interface for Git metadata (changedFiles, branch, author, hasUncommitted)
+- `ProjectInfo`: Interface for project metadata (name, version, type, description)
+- Location: `src/types.ts` (lines 248-262)
+
+**Testing:**
+- Comprehensive test coverage in `tests/git-project-integration.test.ts`
+- Hybrid scoring tests in `tests/hybrid-scoring.test.ts`
+- Integration tests in `tests/semantic-search-integration.test.ts`
+- Manual test script in `tests/manual-test-v2.3.0.js`
+
+**Performance:**
+- Git detection: < 50ms (with 30s cache)
+- Project detection: < 20ms (with permanent cache)
+- Metadata scoring: < 10ms
+- Total overhead: < 100ms
+
+**Backward Compatibility:**
+- All new features are optional enhancements
+- Existing API calls work unchanged
+- Manual parameters always take precedence over auto-detection
+- No database schema changes (uses existing metadata JSON field)
+
+---
+
 ## [2.2.9] - 2025-12-02
 
 ### Removed

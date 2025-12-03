@@ -243,3 +243,18 @@ export interface AiMemoryConfig {
     cache_embeddings?: boolean;
   };
 }
+
+// === Git Integration Types (v2.3.0) ===
+export interface GitInfo {
+  changedFiles: string[]; // git diff + staged files
+  branch: string; // 当前分支
+  author: string; // git config user.name
+  hasUncommitted: boolean; // 是否有未提交变更
+}
+
+export interface ProjectInfo {
+  name: string; // 项目名称
+  version?: string; // 项目版本
+  type?: string; // 项目类型 (node, python, go, etc.)
+  description?: string; // 项目描述
+}

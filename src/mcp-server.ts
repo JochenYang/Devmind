@@ -40,10 +40,13 @@ import {
   RecordContextParams,
   SessionCreateParams,
   ContextType,
+  GitInfo,
+  ProjectInfo,
 } from "./types.js";
-import { join, dirname, resolve } from "path";
+import { join, dirname, resolve, basename } from "path";
 import { homedir } from "os";
 import { existsSync, mkdirSync, readFileSync, unlinkSync } from "fs";
+import { execSync } from "child_process";
 import { normalizeProjectPath } from "./utils/path-normalizer.js";
 import { findProjectRoot } from "./utils/project-root-finder.js";
 
@@ -71,6 +74,13 @@ export class AiMemoryMcpServer {
 
   // === Pending Memory Tracker (v2.2.6) ===
   private pendingMemoryTracker: PendingMemoryTracker;
+
+  // === Git Info Cache (v2.3.0) ===
+  private gitInfoCache: Map<
+    string,
+    { data: GitInfo | null; timestamp: number }
+  > = new Map();
+  private projectInfoCache: Map<string, ProjectInfo> = new Map();
 
   // Tools that should NOT trigger memory reminder (to avoid infinite loops)
   private readonly NO_REMINDER_TOOLS = new Set(["record_context"]);
@@ -991,6 +1001,12 @@ ${reminder.action}`;
     this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
       prompts: [
         {
+          name: "memory_recording_guidance",
+          description:
+            "Core guidance for AI assistants on when and how to record development context to memory",
+          arguments: [],
+        },
+        {
           name: "project_analysis_engineer",
           description:
             "Professional project analysis engineer prompt that analyzes project structure, identifies core functionality, and generates comprehensive development documentation",
@@ -1036,6 +1052,8 @@ ${reminder.action}`;
       const safeArgs = args || {};
 
       switch (name) {
+        case "memory_recording_guidance":
+          return this.handleMemoryRecordingGuidance();
         case "project_analysis_engineer":
           return await this.handleProjectAnalysisEngineer(safeArgs);
         default:
@@ -1267,6 +1285,47 @@ ${reminder.action}`;
           "Either session_id or project_path must be provided. " +
             "Could not infer project path from current working directory."
         );
+      }
+
+      // === Git 信息自动检测 (v2.3.0) ===
+      let gitInfo: GitInfo | null = null;
+      let gitDetectionMeta: any = {};
+
+      // 仅在未提供 files_changed 且有 project_path 时调用
+      if (!args.files_changed && inferredProjectPath) {
+        try {
+          gitInfo = await this.detectGitInfo(inferredProjectPath);
+
+          if (gitInfo && gitInfo.changedFiles.length > 0) {
+            // 将检测到的变更文件转换为 files_changed 格式
+            args.files_changed = gitInfo.changedFiles.map((file) => ({
+              file_path: file,
+              change_type: "modify", // 简化处理，统一标记为 modify
+            }));
+
+            gitDetectionMeta = {
+              auto_detected_from_git: true,
+              detected_files_count: gitInfo.changedFiles.length,
+            };
+          }
+        } catch (error) {
+          console.warn("[Git Detection] Failed in handleRecordContext:", error);
+        }
+      }
+
+      // === 项目信息自动检测 (v2.3.0) ===
+      let projectInfo: ProjectInfo | null = null;
+
+      // 仅在提供 project_path 时调用
+      if (inferredProjectPath) {
+        try {
+          projectInfo = await this.detectProjectInfo(inferredProjectPath);
+        } catch (error) {
+          console.warn(
+            "[Project Detection] Failed in handleRecordContext:",
+            error
+          );
+        }
       }
 
       // 智能检测文件路径（如果未提供）
@@ -1567,11 +1626,37 @@ ${reminder.action}`;
         console.error("[AI Enhancement] Context enrichment failed:", error);
       }
 
+      // 构建自动检测的元数据（不覆盖用户提供的值）
+      const autoDetectedMetadata: any = {};
+
+      // Git 信息 (v2.3.0) - 仅在用户未提供时添加
+      if (gitInfo) {
+        if (!args.metadata?.git_branch)
+          autoDetectedMetadata.git_branch = gitInfo.branch;
+        if (!args.metadata?.git_author)
+          autoDetectedMetadata.git_author = gitInfo.author;
+        if (!args.metadata?.git_has_uncommitted)
+          autoDetectedMetadata.git_has_uncommitted = gitInfo.hasUncommitted;
+      }
+
+      // 项目信息 (v2.3.0) - 仅在用户未提供时添加
+      if (projectInfo) {
+        if (!args.metadata?.project_name)
+          autoDetectedMetadata.project_name = projectInfo.name;
+        if (!args.metadata?.project_version && projectInfo.version)
+          autoDetectedMetadata.project_version = projectInfo.version;
+        if (!args.metadata?.project_type)
+          autoDetectedMetadata.project_type = projectInfo.type;
+        if (!args.metadata?.project_description && projectInfo.description)
+          autoDetectedMetadata.project_description = projectInfo.description;
+      }
+
       const mergedMetadata = {
         ...(args.metadata || {}),
         ...extractedContext.metadata, // 包含自动提取的 affected_functions, affected_classes 等
         ...enhancedMetadata, // 用户提供的增强字段
         ...lineRangesData,
+        ...autoDetectedMetadata, // 自动检测的 Git 和项目信息（不覆盖用户提供的值）
         // AI Enhancement: Add enriched metadata
         ...(Object.keys(enrichmentResult).length > 0
           ? { ai_enrichment: enrichmentResult }
@@ -1581,6 +1666,9 @@ ${reminder.action}`;
           : {}),
         ...(Object.keys(pathDetectionMeta).length > 0
           ? { path_detection: pathDetectionMeta }
+          : {}),
+        ...(Object.keys(gitDetectionMeta).length > 0
+          ? { git_detection: gitDetectionMeta }
           : {}),
         ...(Object.keys(autoSessionMeta).length > 0
           ? { session_info: autoSessionMeta }
@@ -2297,13 +2385,104 @@ ${reminder.action}`;
         results = results.filter((ctx) => ctx.type === args.type);
       }
 
+      // === Task 5.1: Calculate metadata scores for each result ===
+      const queryFiles = this.extractFilesFromQuery(args.query);
+      const queryProject = args.project_path;
+
+      const enhancedResults = results.map((result) => {
+        try {
+          // Parse metadata to extract files and tags
+          let metadata: any = {};
+          let files: string[] = [];
+          let tags: string[] = [];
+
+          try {
+            metadata = result.metadata ? JSON.parse(result.metadata) : {};
+          } catch (e) {
+            // Ignore parse errors
+          }
+
+          // Extract files from file_path and files_changed
+          if (result.file_path) {
+            files.push(result.file_path);
+          }
+          if (metadata.files_changed) {
+            const fileChanges = Array.isArray(metadata.files_changed)
+              ? metadata.files_changed
+              : [];
+            files.push(
+              ...fileChanges.map((fc: any) => fc.file_path).filter(Boolean)
+            );
+          }
+
+          // Extract tags
+          if (result.tags) {
+            tags = result.tags
+              .split(",")
+              .map((t: string) => t.trim())
+              .filter(Boolean);
+          }
+
+          // Calculate metadata score
+          const metadataScore = this.calculateMetadataScore({
+            query: args.query,
+            context: {
+              files: files.length > 0 ? files : undefined,
+              project_path: metadata.project_path || args.project_path,
+              tags: tags.length > 0 ? tags : undefined,
+              created_at: result.created_at,
+            },
+            queryFiles: queryFiles.length > 0 ? queryFiles : undefined,
+            queryProject,
+          });
+
+          // Combine vector score and metadata score
+          const vectorScore = result.hybrid_score || result.similarity || 0;
+          const finalScore = this.combineScores(
+            vectorScore,
+            metadataScore.total
+          );
+
+          return {
+            ...result,
+            metadata_score: metadataScore,
+            final_score: finalScore,
+            vector_score: vectorScore, // Preserve original for debugging
+          };
+        } catch (error) {
+          console.warn(
+            `[Metadata Score] Failed for context ${result.id}:`,
+            error
+          );
+          // Return result with zero metadata score on error
+          return {
+            ...result,
+            metadata_score: {
+              fileMatch: 0,
+              projectMatch: 0,
+              tagMatch: 0,
+              timeWeight: 0,
+              total: 0,
+            },
+            final_score: result.hybrid_score || result.similarity || 0,
+            vector_score: result.hybrid_score || result.similarity || 0,
+          };
+        }
+      });
+
+      // === Task 5.3: Re-sort by final score ===
+      enhancedResults.sort((a, b) => b.final_score - a.final_score);
+
+      // Apply limit after re-sorting
+      const finalResults = enhancedResults.slice(0, args.limit || 10);
+
       // 记录搜索命中，更新质量评分
-      results.forEach((context) => {
+      finalResults.forEach((context) => {
         this.db.recordContextSearch(context.id);
       });
 
-      // 格式化显示结果（包含智能记忆元数据）
-      const formattedResults = results.map((ctx) => {
+      // 格式化显示结果（包含智能记忆元数据和混合评分）
+      const formattedResults = finalResults.map((ctx) => {
         // 解析智能记忆元数据
         let autoMemoryMeta: any = null;
         try {
@@ -2330,6 +2509,10 @@ ${reminder.action}`;
           file_path: ctx.file_path,
           similarity: ctx.similarity,
           hybrid_score: ctx.hybrid_score,
+          // === Task 5.2: Include metadata and final scores ===
+          metadata_score: ctx.metadata_score,
+          final_score: ctx.final_score,
+          vector_score: ctx.vector_score,
           // 智能记忆元数据（如果存在）
           auto_memory: autoMemoryMeta
             ? {
@@ -2359,12 +2542,23 @@ ${reminder.action}`;
                     `   **Quality**: ${
                       ctx.quality_score?.toFixed(2) || "N/A"
                     }\n` +
-                    `   **Similarity**: ${
-                      ctx.similarity?.toFixed(3) || "N/A"
+                    `   **Vector Score**: ${
+                      ctx.vector_score?.toFixed(3) || "N/A"
                     }\n` +
-                    `   **Hybrid Score**: ${
-                      ctx.hybrid_score?.toFixed(3) || "N/A"
+                    `   **Final Score**: ${
+                      ctx.final_score?.toFixed(3) || "N/A"
                     }\n`;
+
+                  // 添加元数据评分详情
+                  if (ctx.metadata_score) {
+                    result += `   **Metadata Score**: ${ctx.metadata_score.total.toFixed(
+                      1
+                    )}/20 (File: ${ctx.metadata_score.fileMatch}, Project: ${
+                      ctx.metadata_score.projectMatch
+                    }, Tag: ${
+                      ctx.metadata_score.tagMatch
+                    }, Time: ${ctx.metadata_score.timeWeight.toFixed(1)})\n`;
+                  }
 
                   // 添加智能记忆信息（如果存在）
                   if (ctx.auto_memory) {
@@ -4277,6 +4471,80 @@ ${
   }
 
   /**
+   * 处理记忆记录指导Prompt（双语支持）
+   */
+  private handleMemoryRecordingGuidance() {
+    const guidanceText = `# DevMind Memory Recording Core Guidance | DevMind 记忆记录核心指导
+
+## Core Responsibility | 核心职责
+
+As a development assistant, your primary responsibility is to ensure every code edit is properly recorded.
+作为开发助手，你的首要职责是确保每次代码编辑都被正确记录。
+
+**Mandatory Rules | 强制规则：**
+- MUST call \`record_context\` tool IMMEDIATELY after any code modification
+  完成任何代码修改后，必须立即调用 \`record_context\` 工具
+- This is NOT optional - it's a required part of the workflow
+  这不是可选项，而是工作流程的必要组成部分
+- MUST call when user says "remember/save/记住/保存"
+  用户说"记住"、"保存"、"remember"、"save"时，必须调用此工具
+- Skipping this means work is INCOMPLETE - all changes will be lost in future conversations
+  不调用此工具意味着工作未完成，所有变更将在未来对话中丢失
+
+## Self-Check List | 自检清单
+
+Before completing any task, ask yourself | 完成任务前，问自己：
+- [ ] Did I edit files? → Call \`record_context\` NOW
+      我是否编辑了文件？ → 立即调用 \`record_context\`
+- [ ] Did I fix a bug? → Use \`type: "bug_fix"\`
+      我是否修复了bug？ → 使用 \`type: "bug_fix"\`
+- [ ] Did I add a feature? → Use \`type: "feature_add"\`
+      我是否添加了新功能？ → 使用 \`type: "feature_add"\`
+- [ ] Did I refactor code? → Use \`type: "code_refactor"\`
+      我是否重构了代码？ → 使用 \`type: "code_refactor"\`
+- [ ] Did user say "remember" or "save"? → MUST call the tool
+      用户是否说了"记住"或"保存"？ → 必须调用工具
+
+## Quick Reference | 快速参考
+
+**Common Types | 常用类型：**
+- \`code_create\` - Create new files/modules | 创建新文件/模块
+- \`code_modify\` - Modify existing code | 修改现有代码
+- \`bug_fix\` - Fix bugs | 修复bug
+- \`feature_add\` - Add new features | 添加新功能
+- \`code_refactor\` - Refactor code | 重构代码
+- \`solution\` - Solution records | 解决方案记录
+
+**Minimal Example | 最小调用示例：**
+\`\`\`javascript
+record_context({
+  content: "Fixed null pointer exception in user login validation",
+  type: "bug_fix",
+  project_path: "/path/to/project"
+})
+\`\`\`
+
+## Important Reminders | 重要提醒
+
+- Recording is MANDATORY, not optional | 记录是强制性的，不是可选的
+- Skipping causes memory loss | 跳过记录会导致记忆丢失
+- Brief description is better than no record | 简短的描述胜过没有记录
+- When unsure, use \`code_modify\` or \`solution\` | 不确定类型时，使用 \`code_modify\` 或 \`solution\``;
+
+    return {
+      messages: [
+        {
+          role: "user" as const,
+          content: {
+            type: "text" as const,
+            text: guidanceText,
+          },
+        },
+      ],
+    };
+  }
+
+  /**
    * 处理项目分析工程师Prompt
    */
   private async handleProjectAnalysisEngineer(args: any) {
@@ -4945,6 +5213,411 @@ ${
     );
 
     return prompt.join("\n");
+  }
+
+  // === Git Detection Methods (v2.3.0) ===
+
+  /**
+   * Check if a directory is a Git repository
+   */
+  private async isGitRepository(projectPath: string): Promise<boolean> {
+    try {
+      execSync("git rev-parse --git-dir", {
+        cwd: projectPath,
+        stdio: "pipe",
+        encoding: "utf-8",
+      });
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Get list of changed files in Git repository
+   */
+  private async getGitChangedFiles(projectPath: string): Promise<string[]> {
+    try {
+      // Get unstaged changes
+      const unstagedOutput = execSync("git diff --name-only HEAD", {
+        cwd: projectPath,
+        stdio: "pipe",
+        encoding: "utf-8",
+      }).trim();
+
+      // Get staged changes
+      const stagedOutput = execSync("git diff --cached --name-only", {
+        cwd: projectPath,
+        stdio: "pipe",
+        encoding: "utf-8",
+      }).trim();
+
+      // Combine and deduplicate
+      const unstagedFiles = unstagedOutput ? unstagedOutput.split("\n") : [];
+      const stagedFiles = stagedOutput ? stagedOutput.split("\n") : [];
+      const allFiles = [...new Set([...unstagedFiles, ...stagedFiles])];
+
+      return allFiles.filter((f) => f.length > 0);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * Get current Git branch name
+   */
+  private async getGitBranch(projectPath: string): Promise<string> {
+    try {
+      const branch = execSync("git branch --show-current", {
+        cwd: projectPath,
+        stdio: "pipe",
+        encoding: "utf-8",
+      }).trim();
+
+      // Handle detached HEAD state
+      if (!branch) {
+        const commitHash = execSync("git rev-parse --short HEAD", {
+          cwd: projectPath,
+          stdio: "pipe",
+          encoding: "utf-8",
+        }).trim();
+        return `detached@${commitHash}`;
+      }
+
+      return branch;
+    } catch (error) {
+      return "unknown";
+    }
+  }
+
+  /**
+   * Get Git author name
+   */
+  private async getGitAuthor(projectPath: string): Promise<string> {
+    try {
+      const author = execSync("git config user.name", {
+        cwd: projectPath,
+        stdio: "pipe",
+        encoding: "utf-8",
+      }).trim();
+
+      return author || "unknown";
+    } catch (error) {
+      return "unknown";
+    }
+  }
+
+  /**
+   * Detect Git information with caching (30s TTL)
+   */
+  private async detectGitInfo(projectPath: string): Promise<GitInfo | null> {
+    try {
+      // Check cache (30s TTL)
+      const cacheKey = `${projectPath}:${Math.floor(Date.now() / 30000)}`;
+      const cached = this.gitInfoCache.get(cacheKey);
+      if (cached) {
+        return cached.data;
+      }
+
+      // Check if it's a Git repository
+      const isGitRepo = await this.isGitRepository(projectPath);
+      if (!isGitRepo) {
+        this.gitInfoCache.set(cacheKey, { data: null, timestamp: Date.now() });
+        return null;
+      }
+
+      // Get Git information in parallel
+      const [changedFiles, branch, author] = await Promise.all([
+        this.getGitChangedFiles(projectPath),
+        this.getGitBranch(projectPath),
+        this.getGitAuthor(projectPath),
+      ]);
+
+      const gitInfo: GitInfo = {
+        changedFiles,
+        branch,
+        author,
+        hasUncommitted: changedFiles.length > 0,
+      };
+
+      // Cache the result
+      this.gitInfoCache.set(cacheKey, { data: gitInfo, timestamp: Date.now() });
+
+      return gitInfo;
+    } catch (error) {
+      // Silent failure - log warning but don't throw
+      console.warn("[Git Detection] Failed:", error);
+      return null;
+    }
+  }
+
+  // === Project Info Detection Methods (v2.3.0) ===
+
+  /**
+   * Try to read and parse package.json
+   */
+  private async tryReadPackageJson(
+    projectPath: string
+  ): Promise<ProjectInfo | null> {
+    try {
+      const packagePath = join(projectPath, "package.json");
+      if (!existsSync(packagePath)) {
+        return null;
+      }
+
+      const content = readFileSync(packagePath, "utf-8");
+      const packageJson = JSON.parse(content);
+
+      return {
+        name: packageJson.name || basename(projectPath),
+        version: packageJson.version,
+        type: "node",
+        description: packageJson.description,
+      };
+    } catch (error) {
+      // Silent failure - file doesn't exist or parse error
+      return null;
+    }
+  }
+
+  /**
+   * Try to read and parse pyproject.toml
+   */
+  private async tryReadPyproject(
+    projectPath: string
+  ): Promise<ProjectInfo | null> {
+    try {
+      const pyprojectPath = join(projectPath, "pyproject.toml");
+      if (!existsSync(pyprojectPath)) {
+        return null;
+      }
+
+      const content = readFileSync(pyprojectPath, "utf-8");
+
+      // Simple TOML parsing for project.name and project.version
+      // This is a basic implementation - for production, consider using a TOML library
+      const nameMatch = content.match(/^\s*name\s*=\s*["']([^"']+)["']/m);
+      const versionMatch = content.match(/^\s*version\s*=\s*["']([^"']+)["']/m);
+
+      if (nameMatch) {
+        return {
+          name: nameMatch[1],
+          version: versionMatch ? versionMatch[1] : undefined,
+          type: "python",
+        };
+      }
+
+      return null;
+    } catch (error) {
+      // Silent failure
+      return null;
+    }
+  }
+
+  /**
+   * Detect project information with permanent caching
+   */
+  private async detectProjectInfo(projectPath: string): Promise<ProjectInfo> {
+    // Check cache first (permanent cache)
+    const cached = this.projectInfoCache.get(projectPath);
+    if (cached) {
+      return cached;
+    }
+
+    // Try to read package.json (Node.js)
+    const packageInfo = await this.tryReadPackageJson(projectPath);
+    if (packageInfo) {
+      this.projectInfoCache.set(projectPath, packageInfo);
+      return packageInfo;
+    }
+
+    // Try to read pyproject.toml (Python)
+    const pyprojectInfo = await this.tryReadPyproject(projectPath);
+    if (pyprojectInfo) {
+      this.projectInfoCache.set(projectPath, pyprojectInfo);
+      return pyprojectInfo;
+    }
+
+    // Fallback: use directory name
+    const fallbackInfo: ProjectInfo = {
+      name: basename(projectPath),
+      type: "unknown",
+    };
+
+    this.projectInfoCache.set(projectPath, fallbackInfo);
+    return fallbackInfo;
+  }
+
+  // === Hybrid Relevance Scoring Module (v2.3.0) ===
+
+  /**
+   * Check if two file paths match
+   * Supports: exact match, filename match (ignoring path), partial path match
+   */
+  private filesMatch(file1: string, file2: string): boolean {
+    if (!file1 || !file2) {
+      return false;
+    }
+
+    // 1. Exact match
+    if (file1 === file2) {
+      return true;
+    }
+
+    // 2. Filename match (ignoring path)
+    const name1 = file1.split(/[/\\]/).pop() || "";
+    const name2 = file2.split(/[/\\]/).pop() || "";
+    if (name1 && name2 && name1 === name2) {
+      return true;
+    }
+
+    // 3. Partial path match
+    if (file1.includes(file2) || file2.includes(file1)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Calculate days since creation
+   * Handles date parsing errors gracefully
+   */
+  private getDaysSinceCreation(createdAt: string): number {
+    try {
+      const created = new Date(createdAt);
+      // Check if date is valid
+      if (isNaN(created.getTime())) {
+        return 365;
+      }
+      const now = new Date();
+      const diffMs = now.getTime() - created.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      return Math.max(0, diffDays);
+    } catch (error) {
+      // If date parsing fails, return a large number (old)
+      return 365;
+    }
+  }
+
+  /**
+   * Extract file paths from query string
+   * Supports common file path patterns
+   */
+  private extractFilesFromQuery(query: string): string[] {
+    const files: string[] = [];
+
+    // Pattern 1: Paths with extensions (e.g., src/index.ts, ./file.js)
+    const pathPattern = /(?:\.\/|\.\.\/|\/)?[\w\-./]+\.\w+/g;
+    const pathMatches = query.match(pathPattern);
+    if (pathMatches) {
+      files.push(...pathMatches);
+    }
+
+    // Pattern 2: Quoted paths (e.g., "src/utils/helper.ts")
+    const quotedPattern = /["']([^"']+\.\w+)["']/g;
+    let quotedMatch;
+    while ((quotedMatch = quotedPattern.exec(query)) !== null) {
+      files.push(quotedMatch[1]);
+    }
+
+    // Pattern 3: Backtick paths (e.g., `src/index.ts`)
+    const backtickPattern = /`([^`]+\.\w+)`/g;
+    let backtickMatch;
+    while ((backtickMatch = backtickPattern.exec(query)) !== null) {
+      files.push(backtickMatch[1]);
+    }
+
+    // Remove duplicates
+    return [...new Set(files)];
+  }
+
+  /**
+   * Calculate metadata-based relevance score
+   * Returns detailed scoring breakdown
+   */
+  private calculateMetadataScore(input: {
+    query: string;
+    context: {
+      files?: string[];
+      project_path?: string;
+      tags?: string[];
+      created_at: string;
+    };
+    queryFiles?: string[];
+    queryProject?: string;
+  }): {
+    fileMatch: number;
+    projectMatch: number;
+    tagMatch: number;
+    timeWeight: number;
+    total: number;
+  } {
+    try {
+      let fileMatch = 0;
+      let projectMatch = 0;
+      let tagMatch = 0;
+      let timeWeight = 0;
+
+      // 1. File name matching (weight 5)
+      if (input.queryFiles && input.context.files) {
+        for (const queryFile of input.queryFiles) {
+          for (const contextFile of input.context.files) {
+            if (this.filesMatch(queryFile, contextFile)) {
+              fileMatch = 5;
+              break;
+            }
+          }
+          if (fileMatch > 0) break;
+        }
+      }
+
+      // 2. Project matching (weight 3)
+      if (input.queryProject && input.context.project_path) {
+        if (input.queryProject === input.context.project_path) {
+          projectMatch = 3;
+        }
+      }
+
+      // 3. Tag matching (weight 2)
+      const queryLower = input.query.toLowerCase();
+      if (input.context.tags) {
+        for (const tag of input.context.tags) {
+          if (queryLower.includes(tag.toLowerCase())) {
+            tagMatch += 2;
+          }
+        }
+      }
+
+      // 4. Time weight (0-10 points)
+      const daysSince = this.getDaysSinceCreation(input.context.created_at);
+      timeWeight = Math.max(0, 10 - daysSince);
+
+      const total = fileMatch + projectMatch + tagMatch + timeWeight;
+      return { fileMatch, projectMatch, tagMatch, timeWeight, total };
+    } catch (error) {
+      // Return zero scores on error
+      console.warn("[Metadata Score] Calculation failed:", error);
+      return {
+        fileMatch: 0,
+        projectMatch: 0,
+        tagMatch: 0,
+        timeWeight: 0,
+        total: 0,
+      };
+    }
+  }
+
+  /**
+   * Combine vector score and metadata score
+   * Formula: final_score = vector_score × 0.7 + (metadata_score / 20) × 0.3
+   */
+  private combineScores(vectorScore: number, metadataScore: number): number {
+    // Normalize metadata score from 0-20 to 0-1
+    const normalizedMetadata = Math.min(metadataScore / 20, 1.0);
+
+    // Apply weights: 70% vector + 30% metadata
+    return vectorScore * 0.7 + normalizedMetadata * 0.3;
   }
 
   async close(): Promise<void> {
