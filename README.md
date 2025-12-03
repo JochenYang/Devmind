@@ -20,7 +20,7 @@
 - **Pure MCP Tool** - Seamless integration with AI assistants through Model Context Protocol
 - **Hybrid Search** - Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **100% Private** - All data stored locally in SQLite, zero cloud transmission
-- **14 MCP Tools** - Complete toolkit for memory management and project analysis
+- **15 MCP Tools** - Complete toolkit for memory management and project analysis
 - **Cross-Platform** - Works with Claude Desktop, Cursor, and all MCP-compatible clients
 
 ---
@@ -85,11 +85,11 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 ┌──────────────────────────────────────────────────────────────┐
 │                   DevMind MCP Server                         │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────││
-│  │  14 MCP Tools   │  │ Type-Based      │  │ Hybrid Search││
+│  │  15 MCP Tools   │  │ Type-Based      │  │ Hybrid Search││
 │  │                 │  │ Auto-Memory     │  │              ││
 │  │ • Session (4)   │  │                 │  │ • Semantic   ││
 │  │ • Context (6)   │  │                 │  │ • Keyword    ││
-│  │ • Project (2)   │  │ • 3 Tiers      │  │ • Quality    ││
+│  │ • Project (3)   │  │ • 3 Tiers      │  │ • Quality    ││
 │  │ • Visualize (1) │  │ • Smart Types  │  │ • Freshness  ││
 │  │ • Status (1)    │  │ • Lazy Scoring │  │              ││
 │  └─────────────────┘  └─────────────────┘  └──────────────││
@@ -105,7 +105,7 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 
 **Key Components:**
 
-- **14 MCP Tools** - Session management (4), context operations (6), project features (2), visualization (1), status (1)
+- **15 MCP Tools** - Session management (4), context operations (6), project features (3), visualization (1), status (1)
 - **Type-Based Auto-Memory** - Simplified 3-tier strategy based on context type
 - **Hybrid Search** - Multi-dimensional scoring: Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **Local Storage** - SQLite database with vector embeddings and full-text search indexes
@@ -268,7 +268,7 @@ Follow these steps for each development session:
 
 ### MCP Tools Quick Reference
 
-DevMind provides **14 powerful tools** and **1 professional prompt** for your AI assistant:
+DevMind provides **15 powerful tools** and **1 professional prompt** for your AI assistant:
 
 #### Project Analysis
 
