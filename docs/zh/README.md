@@ -21,7 +21,7 @@
 - **混合搜索** - 语义 40% + 关键词 30% + 质量 20% + 新鲜度 10%
 - **100% 私密** - 所有数据本地存储在 SQLite，零云端传输
 - **15 个 MCP 工具** - 完整的记忆管理和项目分析工具集
-- **跨平台支持** - 兼容 Claude Desktop、Cursor 及所有 MCP 客户端
+- **跨平台支持** - 兼容 Claude Code、Cursor 及所有 MCP 客户端
 
 ---
 
@@ -73,29 +73,29 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│                        AI 助手                               │
-│               (Claude Desktop / Cursor / 等)                 │
+│                      AI Assistant                            │
+│               (Claude Code / Cursor / etc.)                  │
 └────────────────────────┬─────────────────────────────────────┘
-                         │ MCP 协议 (stdio)
+                         │ MCP Protocol (stdio)
                          ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                   DevMind MCP 服务器                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐│
-│  │  15 MCP 工具    │  │  类型驱动记忆   │  │  混合搜索    ││
-│  │                 │  │                 │  │              ││
-│  │ • 会话 (4)      │  │                 │  │ • 语义搜索   ││
-│  │ • 上下文 (6)    │  │                 │  │ • 关键词     ││
-│  │ • 项目 (3)      │  │ • 3个层级       │  │ • 质量评分   ││
-│  │ • 可视化 (1)    │  │ • 智能类型      │  │ • 新鲜度     ││
-│  │ • 状态 (1)      │  │ • 懒加载评分    │  │              ││
-│  └─────────────────┘  └─────────────────┘  └──────────────┘│
+│                   DevMind MCP Server                         │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐  │
+│  │  15 MCP Tools   │  │ Type-Based      │  │ Hybrid Search│  │
+│  │                 │  │ Auto-Memory     │  │              │  │
+│  │ • Session (4)   │  │                 │  │ • Semantic   │  │
+│  │ • Context (6)   │  │                 │  │ • Keyword    │  │
+│  │ • Project (3)   │  │ • 3 Tiers       │  │ • Quality    │  │
+│  │ • Visualize (1) │  │ • Smart Types   │  │ • Freshness  │  │
+│  │ • Status (1)    │  │ • Lazy Scoring  │  │              │  │
+│  └─────────────────┘  └─────────────────┘  └──────────────┘  │
 └────────────────────────┬─────────────────────────────────────┘
                          │
                          ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                  SQLite 本地存储                             │
-│  Projects • Sessions • Contexts • Relations • Embeddings     │
-│  + 自动生成质量评分 (懒加载更新，每24小时)                   │
+│                  SQLite Local Storage                        │
+│  Projects • Sessions • Contexts • Relationships • Embeddings │
+│  + Auto-generated quality scores (lazy update every 24h)     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -177,7 +177,7 @@ devmind-mcp/
 ### 环境要求
 
 - **Node.js** ≥ 20.0.0
-- **MCP兼容客户端** (Claude Desktop、Cursor等)
+- **MCP兼容客户端** (Claude Code、Cursor等)
 
 ### 安装
 
@@ -218,7 +218,7 @@ devmind-mcp/
 
 #### 步骤 2: 重启 MCP 客户端
 
-重启Claude Desktop或您的MCP客户端以加载DevMind。
+重启Claude Code或您的MCP客户端以加载DevMind。
 
 #### 步骤 3: 尝试第一个命令
 

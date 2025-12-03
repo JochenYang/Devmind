@@ -21,7 +21,7 @@
 - **Hybrid Search** - Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **100% Private** - All data stored locally in SQLite, zero cloud transmission
 - **15 MCP Tools** - Complete toolkit for memory management and project analysis
-- **Cross-Platform** - Works with Claude Desktop, Cursor, and all MCP-compatible clients
+- **Cross-Platform** - Works with Claude Code, Cursor, and all MCP-compatible clients
 
 ---
 
@@ -78,21 +78,21 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 ```text
 ┌──────────────────────────────────────────────────────────────┐
 │                      AI Assistant                            │
-│               (Claude Desktop / Cursor / etc.)               │
+│               (Claude Code / Cursor / etc.)                  │
 └────────────────────────┬─────────────────────────────────────┘
                          │ MCP Protocol (stdio)
                          ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                   DevMind MCP Server                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────││
-│  │  15 MCP Tools   │  │ Type-Based      │  │ Hybrid Search││
-│  │                 │  │ Auto-Memory     │  │              ││
-│  │ • Session (4)   │  │                 │  │ • Semantic   ││
-│  │ • Context (6)   │  │                 │  │ • Keyword    ││
-│  │ • Project (3)   │  │ • 3 Tiers      │  │ • Quality    ││
-│  │ • Visualize (1) │  │ • Smart Types  │  │ • Freshness  ││
-│  │ • Status (1)    │  │ • Lazy Scoring │  │              ││
-│  └─────────────────┘  └─────────────────┘  └──────────────││
+│  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────┐  │
+│  │  15 MCP Tools   │  │ Type-Based      │  │ Hybrid Search│  │
+│  │                 │  │ Auto-Memory     │  │              │  │
+│  │ • Session (4)   │  │                 │  │ • Semantic   │  │
+│  │ • Context (6)   │  │                 │  │ • Keyword    │  │
+│  │ • Project (3)   │  │ • 3 Tiers       │  │ • Quality    │  │
+│  │ • Visualize (1) │  │ • Smart Types   │  │ • Freshness  │  │
+│  │ • Status (1)    │  │ • Lazy Scoring  │  │              │  │
+│  └─────────────────┘  └─────────────────┘  └──────────────┘  │
 └────────────────────────┬─────────────────────────────────────┘
                          │
                          ▼
@@ -181,7 +181,7 @@ devmind-mcp/
 ### Prerequisites
 
 - **Node.js** ≥ 20.0.0
-- **MCP-compatible client** (Claude Desktop, Cursor, etc.)
+- **MCP-compatible client** (Claude Code, Cursor, etc.)
 
 ### Installation
 
@@ -222,7 +222,7 @@ Edit your MCP client configuration file:
 
 #### Step 2: Restart Your MCP Client
 
-Restart Claude Desktop or your MCP client to load DevMind.
+Restart Claude Code or your MCP client to load DevMind.
 
 #### Step 3: Try Your First Command
 
