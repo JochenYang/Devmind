@@ -437,77 +437,49 @@ ${reminder.action}`;
           description: `Record development context to memory for future reference and learning.
 
 WHEN TO USE THIS TOOL:
-- IMMEDIATELY after editing any files (code, config, docs)
-- After fixing a bug → use type: bug_fix
-- After adding a feature → use type: feature_add  
-- After making code changes → use type: code_modify
-- When user says "remember this" or "save this" → set force_remember: true
+- IMMEDIATELY after editing files (code, config, docs)
+- After fixing bugs or adding features
 - After completing any development task
+- When user explicitly asks to remember/save work
+- Before responding to user (if files were edited)
 
 WHY THIS IS CRITICAL:
 - Preserves work context for future conversations
-- Enables AI to learn from past solutions and avoid repeating mistakes
+- Enables learning from past solutions and avoiding repeated mistakes
 - Builds searchable project knowledge over time
-- Allows finding similar bugs/features from history
 - Creates a development timeline for the project
 
-KEY FEATURES:
+HOW IT WORKS:
 - Auto-detects Git changes (files_changed filled automatically)
 - Auto-classifies context type using AI
-- Supports multi-file changes in one record
 - Extracts project metadata (Git branch, author, project info)
 - Calculates quality scores for better search ranking
 
-PARAMETERS EXPLAINED:
-- content: Markdown description of what was done (use headers, lists, code blocks)
-- type: Context type for categorization (bug_fix, feature_add, code_modify, etc.)
-- files_changed: Array of changed files (auto-detected from Git if not provided)
-- project_path: Project directory (optional, auto-detected from current directory)
-- session_id: Session to record in (optional, auto-created if not provided)
-
-SELF-CHECK BEFORE RESPONDING TO USER:
-✓ Did I edit any files? → Call this tool NOW
-✓ Did I fix a bug? → Use type: bug_fix
-✓ Did I add a feature? → Use type: feature_add
-✓ Did I modify code? → Use type: code_modify
-✓ User said "remember/save"? → Set force_remember: true
-
-WARNING: Skipping this tool means losing ALL work context for future conversations!
-The AI will forget what was done and cannot learn from this work.`,
+SELF-CHECK: Did I edit files? → Call NOW. Did I fix bug? → type: bug_fix. Did I add feature? → type: feature_add.`,
           inputSchema: {
             type: "object",
             properties: {
-              session_id: {
+              content: {
                 type: "string",
                 description:
-                  "Session ID to record context in (optional if project_path is provided)",
-              },
-              project_path: {
-                type: "string",
-                description:
-                  "Project path to auto-detect/create session (optional if session_id is provided)",
+                  "Markdown content. MUST match project language (Chinese/English). Use headers, lists, code blocks.",
               },
               type: {
                 type: "string",
                 enum: [
-                  // === Code Changes (Detailed) ===
                   "code_create",
                   "code_modify",
                   "code_delete",
                   "code_refactor",
                   "code_optimize",
-                  // === Bug Related ===
                   "bug_fix",
                   "bug_report",
-                  // === Feature Related ===
                   "feature_add",
                   "feature_update",
                   "feature_remove",
-                  // === Solution/Design Types (v2.1.0) ===
                   "solution",
                   "design",
                   "learning",
-                  // === General Types (Backward Compatible) ===
                   "code",
                   "conversation",
                   "error",
@@ -516,25 +488,19 @@ The AI will forget what was done and cannot learn from this work.`,
                   "configuration",
                   "commit",
                 ],
-                description:
-                  "Type of context (use detailed types like code_modify, bug_fix for better categorization)",
+                description: "Context type (auto-detected if not provided)",
               },
-              content: {
+              project_path: {
                 type: "string",
                 description:
-                  "Markdown content. MUST match project language (Chinese/English). Use headers, lists, code blocks.",
+                  "Project path to auto-detect/create session (optional if session_id is provided)",
+              },
+              session_id: {
+                type: "string",
+                description:
+                  "Session ID to record context in (optional if project_path is provided)",
               },
               file_path: { type: "string", description: "Optional file path" },
-              line_start: {
-                type: "number",
-                description:
-                  "Optional starting line number (deprecated, use line_ranges for multiple ranges)",
-              },
-              line_end: {
-                type: "number",
-                description:
-                  "Optional ending line number (deprecated, use line_ranges for multiple ranges)",
-              },
               line_ranges: {
                 type: "array",
                 items: {
@@ -546,6 +512,38 @@ The AI will forget what was done and cannot learn from this work.`,
                 description:
                   "Multiple line ranges: [[10,15], [50,60]] for non-contiguous changes",
               },
+              files_changed: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    file_path: { type: "string", description: "File path" },
+                    change_type: {
+                      type: "string",
+                      enum: ["add", "modify", "delete", "rename"],
+                    },
+                    diff_stats: {
+                      type: "object",
+                      properties: {
+                        additions: { type: "number" },
+                        deletions: { type: "number" },
+                        changes: { type: "number" },
+                      },
+                    },
+                    line_ranges: {
+                      type: "array",
+                      items: {
+                        type: "array",
+                        items: { type: "number" },
+                        minItems: 2,
+                        maxItems: 2,
+                      },
+                    },
+                  },
+                  required: ["file_path"],
+                },
+                description: "Use for multi-file changes (2+ files)",
+              },
               language: {
                 type: "string",
                 description:
@@ -556,8 +554,6 @@ The AI will forget what was done and cannot learn from this work.`,
                 items: { type: "string" },
                 description: "Optional tags",
               },
-
-              // === Enhanced Fields ===
               change_type: {
                 type: "string",
                 enum: ["add", "modify", "delete", "refactor", "rename"],
@@ -600,64 +596,19 @@ The AI will forget what was done and cannot learn from this work.`,
               diff_stats: {
                 type: "object",
                 properties: {
-                  additions: {
-                    type: "number",
-                    description: "Number of lines added",
-                  },
-                  deletions: {
-                    type: "number",
-                    description: "Number of lines deleted",
-                  },
-                  changes: {
-                    type: "number",
-                    description: "Number of lines changed",
-                  },
+                  additions: { type: "number" },
+                  deletions: { type: "number" },
+                  changes: { type: "number" },
                 },
                 description: "Code diff statistics",
               },
-
-              // === Multi-File Change Support ===
-              files_changed: {
-                type: "array",
-                items: {
-                  type: "object",
-                  properties: {
-                    file_path: { type: "string", description: "File path" },
-                    change_type: {
-                      type: "string",
-                      enum: ["add", "modify", "delete", "rename"],
-                    },
-                    diff_stats: {
-                      type: "object",
-                      properties: {
-                        additions: { type: "number" },
-                        deletions: { type: "number" },
-                        changes: { type: "number" },
-                      },
-                    },
-                    line_ranges: {
-                      type: "array",
-                      items: {
-                        type: "array",
-                        items: { type: "number" },
-                        minItems: 2,
-                        maxItems: 2,
-                      },
-                    },
-                  },
-                  required: ["file_path"],
-                },
-                description: "Use for multi-file changes (2+ files)",
-              },
-
               metadata: { type: "object", description: "Additional metadata" },
-
               force_remember: {
                 type: "boolean",
                 description: "Force record when user says 'remember/save this'",
               },
             },
-            required: ["content"], // type is optional for AI auto-classification
+            required: ["content"],
           },
         },
         {

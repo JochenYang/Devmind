@@ -90,3 +90,6 @@ memory/
 DEVMIND.md
 devmind-docs
 devmind-swiss-intro.html
+
+# MCP SDK examples (not part of this project)
+servers/

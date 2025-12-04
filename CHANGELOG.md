@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.2] - 2025-12-04
+
+### Optimized
+
+- **Reduced Token Usage for `record_context` Tool**: Optimized tool definition from ~1600 tokens to ~1000 tokens (37.5% reduction)
+  - Streamlined description while maintaining WHEN/WHY/HOW best practice structure
+  - Removed redundant parameter descriptions and deprecated fields (line_start, line_end)
+  - Simplified enum comments and nested object descriptions
+  - Eliminated duplicate scenarios in WHEN TO USE section
+  - **Impact**: Faster AI processing, reduced context window usage, improved response times
+  - **Note**: All functionality preserved - only descriptions simplified
+
+### Improved
+
+- Tool description now more concise and easier for AI to parse
+- Better alignment with other MCP tools in terms of description length
+- Clearer trigger conditions without redundancy
+
 ## [2.4.1] - 2025-12-04
 
 ### Changed
