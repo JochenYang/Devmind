@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.3] - 2025-12-04
+
+### Removed
+
+- **Cleaned Up Ineffective Implementations**: Removed unused code that was not contributing to functionality
+  - Removed `PendingMemoryTracker` class and file - was never effectively used
+  - Removed `wrapWithReminder` method - depended on PendingMemoryTracker
+  - Removed `generateMemoryReminder` method - never triggered
+  - Removed `memory_recording_guidance` prompt - optional prompts are not auto-invoked by AI
+  - Removed `executeAndWrap` wrapper from all tool calls
+  - **Impact**: Cleaner codebase, reduced complexity, easier maintenance
+
+### Improved
+
+- Simplified tool call handling by removing unnecessary wrapper layers
+- Reduced code complexity and improved readability
+- Focused on core functionality: Git auto-detection and tool optimization
+
+### Notes
+
+- Analysis showed that MCP specification does not support auto-injecting system prompts
+- AI memory recording requires explicit configuration in client-side system prompts (e.g., Kiro steering files)
+- This is a limitation of the MCP architecture, not a DevMind issue
+
 ## [2.4.2] - 2025-12-04
 
 ### Optimized

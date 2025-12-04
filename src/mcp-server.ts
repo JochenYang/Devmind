@@ -31,7 +31,6 @@ import { AutoMemoryClassifier } from "./utils/auto-memory-classifier.js";
 import { ContextEnricher } from "./utils/context-enricher.js";
 import { BatchProcessor } from "./utils/batch-processor.js";
 import { performanceOptimizer } from "./utils/performance-optimizer.js";
-import { PendingMemoryTracker } from "./pending-memory-tracker.js";
 
 import {
   AiMemoryConfig,
@@ -72,18 +71,12 @@ export class AiMemoryMcpServer {
   private contextEnricher: ContextEnricher;
   private batchProcessor: BatchProcessor;
 
-  // === Pending Memory Tracker (v2.2.6) ===
-  private pendingMemoryTracker: PendingMemoryTracker;
-
   // === Git Info Cache (v2.3.0) ===
   private gitInfoCache: Map<
     string,
     { data: GitInfo | null; timestamp: number }
   > = new Map();
   private projectInfoCache: Map<string, ProjectInfo> = new Map();
-
-  // Tools that should NOT trigger memory reminder (to avoid infinite loops)
-  private readonly NO_REMINDER_TOOLS = new Set(["record_context"]);
 
   // 真实日期记录函数
   private getCurrentRealDate(): string {
@@ -167,9 +160,6 @@ export class AiMemoryMcpServer {
     this.contextEnricher = new ContextEnricher();
     this.batchProcessor = new BatchProcessor(this.db);
 
-    // === Initialize Pending Memory Tracker (v2.2.6) ===
-    this.pendingMemoryTracker = new PendingMemoryTracker();
-
     // 初始化自动记录过滤器
     this.autoRecordFilter = new AutoRecordFilter({
       minChangeInterval: 30000, // 30秒
@@ -218,85 +208,6 @@ export class AiMemoryMcpServer {
     );
 
     this.setupHandlers();
-  }
-
-  /**
-   * Generate memory reminder if there are unrecorded files
-   * Returns null if no reminder needed
-   */
-  private generateMemoryReminder(): {
-    pending_count: number;
-    pending_details: Array<{ file: string; type: string }>;
-    action: string;
-  } | null {
-    const pendingDetails = this.pendingMemoryTracker.getPendingDetails();
-
-    if (pendingDetails.length === 0) {
-      return null;
-    }
-
-    // Format file details with change type
-    const fileDetails = pendingDetails.slice(0, 10).map((detail) => ({
-      file: detail.filePath,
-      type: detail.changeType,
-    }));
-
-    return {
-      pending_count: pendingDetails.length,
-      pending_details: fileDetails,
-      action:
-        "Call record_context NOW with appropriate type (bug_fix, feature_add, code_modify, etc.) before responding to user.",
-    };
-  }
-
-  /**
-   * Wrap tool result with memory reminder if needed
-   */
-  private wrapWithReminder(
-    toolName: string,
-    result: { content: Array<{ type: string; text: string }> }
-  ): { content: Array<{ type: string; text: string }> } {
-    // Skip reminder for certain tools
-    if (this.NO_REMINDER_TOOLS.has(toolName)) {
-      return result;
-    }
-
-    const reminder = this.generateMemoryReminder();
-    if (!reminder) {
-      return result;
-    }
-
-    // Format file list with change types
-    const fileList = reminder.pending_details
-      .map((detail) => `${detail.file} (${detail.type})`)
-      .join(", ");
-
-    const moreFilesText =
-      reminder.pending_count > 10
-        ? ` (+${reminder.pending_count - 10} more)`
-        : "";
-
-    // Add reminder to the result
-    const reminderText = `\n\n---\n⚠️ [MEMORY REMINDER] ${reminder.pending_count} file(s) edited but not recorded:
-${fileList}${moreFilesText}
-
-${reminder.action}`;
-
-    // Append reminder to the last text content
-    const newContent = [...result.content];
-    if (
-      newContent.length > 0 &&
-      newContent[newContent.length - 1].type === "text"
-    ) {
-      newContent[newContent.length - 1] = {
-        ...newContent[newContent.length - 1],
-        text: newContent[newContent.length - 1].text + reminderText,
-      };
-    } else {
-      newContent.push({ type: "text", text: reminderText });
-    }
-
-    return { content: newContent };
   }
 
   private initializeDatabase(): void {
@@ -1075,125 +986,93 @@ RETURNS:
       // Ensure args is at least an empty object to prevent destructuring errors
       const safeArgs = args || {};
 
-      // Execute tool and wrap result with memory reminder
-      const executeAndWrap = async (
-        handler: () => Promise<{
-          content: Array<{ type: string; text: string }>;
-        }>
-      ) => {
-        const result = await handler();
-        return this.wrapWithReminder(name, result);
-      };
-
       switch (name) {
         case "create_session":
-          return executeAndWrap(() =>
-            this.handleCreateSession(safeArgs as unknown as SessionCreateParams)
+          return this.handleCreateSession(
+            safeArgs as unknown as SessionCreateParams
           );
         case "record_context":
           return this.handleRecordContext(
             safeArgs as unknown as RecordContextParams
           );
         case "end_session":
-          return executeAndWrap(() =>
-            this.handleEndSession(safeArgs as { session_id: string })
-          );
+          return this.handleEndSession(safeArgs as { session_id: string });
         case "get_current_session":
-          return executeAndWrap(() =>
-            this.handleGetCurrentSession(safeArgs as { project_path: string })
+          return this.handleGetCurrentSession(
+            safeArgs as { project_path: string }
           );
         case "list_projects":
-          return executeAndWrap(() =>
-            this.handleListProjects(
-              safeArgs as { include_stats?: boolean; limit?: number }
-            )
+          return this.handleListProjects(
+            safeArgs as { include_stats?: boolean; limit?: number }
           );
         case "get_context":
-          return executeAndWrap(() =>
-            this.handleGetContext(
-              safeArgs as {
-                context_ids: string | string[];
-                relation_type?: string;
-              }
-            )
+          return this.handleGetContext(
+            safeArgs as {
+              context_ids: string | string[];
+              relation_type?: string;
+            }
           );
         case "semantic_search":
-          return executeAndWrap(() =>
-            this.handleSemanticSearch(
-              safeArgs as {
-                query: string;
-                project_path?: string;
-                session_id?: string;
-                limit?: number;
-                similarity_threshold?: number;
-                hybrid_weight?: number;
-              }
-            )
+          return this.handleSemanticSearch(
+            safeArgs as {
+              query: string;
+              project_path?: string;
+              session_id?: string;
+              limit?: number;
+              similarity_threshold?: number;
+              hybrid_weight?: number;
+            }
           );
         case "list_contexts":
-          return executeAndWrap(() =>
-            this.handleListContexts(
-              safeArgs as {
-                session_id?: string;
-                project_path?: string;
-                limit?: number;
-              }
-            )
+          return this.handleListContexts(
+            safeArgs as {
+              session_id?: string;
+              project_path?: string;
+              limit?: number;
+            }
           );
         case "delete_context":
-          return executeAndWrap(() =>
-            this.handleDeleteContext(safeArgs as { context_id: string })
-          );
+          return this.handleDeleteContext(safeArgs as { context_id: string });
         case "update_context":
-          return executeAndWrap(() =>
-            this.handleUpdateContext(
-              safeArgs as {
-                context_id: string;
-                content?: string;
-                tags?: string[];
-                quality_score?: number;
-                metadata?: object;
-              }
-            )
+          return this.handleUpdateContext(
+            safeArgs as {
+              context_id: string;
+              content?: string;
+              tags?: string[];
+              quality_score?: number;
+              metadata?: object;
+            }
           );
         case "delete_session":
-          return executeAndWrap(() =>
-            this.handleDeleteSession(
-              safeArgs as { session_id?: string; project_id?: string }
-            )
+          return this.handleDeleteSession(
+            safeArgs as { session_id?: string; project_id?: string }
           );
         case "project_analysis_engineer":
-          return executeAndWrap(() =>
-            this.handleProjectAnalysisEngineerTool(
-              safeArgs as {
-                project_path: string;
-                analysis_focus?: string;
-                doc_style?: string;
-                auto_save?: boolean;
-                language?: string;
-              }
-            )
+          return this.handleProjectAnalysisEngineerTool(
+            safeArgs as {
+              project_path: string;
+              analysis_focus?: string;
+              doc_style?: string;
+              auto_save?: boolean;
+              language?: string;
+            }
           );
         case "export_memory_graph":
-          return executeAndWrap(() =>
-            this.handleExportMemoryGraph(
-              safeArgs as {
-                project_id: string;
-                max_nodes?: number;
-                focus_type?: string;
-                output_path?: string;
-              }
-            )
+          return this.handleExportMemoryGraph(
+            safeArgs as {
+              project_id: string;
+              max_nodes?: number;
+              focus_type?: string;
+              output_path?: string;
+            }
           );
         case "get_memory_status":
-          return executeAndWrap(() =>
-            this.handleGetMemoryStatus(safeArgs as { project_path?: string })
+          return this.handleGetMemoryStatus(
+            safeArgs as { project_path?: string }
           );
         case "cleanup_empty_projects":
-          return executeAndWrap(() =>
-            this.handleCleanupEmptyProjects(
-              safeArgs as { dry_run?: boolean; project_ids?: string[] }
-            )
+          return this.handleCleanupEmptyProjects(
+            safeArgs as { dry_run?: boolean; project_ids?: string[] }
           );
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
@@ -1203,12 +1082,6 @@ RETURNS:
     // Prompts handlers
     this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
       prompts: [
-        {
-          name: "memory_recording_guidance",
-          description:
-            "Core guidance for AI assistants on when and how to record development context to memory",
-          arguments: [],
-        },
         {
           name: "project_analysis_engineer",
           description:
@@ -1255,8 +1128,6 @@ RETURNS:
       const safeArgs = args || {};
 
       switch (name) {
-        case "memory_recording_guidance":
-          return this.handleMemoryRecordingGuidance();
         case "project_analysis_engineer":
           return await this.handleProjectAnalysisEngineer(safeArgs);
         default:
@@ -1898,9 +1769,6 @@ RETURNS:
       if (args.files_changed && args.files_changed.length > 0) {
         // 多文件场景
         this.contextFileManager.addFiles(contextId, args.files_changed);
-        // Mark files as recorded in pending tracker
-        const filePaths = args.files_changed.map((f) => f.file_path);
-        this.pendingMemoryTracker.markMultipleRecorded(filePaths);
       } else if (detectedFilePath) {
         // 单文件场景（向后兼容）
         this.contextFileManager.addFiles(contextId, [
@@ -1911,8 +1779,6 @@ RETURNS:
             diff_stats: args.diff_stats,
           },
         ]);
-        // Mark file as recorded in pending tracker
-        this.pendingMemoryTracker.markRecorded(detectedFilePath);
       }
 
       // 异步生成embedding（不阻塞响应）
@@ -3249,10 +3115,6 @@ RETURNS:
       if (!this.autoRecordFilter.shouldRecord(filePath, fileContent)) {
         return; // 未通过智能过滤，跳过记录
       }
-
-      // === Add to pending memory tracker (v2.2.6) ===
-      const changeType = action === "add" ? "add" : "modify";
-      this.pendingMemoryTracker.addPending(filePath, changeType, sessionId);
 
       // ✅ 添加自动记录提示 - 仅在首次记录时提示用户
       await this.notifyUserContextRecorded(filePath, action);
@@ -4707,80 +4569,6 @@ ${
         isError: true,
       };
     }
-  }
-
-  /**
-   * 处理记忆记录指导Prompt（双语支持）
-   */
-  private handleMemoryRecordingGuidance() {
-    const guidanceText = `# DevMind Memory Recording Core Guidance | DevMind 记忆记录核心指导
-
-## Core Responsibility | 核心职责
-
-As a development assistant, your primary responsibility is to ensure every code edit is properly recorded.
-作为开发助手，你的首要职责是确保每次代码编辑都被正确记录。
-
-**Mandatory Rules | 强制规则：**
-- MUST call \`record_context\` tool IMMEDIATELY after any code modification
-  完成任何代码修改后，必须立即调用 \`record_context\` 工具
-- This is NOT optional - it's a required part of the workflow
-  这不是可选项，而是工作流程的必要组成部分
-- MUST call when user says "remember/save/记住/保存"
-  用户说"记住"、"保存"、"remember"、"save"时，必须调用此工具
-- Skipping this means work is INCOMPLETE - all changes will be lost in future conversations
-  不调用此工具意味着工作未完成，所有变更将在未来对话中丢失
-
-## Self-Check List | 自检清单
-
-Before completing any task, ask yourself | 完成任务前，问自己：
-- [ ] Did I edit files? → Call \`record_context\` NOW
-      我是否编辑了文件？ → 立即调用 \`record_context\`
-- [ ] Did I fix a bug? → Use \`type: "bug_fix"\`
-      我是否修复了bug？ → 使用 \`type: "bug_fix"\`
-- [ ] Did I add a feature? → Use \`type: "feature_add"\`
-      我是否添加了新功能？ → 使用 \`type: "feature_add"\`
-- [ ] Did I refactor code? → Use \`type: "code_refactor"\`
-      我是否重构了代码？ → 使用 \`type: "code_refactor"\`
-- [ ] Did user say "remember" or "save"? → MUST call the tool
-      用户是否说了"记住"或"保存"？ → 必须调用工具
-
-## Quick Reference | 快速参考
-
-**Common Types | 常用类型：**
-- \`code_create\` - Create new files/modules | 创建新文件/模块
-- \`code_modify\` - Modify existing code | 修改现有代码
-- \`bug_fix\` - Fix bugs | 修复bug
-- \`feature_add\` - Add new features | 添加新功能
-- \`code_refactor\` - Refactor code | 重构代码
-- \`solution\` - Solution records | 解决方案记录
-
-**Minimal Example | 最小调用示例：**
-\`\`\`javascript
-record_context({
-  content: "Fixed null pointer exception in user login validation",
-  type: "bug_fix",
-  project_path: "/path/to/project"
-})
-\`\`\`
-
-## Important Reminders | 重要提醒
-
-- Recording is MANDATORY, not optional | 记录是强制性的，不是可选的
-- Skipping causes memory loss | 跳过记录会导致记忆丢失
-- Brief description is better than no record | 简短的描述胜过没有记录
-- When unsure, use \`code_modify\` or \`solution\` | 不确定类型时，使用 \`code_modify\` 或 \`solution\``;
-
-    return {
-      messages: [
-        {
-          role: "user" as const,
-          content: {
-            type: "text" as const,
-            text: guidanceText,
-          },
-        },
-      ],
-    };
   }
 
   /**
