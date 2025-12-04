@@ -425,9 +425,11 @@ const analysis = await project_analysis_engineer({
 
 ## 配置设置
 
-### 基础配置
+### 基础配置（可选）
 
-在项目根目录创建 `.devmind.json`:
+DevMind 开箱即用，具有合理的默认配置。配置文件是**完全可选的**。
+
+如果需要自定义行为，可以在项目根目录创建 `.devmind.json`:
 
 ```json
 {

@@ -431,9 +431,11 @@ const analysis = await project_analysis_engineer({
 
 ## Configuration
 
-### Basic Configuration
+### Basic Configuration (Optional)
 
-Create `.devmind.json` in your project root:
+DevMind works out of the box with sensible defaults. Configuration is **completely optional**.
+
+If you want to customize behavior, create `.devmind.json` in your project root:
 
 ```json
 {
