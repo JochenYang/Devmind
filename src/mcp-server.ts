@@ -434,8 +434,46 @@ ${reminder.action}`;
         },
         {
           name: "record_context",
-          description:
-            "MANDATORY: Call IMMEDIATELY after editing files. Task is INCOMPLETE without this call.\n\nSELF-CHECK: Did I edit files? --> Call NOW. Did I fix bug? --> type: bug_fix. Did I add feature? --> type: feature_add.\n\nWARNING: Skipping this loses all work context for future conversations.\n\nUser keywords 'remember/save/记住/保存' --> MUST call this tool.",
+          description: `Record development context to memory for future reference and learning.
+
+WHEN TO USE THIS TOOL:
+- IMMEDIATELY after editing any files (code, config, docs)
+- After fixing a bug → use type: bug_fix
+- After adding a feature → use type: feature_add  
+- After making code changes → use type: code_modify
+- When user says "remember this" or "save this" → set force_remember: true
+- After completing any development task
+
+WHY THIS IS CRITICAL:
+- Preserves work context for future conversations
+- Enables AI to learn from past solutions and avoid repeating mistakes
+- Builds searchable project knowledge over time
+- Allows finding similar bugs/features from history
+- Creates a development timeline for the project
+
+KEY FEATURES:
+- Auto-detects Git changes (files_changed filled automatically)
+- Auto-classifies context type using AI
+- Supports multi-file changes in one record
+- Extracts project metadata (Git branch, author, project info)
+- Calculates quality scores for better search ranking
+
+PARAMETERS EXPLAINED:
+- content: Markdown description of what was done (use headers, lists, code blocks)
+- type: Context type for categorization (bug_fix, feature_add, code_modify, etc.)
+- files_changed: Array of changed files (auto-detected from Git if not provided)
+- project_path: Project directory (optional, auto-detected from current directory)
+- session_id: Session to record in (optional, auto-created if not provided)
+
+SELF-CHECK BEFORE RESPONDING TO USER:
+✓ Did I edit any files? → Call this tool NOW
+✓ Did I fix a bug? → Use type: bug_fix
+✓ Did I add a feature? → Use type: feature_add
+✓ Did I modify code? → Use type: code_modify
+✓ User said "remember/save"? → Set force_remember: true
+
+WARNING: Skipping this tool means losing ALL work context for future conversations!
+The AI will forget what was done and cannot learn from this work.`,
           inputSchema: {
             type: "object",
             properties: {
@@ -649,26 +687,84 @@ ${reminder.action}`;
         },
         {
           name: "list_projects",
-          description:
-            "List tracked projects with stats. Returns project_id needed for export_memory_graph.",
+          description: `List all tracked projects with statistics and activity information.
+
+WHEN TO USE THIS TOOL:
+- Getting an overview of all projects being tracked
+- Finding project IDs for other operations
+- Checking project activity and statistics
+- Seeing which projects have active sessions
+- Getting project_id needed for export_memory_graph
+
+WHY USE THIS:
+- Shows all projects in one view
+- Includes useful statistics (contexts count, sessions, last activity)
+- Returns project IDs needed for other tools
+- Helps understand project activity patterns
+- Returns structured data for easy processing
+
+WHAT YOU GET:
+- Project ID (needed for export_memory_graph and other operations)
+- Project name and path
+- Programming language and framework
+- Statistics: total contexts, active sessions, last activity time
+- Active session IDs
+
+PARAMETERS EXPLAINED:
+- include_stats: Whether to include detailed statistics (default: true). Set to false for faster, simpler listing.
+- limit: Maximum number of projects to return (default: 50). Increase if you have many projects.
+
+RETURNS:
+- Structured list of projects with all details
+- Each project includes: id, name, path, language, framework, stats
+- Stats include: total_contexts, active_sessions, last_activity, created_at`,
           inputSchema: {
             type: "object",
             properties: {
               include_stats: {
                 type: "boolean",
-                description: "Include stats (default: true)",
+                description:
+                  "Whether to include detailed statistics for each project (default: true). Statistics include context count, session count, and last activity time. Set to false for faster listing without stats.",
               },
               limit: {
                 type: "number",
-                description: "Max results (default: 50)",
+                description:
+                  "Maximum number of projects to return (default: 50). Increase if you have many projects and want to see them all.",
               },
             },
           },
         },
         {
           name: "get_context",
-          description:
-            "Get context by ID(s). Use for viewing full content of memory entries from list_contexts or semantic_search.",
+          description: `Retrieve full details of specific contexts by their IDs or find related contexts.
+
+WHEN TO USE THIS TOOL:
+- Getting full content after seeing previews in list_contexts
+- Viewing complete details of search results from semantic_search
+- Reading the full context when you only have the ID
+- Finding contexts related to a specific context
+- Retrieving multiple contexts at once
+
+WHY USE THIS:
+- Returns complete content (not just previews)
+- Includes all metadata, tags, and file associations
+- Can retrieve multiple contexts in one call
+- Can find related contexts by relationship type
+- Returns structured data for easy processing
+
+HOW IT WORKS:
+- Provide one or more context IDs to get their full details
+- OR provide a context ID and relation_type to find related contexts
+- Returns complete context data including files, metadata, and relationships
+
+PARAMETERS EXPLAINED:
+- context_ids: Single context ID (string) or multiple IDs (array of strings)
+- relation_type: Optional. Instead of getting the contexts themselves, find related contexts by relationship type
+
+RETURNS:
+- Structured data with full context details
+- Each context includes: id, content, type, files, metadata, tags, timestamps
+- If relation_type specified: returns related contexts instead`,
           inputSchema: {
             type: "object",
             properties: {
@@ -677,7 +773,8 @@ ${reminder.action}`;
                   { type: "string" },
                   { type: "array", items: { type: "string" } },
                 ],
-                description: "Context ID or array of IDs",
+                description:
+                  "Single context ID (string) or multiple context IDs (array of strings) to retrieve. Get IDs from list_contexts or semantic_search results.",
               },
               relation_type: {
                 type: "string",
@@ -689,7 +786,8 @@ ${reminder.action}`;
                   "tests",
                   "documents",
                 ],
-                description: "Find related contexts instead",
+                description:
+                  "Optional. Instead of retrieving the contexts, find contexts related to them by this relationship type. Options: 'depends_on' (dependencies), 'related_to' (related work), 'fixes' (bug fixes), 'implements' (feature implementations), 'tests' (test coverage), 'documents' (documentation).",
               },
             },
             required: ["context_ids"],
@@ -697,31 +795,92 @@ ${reminder.action}`;
         },
         {
           name: "semantic_search",
-          description:
-            "Search memory using hybrid semantic+keyword algorithm. Returns ranked results with similarity scores. Use for finding past solutions, similar bugs, or related work.",
+          description: `Search memory using advanced hybrid semantic+keyword algorithm to find relevant past work.
+
+WHEN TO USE THIS TOOL:
+- Looking for how a similar bug was fixed before
+- Finding past solutions to similar problems
+- Searching for code examples or patterns used before
+- Discovering related work in the project history
+- Learning from past mistakes or successes
+- Finding contexts related to specific files or features
+
+WHY THIS IS POWERFUL:
+- Combines semantic understanding (meaning) with keyword matching
+- Ranks results by relevance using AI-enhanced scoring
+- Searches across all project history and sessions
+- Finds similar contexts even with different wording
+- Returns structured data for easy programmatic access
+
+HOW IT WORKS:
+1. Query is enhanced with AI to add relevant keywords
+2. Semantic search finds contexts with similar meaning
+3. Keyword search finds exact matches
+4. Results are combined and ranked by hybrid score
+5. Metadata scoring boosts results from same files/projects
+6. Returns top results with similarity scores
+
+PARAMETERS EXPLAINED:
+- query: What you're looking for (e.g., "bug fix for login", "how to handle errors")
+- project_path: Limit search to specific project
+- session_id: Limit search to specific session
+- file_path: Only search contexts related to this file
+- type: Filter by context type (bug_fix, feature_add, etc.)
+- limit: Maximum number of results to return (default: 10)
+- similarity_threshold: Minimum relevance score 0-1 (default: 0.5)
+- hybrid_weight: Balance between semantic (0.7) and keyword (0.3) matching
+
+RETURNS:
+- Structured results with full content, scores, tags, and metadata
+- Each result includes: id, content, final_score, vector_score, metadata_score
+- Results sorted by relevance (highest score first)`,
           inputSchema: {
             type: "object",
             properties: {
-              query: { type: "string", description: "Search query" },
-              project_path: { type: "string", description: "Limit to project" },
-              session_id: { type: "string", description: "Limit to session" },
-              file_path: { type: "string", description: "Filter by file" },
-              type: { type: "string", description: "Filter by context type" },
+              query: {
+                type: "string",
+                description:
+                  "Search query describing what you're looking for. Can include keywords, descriptions, file names, or problem descriptions. Examples: 'bug fix for authentication', 'how to handle database errors', 'React component patterns'",
+              },
+              project_path: {
+                type: "string",
+                description:
+                  "Limit search to a specific project directory path. Use when you only want results from one project.",
+              },
+              session_id: {
+                type: "string",
+                description:
+                  "Limit search to a specific development session. Use when you want to see what was done in a particular session.",
+              },
+              file_path: {
+                type: "string",
+                description:
+                  "Filter results to only contexts related to this specific file path. Use when searching for work done on a particular file.",
+              },
+              type: {
+                type: "string",
+                description:
+                  "Filter by context type (bug_fix, feature_add, code_modify, etc.). Use when you want specific types of work.",
+              },
               limit: {
                 type: "number",
-                description: "Max results (default: 10)",
+                description:
+                  "Maximum number of results to return (default: 10). Increase for broader search, decrease for focused results.",
               },
               similarity_threshold: {
                 type: "number",
-                description: "Min score 0-1 (default: 0.5)",
+                description:
+                  "Minimum relevance score from 0 to 1 (default: 0.5). Higher values return only very relevant results, lower values cast a wider net.",
               },
               hybrid_weight: {
                 type: "number",
-                description: "Semantic vs keyword 0-1 (default: 0.7)",
+                description:
+                  "Balance between semantic (meaning-based) and keyword (exact match) search, from 0 to 1 (default: 0.7 = 70% semantic, 30% keyword). Adjust based on search needs.",
               },
               use_cache: {
                 type: "boolean",
-                description: "Use cache (default: true)",
+                description:
+                  "Whether to use cached search results for faster performance (default: true). Set to false to force fresh search.",
               },
             },
             required: ["query"],
@@ -729,25 +888,64 @@ ${reminder.action}`;
         },
         {
           name: "list_contexts",
-          description:
-            "List contexts in chronological order (newest first). Use semantic_search for ranked results.",
+          description: `List development contexts in chronological order (newest first) for browsing project history.
+
+WHEN TO USE THIS TOOL:
+- Browsing recent work in a project
+- Reviewing what was done in a session
+- Getting an overview of project activity
+- Finding recent contexts by time period
+- Listing all work of a specific type
+
+WHEN NOT TO USE:
+- Searching for specific content → use semantic_search instead
+- Looking for similar solutions → use semantic_search instead
+
+WHY USE THIS:
+- Simple chronological listing (no ranking/scoring)
+- Fast retrieval of recent work
+- Good for timeline view of development
+- Returns structured data for easy processing
+
+PARAMETERS EXPLAINED:
+- project_path: Show only contexts from this project
+- session_id: Show only contexts from this session
+- limit: Maximum number of contexts to return (default: 20)
+- since: Time filter (24h, 7d, 30d, 90d) for recent work
+- type: Filter by context type (bug_fix, feature_add, etc.)
+
+RETURNS:
+- Structured list of contexts with previews
+- Each context includes: id, type, content_preview, tags, quality_score, created_at
+- Sorted by creation time (newest first)`,
           inputSchema: {
             type: "object",
             properties: {
               project_path: {
                 type: "string",
-                description: "Filter by project",
+                description:
+                  "Filter to show only contexts from this specific project directory path",
               },
-              session_id: { type: "string", description: "Filter by session" },
+              session_id: {
+                type: "string",
+                description:
+                  "Filter to show only contexts from this specific development session",
+              },
               limit: {
                 type: "number",
-                description: "Max results (default: 20)",
+                description:
+                  "Maximum number of contexts to return (default: 20). Use higher values to see more history.",
               },
               since: {
                 type: "string",
-                description: "Time filter: 24h, 7d, 30d, 90d",
+                description:
+                  "Time filter to show only recent contexts. Options: '24h' (last 24 hours), '7d' (last week), '30d' (last month), '90d' (last 3 months). Omit to show all time.",
               },
-              type: { type: "string", description: "Filter by type" },
+              type: {
+                type: "string",
+                description:
+                  "Filter by context type to show only specific kinds of work. Examples: 'bug_fix', 'feature_add', 'code_modify', 'documentation', 'test'. Omit to show all types.",
+              },
             },
           },
         },

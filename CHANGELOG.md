@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1] - 2025-12-04
+
+### Changed
+
+- **Enhanced Tool Descriptions for Better AI Reliability**: Significantly improved tool descriptions following MCP best practices
+  - `record_context`: Added structured description with WHEN/WHY/HOW sections, self-check list, and detailed parameter explanations
+  - `semantic_search`: Added comprehensive guide explaining hybrid search algorithm, use cases, and parameter details
+  - `list_contexts`: Clarified when to use vs semantic_search, added detailed parameter descriptions
+  - `get_context`: Added usage scenarios and relationship query explanations
+  - `list_projects`: Enhanced with clear use cases and statistics explanations
+  - All parameters now have detailed descriptions with examples
+  - **Impact**: Significantly improves AI's ability to reliably trigger tools at the right time
+
+- **Updated Dependencies**: Upgraded `@modelcontextprotocol/sdk` from 1.20.0 to 1.24.0 for latest MCP features
+
+### Improved
+
+- Tool descriptions now follow official MCP examples (memory, sequentialthinking)
+- Parameter descriptions include examples and use cases
+- Better guidance for AI on when and how to use each tool
+- Reduced likelihood of missing `record_context` calls
+
 ## [2.4.0] - 2025-12-04
 
 > **Note**: Version bumped from 2.3.1 to 2.4.0 due to significant feature additions (Structured Content support) and MCP 2025-11-25 compliance updates. Version 2.3.2 was not released.
