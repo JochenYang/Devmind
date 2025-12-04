@@ -193,6 +193,18 @@ devmind-mcp/
 
 #### 步骤 1: 添加到 MCP 客户端
 
+**方式 A: 使用 Claude Code CLI (最简单)**
+
+```bash
+# 安装最新版本
+claude add mcp npx -y devmind-mcp@latest
+
+# 或安装特定版本
+claude add mcp npx -y devmind-mcp@2.4.1
+```
+
+**方式 B: 手动配置**
+
 编辑您的MCP客户端配置文件:
 
 **配置文件位置:**

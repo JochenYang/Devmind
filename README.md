@@ -197,6 +197,18 @@ Choose the method that fits your needs:
 
 #### Step 1: Add to MCP Client
 
+**Option A: Using Claude Code CLI (Easiest)**
+
+```bash
+# Install latest version
+claude add mcp npx -y devmind-mcp@latest
+
+# Or install specific version
+claude add mcp npx -y devmind-mcp@2.4.1
+```
+
+**Option B: Manual Configuration**
+
 Edit your MCP client configuration file:
 
 **Configuration File Locations:**
