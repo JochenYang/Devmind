@@ -469,15 +469,20 @@ If you want to customize behavior, create `.devmind.json` in your project root:
 | `auto_cleanup`      | boolean | `true`                 | Enable automatic cleanup of old contexts |
 | `vector_dimensions` | number  | `1536`                 | Vector embedding dimensions              |
 
-### Recommended Memory Strategy
+### Recommended System Prompt Configuration
 
-As a development assistant, your primary responsibility is to ensure every code edit is properly recorded.
+To ensure AI assistants automatically record development context, add this to your system prompt configuration (e.g., Kiro steering files, Claude Desktop config):
 
-**Mandatory Rules:**
-- Call `record_context` tool IMMEDIATELY after completing any code modification
-- This is NOT optional - it's a required part of the workflow
-- When user says "remember", "save", "记住", or "保存", MUST call this tool
-- Not calling this tool means work is INCOMPLETE and all changes will be lost in future conversations
+```markdown
+## Core Responsibility
+
+AI assistants should immediately call the record_context tool after each code edit to ensure all changes are properly recorded in the project memory.
+```
+
+**Why This Is Necessary:**
+- MCP tools cannot force AI behavior - system prompts are required
+- This ensures 100% recording reliability across all development tasks
+- Works with any MCP-compatible client (Kiro, Claude code, Cursor, etc.)
 
 
 
