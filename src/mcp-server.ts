@@ -194,13 +194,25 @@ export class AiMemoryMcpServer {
     this.server = new Server(
       {
         name: "devmind-mcp",
-        version: "2.2.0",
+        version: "2025-11-25", // MCP protocol version
       },
       {
         capabilities: {
-          resources: {},
-          tools: {},
-          prompts: {},
+          // Resources capability - static list, no dynamic changes
+          resources: {
+            subscribe: false, // Resource subscription not supported
+            listChanged: false, // Resource list is static
+          },
+          // Tools capability - static list, no dynamic changes
+          tools: {
+            listChanged: false, // Tool list is static
+          },
+          // Prompts capability - static list, no dynamic changes
+          prompts: {
+            listChanged: false, // Prompt list is static
+          },
+          // Logging capability - server can send log messages
+          logging: {},
         },
       }
     );
@@ -294,6 +306,44 @@ ${reminder.action}`;
     }
   }
 
+  /**
+   * Validate resource URI according to MCP specification
+   * Servers MUST validate all resource URIs
+   */
+  private validateResourceUri(uri: string): void {
+    try {
+      const url = new URL(uri);
+
+      // Validate scheme
+      if (url.protocol !== "memory:") {
+        throw new McpError(
+          ErrorCode.InvalidRequest,
+          `Invalid URI scheme: ${url.protocol}. Expected 'memory:'`
+        );
+      }
+
+      // Validate pathname
+      const validPaths = [
+        "/project-context",
+        "/session-history",
+        "/search-contexts",
+        "/stats",
+      ];
+
+      if (!validPaths.includes(url.pathname)) {
+        throw new McpError(
+          ErrorCode.InvalidRequest,
+          `Invalid resource path: ${url.pathname}`
+        );
+      }
+    } catch (error) {
+      if (error instanceof McpError) {
+        throw error;
+      }
+      throw new McpError(ErrorCode.InvalidRequest, `Malformed URI: ${uri}`);
+    }
+  }
+
   private setupHandlers(): void {
     // Resources handlers
     this.server.setRequestHandler(ListResourcesRequestSchema, async () => ({
@@ -329,6 +379,10 @@ ${reminder.action}`;
       ReadResourceRequestSchema,
       async (request) => {
         const { uri } = request.params;
+
+        // Validate URI according to MCP specification
+        this.validateResourceUri(uri);
+
         const url = new URL(uri);
 
         switch (url.pathname) {
@@ -2102,6 +2156,13 @@ ${reminder.action}`;
             text: outputLines.join("\n"),
           },
         ],
+        // MCP 2025-11-25: Structured Content for direct programmatic access
+        structuredContent: {
+          projects: projectsWithStats,
+          total: projectsWithStats.length,
+          include_stats: includeStats,
+          limit: limit,
+        },
         isError: false,
         _meta: {
           total_projects: projectsWithStats.length,
@@ -2249,6 +2310,13 @@ ${reminder.action}`;
             text: message,
           },
         ],
+        // MCP 2025-11-25: Structured Content for direct programmatic access
+        structuredContent: {
+          contexts: contexts,
+          requested_ids: ids,
+          found_count: contexts.length,
+          not_found: notFound,
+        },
         isError: false,
         _meta: {
           requested_ids: ids,
@@ -2580,6 +2648,16 @@ ${reminder.action}`;
                 .join("\n"),
           },
         ],
+        // MCP 2025-11-25: Structured Content for direct programmatic access
+        structuredContent: {
+          query: args.query,
+          enhanced_query: enhancedQuery,
+          results: formattedResults,
+          total_results: formattedResults.length,
+          total_searched: allContexts.length,
+          search_params: searchParams,
+          query_enhancement: queryEnhancementMeta,
+        },
         isError: false,
         _meta: {
           query: args.query,
@@ -3336,6 +3414,18 @@ Happy coding! 🚀`;
                 .join("\n"),
           },
         ],
+        // MCP 2025-11-25: Structured Content for direct programmatic access
+        structuredContent: {
+          contexts: formattedContexts,
+          total: formattedContexts.length,
+          filters: {
+            session_id: args.session_id,
+            project_path: args.project_path,
+            since: args.since,
+            type: args.type,
+            limit: limit,
+          },
+        },
         _meta: {
           total_contexts: formattedContexts.length,
           contexts: formattedContexts,

@@ -5,6 +5,48 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2025-12-04
+
+> **Note**: Version bumped from 2.3.1 to 2.4.0 due to significant feature additions (Structured Content support) and MCP 2025-11-25 compliance updates. Version 2.3.2 was not released.
+
+### Added
+
+- **Structured Content Support (MCP 2025-11-25)**: Added `structuredContent` field to tool responses for direct programmatic access
+  - `semantic_search`: Returns structured search results with query, results array, and metadata
+  - `list_contexts`: Returns structured context list with filters
+  - `get_context`: Returns structured context data with found/not found status
+  - `list_projects`: Returns structured project list with statistics
+  - **Benefits**:
+    - AI can directly access structured data without parsing text
+    - More reliable (no text format parsing errors)
+    - More efficient (saves LLM tokens)
+    - Supports complex nested data structures
+    - Enables programmatic processing by clients
+  - Maintains backward compatibility - text content still provided for human readability
+
+- **URI Validation**: Added strict URI validation for resource requests
+  - Validates URI scheme (must be "memory:")
+  - Validates resource paths against whitelist
+  - Provides clear error messages for invalid URIs
+  - Implements MCP security requirement: "Servers MUST validate all resource URIs"
+
+### Changed
+
+- **Enhanced Capabilities Declaration**: Improved server capabilities declaration for better MCP compliance
+  - Explicitly declare `resources` capability with `subscribe: false` and `listChanged: false`
+  - Explicitly declare `tools` capability with `listChanged: false`
+  - Explicitly declare `prompts` capability with `listChanged: false`
+  - Added `logging` capability declaration
+  - Provides clear indication of supported and unsupported features to MCP clients
+  - Follows MCP 2025-11-25 specification for capability negotiation
+
+### Fixed
+
+- **MCP Protocol Compliance**: Fixed protocol version to comply with MCP specification
+  - Changed from application version "2.2.0" to MCP protocol version "2025-11-25" (latest)
+  - Ensures proper protocol negotiation with MCP clients
+  - Follows MCP specification requirement for date-format protocol versions
+
 ## [2.3.1] - 2025-12-03
 
 ### Added
