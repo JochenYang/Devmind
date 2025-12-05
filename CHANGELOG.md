@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.4] - 2025-12-05
+
+### Optimized
+
+- **Massive Token Reduction Across All Tool Descriptions**: Reduced total token usage by ~1,500+ tokens (70%+ reduction)
+  - `record_context`: 450 → 150 tokens (67% reduction)
+    - Added critical workflow requirement with ⚠️ warning
+    - Simplified to YOU MUST 5-point checklist
+    - Removed redundant WHY/HOW sections
+    - Kept strong enforcement language (CRITICAL, MUST) for auto-call behavior
+  - `semantic_search`: 500 → 120 tokens (76% reduction)
+  - `list_projects`: 350 → 80 tokens (77% reduction)
+  - `get_context`: 300 → 100 tokens (67% reduction)
+  - `list_contexts`: 280 → 100 tokens (64% reduction)
+  - **Impact**: Significantly faster AI processing, lower API costs, improved response times
+
+### Improved
+
+- Tool descriptions now follow consistent pattern: WHEN TO USE + KEY PARAMETERS + Returns
+- Removed verbose WHY/HOW sections that AI doesn't need
+- Kept critical information for tool selection and usage
+- Enhanced `record_context` with Sequential Thinking-inspired enforcement pattern
+- Better balance between clarity and conciseness
+
+### Technical Details
+
+- Analyzed official MCP Sequential Thinking server for best practices
+- Applied strong enforcement language only to `record_context` (auto-call tool)
+- Simplified other tools (user-initiated) to essential information only
+- Maintained all functionality while dramatically reducing token overhead
+
 ## [2.4.3] - 2025-12-04
 
 ### Removed

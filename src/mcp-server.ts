@@ -347,26 +347,23 @@ export class AiMemoryMcpServer {
           name: "record_context",
           description: `Record development context to memory for future reference and learning.
 
-WHEN TO USE THIS TOOL:
-- IMMEDIATELY after editing files (code, config, docs)
+⚠️ CRITICAL: Call IMMEDIATELY after editing files, BEFORE responding to user.
+
+WHEN TO USE:
+- After editing any files (code, config, docs)
 - After fixing bugs or adding features
-- After completing any development task
-- When user explicitly asks to remember/save work
-- Before responding to user (if files were edited)
+- When user asks to remember/save work
 
-WHY THIS IS CRITICAL:
-- Preserves work context for future conversations
-- Enables learning from past solutions and avoiding repeated mistakes
-- Builds searchable project knowledge over time
-- Creates a development timeline for the project
+YOU MUST:
+1. Call IMMEDIATELY after editing files
+2. Call BEFORE responding to user
+3. Include meaningful content (what changed and why)
+4. Use appropriate type (bug_fix, feature_add, code_modify, etc.)
+5. Never skip - it's as critical as the edit itself
 
-HOW IT WORKS:
-- Auto-detects Git changes (files_changed filled automatically)
-- Auto-classifies context type using AI
-- Extracts project metadata (Git branch, author, project info)
-- Calculates quality scores for better search ranking
+WORKFLOW: Edit files → Call record_context → Respond to user
 
-SELF-CHECK: Did I edit files? → Call NOW. Did I fix bug? → type: bug_fix. Did I add feature? → type: feature_add.`,
+Auto-detects: Git changes, context type, project metadata, quality scores.`,
           inputSchema: {
             type: "object",
             properties: {
@@ -551,35 +548,16 @@ SELF-CHECK: Did I edit files? → Call NOW. Did I fix bug? → type: bug_fix. Di
           name: "list_projects",
           description: `List all tracked projects with statistics and activity information.
 
-WHEN TO USE THIS TOOL:
-- Getting an overview of all projects being tracked
-- Finding project IDs for other operations
+WHEN TO USE:
+- Getting overview of tracked projects
+- Finding project IDs for other operations (e.g., export_memory_graph)
 - Checking project activity and statistics
-- Seeing which projects have active sessions
-- Getting project_id needed for export_memory_graph
 
-WHY USE THIS:
-- Shows all projects in one view
-- Includes useful statistics (contexts count, sessions, last activity)
-- Returns project IDs needed for other tools
-- Helps understand project activity patterns
-- Returns structured data for easy processing
+PARAMETERS:
+- include_stats: Include detailed statistics (default: true)
+- limit: Max projects to return (default: 50)
 
-WHAT YOU GET:
-- Project ID (needed for export_memory_graph and other operations)
-- Project name and path
-- Programming language and framework
-- Statistics: total contexts, active sessions, last activity time
-- Active session IDs
-
-PARAMETERS EXPLAINED:
-- include_stats: Whether to include detailed statistics (default: true). Set to false for faster, simpler listing.
-- limit: Maximum number of projects to return (default: 50). Increase if you have many projects.
-
-RETURNS:
-- Structured list of projects with all details
-- Each project includes: id, name, path, language, framework, stats
-- Stats include: total_contexts, active_sessions, last_activity, created_at`,
+Returns: Project ID, name, path, language, framework, stats (contexts, sessions, last activity).`,
           inputSchema: {
             type: "object",
             properties: {
@@ -600,33 +578,17 @@ RETURNS:
           name: "get_context",
           description: `Retrieve full details of specific contexts by their IDs or find related contexts.
 
-WHEN TO USE THIS TOOL:
+WHEN TO USE:
 - Getting full content after seeing previews in list_contexts
-- Viewing complete details of search results from semantic_search
-- Reading the full context when you only have the ID
+- Viewing complete details from semantic_search results
 - Finding contexts related to a specific context
 - Retrieving multiple contexts at once
 
-WHY USE THIS:
-- Returns complete content (not just previews)
-- Includes all metadata, tags, and file associations
-- Can retrieve multiple contexts in one call
-- Can find related contexts by relationship type
-- Returns structured data for easy processing
+PARAMETERS:
+- context_ids: Single ID (string) or multiple IDs (array)
+- relation_type: Optional. Find related contexts (depends_on, related_to, fixes, implements, tests, documents)
 
-HOW IT WORKS:
-- Provide one or more context IDs to get their full details
-- OR provide a context ID and relation_type to find related contexts
-- Returns complete context data including files, metadata, and relationships
-
-PARAMETERS EXPLAINED:
-- context_ids: Single context ID (string) or multiple IDs (array of strings)
-- relation_type: Optional. Instead of getting the contexts themselves, find related contexts by relationship type
-
-RETURNS:
-- Structured data with full context details
-- Each context includes: id, content, type, files, metadata, tags, timestamps
-- If relation_type specified: returns related contexts instead`,
+Returns complete context data: id, content, type, files, metadata, tags, timestamps.`,
           inputSchema: {
             type: "object",
             properties: {
@@ -657,45 +619,22 @@ RETURNS:
         },
         {
           name: "semantic_search",
-          description: `Search memory using advanced hybrid semantic+keyword algorithm to find relevant past work.
+          description: `Search memory using hybrid semantic+keyword algorithm to find relevant past work.
 
-WHEN TO USE THIS TOOL:
-- Looking for how a similar bug was fixed before
-- Finding past solutions to similar problems
-- Searching for code examples or patterns used before
-- Discovering related work in the project history
-- Learning from past mistakes or successes
-- Finding contexts related to specific files or features
+WHEN TO USE:
+- Finding how similar bugs were fixed
+- Searching for code examples or patterns
+- Discovering related work in project history
+- Learning from past solutions
 
-WHY THIS IS POWERFUL:
-- Combines semantic understanding (meaning) with keyword matching
-- Ranks results by relevance using AI-enhanced scoring
-- Searches across all project history and sessions
-- Finds similar contexts even with different wording
-- Returns structured data for easy programmatic access
-
-HOW IT WORKS:
-1. Query is enhanced with AI to add relevant keywords
-2. Semantic search finds contexts with similar meaning
-3. Keyword search finds exact matches
-4. Results are combined and ranked by hybrid score
-5. Metadata scoring boosts results from same files/projects
-6. Returns top results with similarity scores
-
-PARAMETERS EXPLAINED:
-- query: What you're looking for (e.g., "bug fix for login", "how to handle errors")
-- project_path: Limit search to specific project
-- session_id: Limit search to specific session
-- file_path: Only search contexts related to this file
+KEY PARAMETERS:
+- query: What you're looking for (required)
+- project_path/session_id/file_path: Filter scope
 - type: Filter by context type (bug_fix, feature_add, etc.)
-- limit: Maximum number of results to return (default: 10)
-- similarity_threshold: Minimum relevance score 0-1 (default: 0.5)
-- hybrid_weight: Balance between semantic (0.7) and keyword (0.3) matching
+- limit: Max results (default: 10)
+- similarity_threshold: Min relevance 0-1 (default: 0.5)
 
-RETURNS:
-- Structured results with full content, scores, tags, and metadata
-- Each result includes: id, content, final_score, vector_score, metadata_score
-- Results sorted by relevance (highest score first)`,
+Returns results sorted by relevance with scores and metadata.`,
           inputSchema: {
             type: "object",
             properties: {
@@ -752,34 +691,21 @@ RETURNS:
           name: "list_contexts",
           description: `List development contexts in chronological order (newest first) for browsing project history.
 
-WHEN TO USE THIS TOOL:
+WHEN TO USE:
 - Browsing recent work in a project
 - Reviewing what was done in a session
-- Getting an overview of project activity
-- Finding recent contexts by time period
-- Listing all work of a specific type
+- Getting overview of project activity
 
 WHEN NOT TO USE:
 - Searching for specific content → use semantic_search instead
-- Looking for similar solutions → use semantic_search instead
 
-WHY USE THIS:
-- Simple chronological listing (no ranking/scoring)
-- Fast retrieval of recent work
-- Good for timeline view of development
-- Returns structured data for easy processing
-
-PARAMETERS EXPLAINED:
-- project_path: Show only contexts from this project
-- session_id: Show only contexts from this session
-- limit: Maximum number of contexts to return (default: 20)
-- since: Time filter (24h, 7d, 30d, 90d) for recent work
+PARAMETERS:
+- project_path/session_id: Filter by project or session
+- limit: Max contexts (default: 20)
+- since: Time filter (24h, 7d, 30d, 90d)
 - type: Filter by context type (bug_fix, feature_add, etc.)
 
-RETURNS:
-- Structured list of contexts with previews
-- Each context includes: id, type, content_preview, tags, quality_score, created_at
-- Sorted by creation time (newest first)`,
+Returns contexts with previews, sorted by creation time (newest first).`,
           inputSchema: {
             type: "object",
             properties: {
