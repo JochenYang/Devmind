@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.5] - 2025-12-06
+
+### Fixed
+
+- **Enhanced `record_context` Trigger Coverage for Update Operations**: Improved auto-memory reliability in Claude Code CLI
+  - Explicitly listed all file operation types: create, write, update, modify, edit, delete
+  - Previously only mentioned "editing files", causing Update operations to be missed
+  - Now covers all file change scenarios consistently
+  - **Impact**: Update operations in Claude Code CLI now reliably trigger automatic memory recording
+
+### Improved
+
+- Tool description now explicitly covers all file operation verbs used by different AI coding tools
+- Ensures consistent auto-memory behavior across Write and Update modes
+
 ## [2.4.4] - 2025-12-05
 
 ### Optimized

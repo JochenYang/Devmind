@@ -347,21 +347,21 @@ export class AiMemoryMcpServer {
           name: "record_context",
           description: `Record development context to memory for future reference and learning.
 
-⚠️ CRITICAL: Call IMMEDIATELY after editing files, BEFORE responding to user.
+⚠️ CRITICAL: Call IMMEDIATELY after ANY file changes, BEFORE responding to user.
 
 WHEN TO USE:
-- After editing any files (code, config, docs)
+- After ANY file changes (create, write, update, modify, edit, delete)
 - After fixing bugs or adding features
 - When user asks to remember/save work
 
 YOU MUST:
-1. Call IMMEDIATELY after editing files
+1. Call IMMEDIATELY after ANY file changes (create/write/update/modify/edit/delete)
 2. Call BEFORE responding to user
 3. Include meaningful content (what changed and why)
 4. Use appropriate type (bug_fix, feature_add, code_modify, etc.)
 5. Never skip - it's as critical as the edit itself
 
-WORKFLOW: Edit files → Call record_context → Respond to user
+WORKFLOW: Make file changes → Call record_context → Respond to user
 
 Auto-detects: Git changes, context type, project metadata, quality scores.`,
           inputSchema: {
