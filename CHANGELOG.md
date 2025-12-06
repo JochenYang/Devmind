@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.6] - 2025-12-06
+
+### Fixed
+
+- **Critical: Removed Auto File Monitoring to Fix Memory Leak**: Resolved frequent memory overflow crashes
+  - Removed legacy CLI auto-monitoring feature (~500 lines of code)
+  - Fixed "FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory"
+  - Removed chokidar file watcher that caused continuous memory growth
+  - **Impact**: MCP server now stable, no more crashes or connection failures
+
+### Removed
+
+- Auto file monitoring feature (legacy from CLI version, unused in MCP architecture)
+  - `startAutoMonitoring()` and related methods
+  - `fileWatcher` and file system monitoring
+  - Automatic context recording on file changes
+- **Note**: All memory recording now done through AI actively calling `record_context` tool (higher quality, no duplication)
+
+### Improved
+
+- Reduced memory footprint significantly
+- Improved MCP server stability and reliability
+- Eliminated duplicate memory recordings
+- Better resource utilization
+
 ## [2.4.5] - 2025-12-06
 
 ### Fixed
