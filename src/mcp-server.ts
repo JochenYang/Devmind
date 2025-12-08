@@ -351,6 +351,11 @@ WHEN TO USE:
 - After fixing bugs or adding features
 - When user asks to remember/save work
 
+BEFORE RECORDING:
+- Consider searching for similar existing contexts (use semantic_search)
+- If found duplicate/related memory, use update_context instead
+- This keeps memory clean and avoids duplicate records
+
 YOU MUST:
 1. Call IMMEDIATELY after ANY file changes (create/write/update/modify/edit/delete)
 2. Call BEFORE responding to user
@@ -750,8 +755,23 @@ Returns contexts with previews, sorted by creation time (newest first).`,
         },
         {
           name: "update_context",
-          description:
-            "Update context content, tags, metadata, or file associations.",
+          description: `Update existing memory context to avoid duplicate records.
+
+WHEN TO USE:
+- User explicitly requests to update a previous memory
+- AI discovers the same bug/issue was already recorded and needs updating
+- Refining or correcting previously recorded information
+- Avoiding duplicate memories for the same problem
+
+WORKFLOW:
+1. Search for existing related context using semantic_search
+2. If found duplicate/related context, use update_context instead of record_context
+3. This prevents memory clutter and maintains clean history
+
+YOU SHOULD:
+- Check for existing similar contexts before creating new ones
+- Update existing context when solving the same problem again
+- Preserve context history while keeping information current`,
           inputSchema: {
             type: "object",
             properties: {
@@ -1222,6 +1242,47 @@ Returns contexts with previews, sorted by creation time (newest first).`,
 
   private async handleRecordContext(args: RecordContextParams) {
     try {
+      // === 智能去重检测 (v2.4.7) ===
+      // 检测是否有相似的最近记忆，避免重复记录
+      let duplicateWarning: string | null = null;
+      if (args.content && args.content.length > 50) {
+        try {
+          // 搜索最近 24 小时内的相似记忆
+          const recentContexts = await this.handleSemanticSearch({
+            query: args.content.substring(0, 200), // 使用前 200 字符搜索
+            limit: 3,
+            similarity_threshold: 0.85, // 高相似度阈值
+            project_path: args.project_path,
+          });
+
+          if (!recentContexts.isError && recentContexts.content) {
+            const results = JSON.parse(recentContexts.content[0].text).results;
+
+            if (results && results.length > 0) {
+              const topMatch = results[0];
+              // 检查是否是最近 24 小时内的高度相似记忆
+              const createdAt = new Date(topMatch.created_at);
+              const hoursSince =
+                (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+
+              if (hoursSince < 24 && topMatch.similarity_score > 0.85) {
+                duplicateWarning = `⚠️ Potential duplicate detected: Similar context exists (ID: ${
+                  topMatch.id
+                }, similarity: ${(topMatch.similarity_score * 100).toFixed(
+                  1
+                )}%, ${hoursSince.toFixed(
+                  1
+                )}h ago). Consider using update_context instead.`;
+                console.error(`[DevMind] ${duplicateWarning}`);
+              }
+            }
+          }
+        } catch (error) {
+          // 静默失败，不影响记录流程
+          console.error("[DevMind] Duplicate detection failed:", error);
+        }
+      }
+
       // 自动获取或创建会话（如果未提供 session_id）
       let sessionId = args.session_id;
       let autoSessionMeta: any = {};
@@ -1760,6 +1821,11 @@ Returns contexts with previews, sorted by creation time (newest first).`,
       }
 
       responseText += `\nContext ID: ${contextId}`;
+
+      // 重复警告信息 (v2.4.7)
+      if (duplicateWarning) {
+        responseText += `\n\n${duplicateWarning}`;
+      }
 
       // 多文件信息
       if (isMultiFileContext && args.files_changed) {

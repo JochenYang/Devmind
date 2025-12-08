@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.7] - 2025-12-07
+
+### Added
+
+- **Smart Duplicate Detection**: Automatically detects similar memories before recording
+  - Searches recent 24-hour memories with 85% similarity threshold
+  - Warns AI when potential duplicate is found
+  - Suggests using `update_context` instead of creating duplicates
+  - Minimal performance impact (~50-100ms, only during recording)
+
+### Improved
+
+- **Enhanced `update_context` Tool Description**: Now clearly explains when and how to use
+  - Added explicit use cases: user requests + AI discovers duplicates
+  - Provided clear workflow for avoiding duplicate memories
+  - Emphasized importance of keeping memory clean
+  
+- **Enhanced `record_context` Tool Description**: Added "BEFORE RECORDING" guidance
+  - Prompts AI to search for similar contexts first
+  - Suggests using `update_context` for duplicates
+  - Helps maintain clean and organized memory
+
+### Impact
+
+- Reduces duplicate memory records
+- Improves memory quality and maintainability
+- Guides AI to use tools correctly
+- Keeps memory database clean and efficient
+
 ## [2.4.6] - 2025-12-07
 
 ### Fixed
