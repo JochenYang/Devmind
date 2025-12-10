@@ -34,10 +34,12 @@ export class SessionManager {
       const projects = this.db.getAllProjects();
       projects.forEach((project: any) => {
         const activeSessions = this.db.getActiveSessions(project.id);
+        // 🔧 修复：使用规范化后的路径作为缓存键
+        const normalizedPath = normalizeProjectPath(project.path);
         activeSessions.forEach(session => {
-          this.activeSessions.set(project.path, session.id);
+          this.activeSessions.set(normalizedPath, session.id);
           this.sessionCache.set(session.id, session);
-          this.lastAccessedProject = project.path;
+          this.lastAccessedProject = normalizedPath;
         });
       });
       console.error(`[SessionManager] Preloaded ${this.activeSessions.size} active sessions`);

@@ -452,22 +452,34 @@ If you want to customize behavior, create `.devmind.json` in your project root:
 ```json
 {
   "database_path": "~/.devmind/memory.db",
-  "max_contexts": 1000,
-  "search_limit": 20,
-  "auto_cleanup": true,
-  "vector_dimensions": 1536
+  "quality_threshold": 0.3,
+  "embedding_model": "local",
+  "auto_save_interval": 30000,
+  "ignored_patterns": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**"
+  ],
+  "included_extensions": [
+    ".js",
+    ".ts",
+    ".py",
+    ".go"
+  ]
 }
 ```
 
 ### Configuration Options
 
-| Option              | Type    | Default                | Description                              |
-|---------------------|---------|------------------------|------------------------------------------|
-| `database_path`     | string  | `~/.devmind/memory.db` | SQLite database file location            |
-| `max_contexts`      | number  | `1000`                 | Maximum stored contexts                  |
-| `search_limit`      | number  | `20`                   | Default search result limit              |
-| `auto_cleanup`      | boolean | `true`                 | Enable automatic cleanup of old contexts |
-| `vector_dimensions` | number  | `1536`                 | Vector embedding dimensions              |
+| Option               | Type     | Default                  | Description                              |
+|----------------------|----------|--------------------------|------------------------------------------|
+| `database_path`      | string   | `~/.devmind/memory.db`   | SQLite database file location            |
+| `quality_threshold`  | number   | `0.3`                    | Minimum quality score for context storage|
+| `embedding_model`    | string   | `"local"`                | Embedding model for vector search        |
+| `auto_save_interval` | number   | `30000` (30 seconds)     | Auto-save interval in milliseconds       |
+| `ignored_patterns`   | string[] | See example above        | Glob patterns to ignore                  |
+| `included_extensions`| string[] | See example above        | File extensions to include               |
 
 ### Recommended System Prompt Configuration
 

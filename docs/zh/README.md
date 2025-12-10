@@ -446,22 +446,34 @@ DevMind 开箱即用，具有合理的默认配置。配置文件是**完全可�
 ```json
 {
   "database_path": "~/.devmind/memory.db",
-  "max_contexts": 1000,
-  "search_limit": 20,
-  "auto_cleanup": true,
-  "vector_dimensions": 1536
+  "quality_threshold": 0.3,
+  "embedding_model": "local",
+  "auto_save_interval": 30000,
+  "ignored_patterns": [
+    "node_modules/**",
+    ".git/**",
+    "dist/**",
+    "build/**"
+  ],
+  "included_extensions": [
+    ".js",
+    ".ts",
+    ".py",
+    ".go"
+  ]
 }
 ```
 
 ### 配置选项
 
-| 选项                | 类型    | 默认值                 | 描述                 |
-|---------------------|---------|------------------------|----------------------|
-| `database_path`     | string  | `~/.devmind/memory.db` | SQLite数据库文件位置 |
-| `max_contexts`      | number  | `1000`                 | 最大存储上下文数量   |
-| `search_limit`      | number  | `20`                   | 默认搜索结果限制     |
-| `auto_cleanup`      | boolean | `true`                 | 启用旧上下文自动清理 |
-| `vector_dimensions` | number  | `1536`                 | 向量嵌入维度         |
+| 选项                 | 类型     | 默认值                   | 描述                              |
+|----------------------|----------|---------------------------|-----------------------------------|
+| `database_path`      | string   | `~/.devmind/memory.db`    | SQLite数据库文件位置             |
+| `quality_threshold`  | number   | `0.3`                     | 上下文存储的最低质量分数         |
+| `embedding_model`    | string   | `"local"`                 | 向量搜索的嵌入模型               |
+| `auto_save_interval` | number   | `30000` (30秒)            | 自动保存间隔（毫秒）             |
+| `ignored_patterns`   | string[] | 参见上方示例              | 要忽略的glob模式                 |
+| `included_extensions`| string[] | 参见上方示例              | 要包含的文件扩展名               |
 
 ### 推荐的系统提示词配置
 

@@ -69,37 +69,43 @@ export function findProjectRoot(startPath: string, maxDepth: number = 10): strin
   // 向上查找项目根目录
   let depth = 0;
   let previousPath = '';
-  
+
   while (depth < maxDepth && currentPath !== previousPath) {
-    // 检查是否存在项目根标识文件
+    // 检查当前目录是否有项目根标识文件
+    let hasIndicator = false;
     for (const indicator of PROJECT_ROOT_INDICATORS) {
       const indicatorPath = join(currentPath, indicator);
-      
+
       if (existsSync(indicatorPath)) {
-        console.error(`[ProjectRootFinder] Found project root at: ${currentPath} (indicator: ${indicator})`);
-        return currentPath;
+        hasIndicator = true;
+        break;
       }
     }
-    
-    // 移动到父目录
+
+    if (hasIndicator) {
+      console.error(`[ProjectRootFinder] Found project root at: ${currentPath} (indicator found)`);
+      return currentPath;
+    }
+
+    // 移动到父目录继续查找
     previousPath = currentPath;
     currentPath = dirname(currentPath);
     depth++;
-    
+
     // Windows 盘符检测（到达根目录）
     if (/^[a-zA-Z]:\\?$/.test(currentPath)) {
       break;
     }
-    
+
     // Unix 根目录检测
     if (currentPath === '/') {
       break;
     }
   }
-  
-  // 未找到项目根标识，返回原始路径
-  console.error(`[ProjectRootFinder] No project root found, using original path: ${normalizedPath}`);
-  return normalizedPath;
+
+  // 未找到任何项目根标识，返回当前目录的父目录（确保始终使用父目录）
+  console.error(`[ProjectRootFinder] No project root found, using parent directory: ${normalizedPath}`);
+  return dirname(normalizedPath);
 }
 
 /**

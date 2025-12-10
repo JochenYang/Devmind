@@ -101,7 +101,6 @@ export class AiMemoryMcpServer {
   constructor(config: AiMemoryConfig = {}) {
     this.config = {
       database_path: join(homedir(), ".devmind", "memory.db"),
-      max_contexts_per_session: 1000,
       quality_threshold: 0.3,
       auto_save_interval: 30000, // 30 seconds
       ignored_patterns: [
@@ -1300,8 +1299,14 @@ YOU SHOULD:
         // 找到第一个有效目录
         for (const dir of potentialDirs) {
           if (existsSync(dir)) {
-            inferredProjectPath = dir;
+            // 修复：强制查找父目录（项目根）
+            const parentDir = findProjectRoot(dir);
+            const normalizedPath = normalizeProjectPath(parentDir);
+            inferredProjectPath = normalizedPath;
             autoSessionMeta.inferred_project_path = true;
+            console.error(
+              `[DevMind] Inferred project path: ${dir} -> ${inferredProjectPath}`
+            );
             break;
           }
         }

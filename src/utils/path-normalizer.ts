@@ -15,12 +15,19 @@ import { resolve } from 'path';
 export function normalizeProjectPath(projectPath: string): string {
   // 首先使用Node.js的resolve进行路径规范化
   let normalizedPath = resolve(projectPath);
-  
+
   // 在Windows平台上，统一转换为小写以避免大小写不一致问题
   if (process.platform === 'win32') {
     normalizedPath = normalizedPath.toLowerCase();
+    // 处理Unix风格路径（以/开头）在Windows上的问题
+    // 例如：/d/codes/project 被 resolve 为 d:\d\codes\project
+    // 需要修正为 d:\codes\project
+    const driveMatch = normalizedPath.match(/^([a-z]):\\d+\\(.+)$/);
+    if (driveMatch) {
+      normalizedPath = `${driveMatch[1]}:\\${driveMatch[2]}`;
+    }
   }
-  
+
   return normalizedPath;
 }
 

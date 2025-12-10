@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.8] - 2025-12-10
+
+### Fixed
+
+- **Session ID Detection**: Fixed critical issue where subdirectories created separate sessions
+  - Now correctly associates subdirectory operations with parent directory session
+  - Supports empty directories (no git/gitignore required)
+  - Ensures single session per project across all subdirectories
+  - Fixed Windows path normalization for Unix-style paths
+
+- **Removed Dead Configuration**: Cleaned up unused `max_contexts_per_session` config
+  - Eliminated misleading configuration options
+  - Aligned documentation with actual code implementation
+  - Clarified DevMind's design philosophy: unlimited complete development memory
+
+### Changed
+
+- **Enhanced Path Resolution**: Improved project root detection logic
+  - Forces project root lookup in all path inference scenarios
+  - Ensures consistent cache key normalization
+  - Better handling of Windows path case sensitivity
+
+### Impact
+
+- **For Users**: No duplicate sessions, cleaner memory organization
+- **For AI**: More predictable session management across project subdirectories
+- **Performance**: Faster session lookup with improved caching
+
 ## [2.4.7] - 2025-12-07
 
 ### Added

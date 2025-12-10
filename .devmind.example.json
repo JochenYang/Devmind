@@ -1,6 +1,5 @@
 {
   "database_path": "~/.devmind/memory.db",
-  "max_contexts_per_session": 1000,
   "quality_threshold": 0.3,
   "embedding_model": "local",
   "auto_save_interval": 30000,

@@ -226,7 +226,6 @@ export interface SessionCreateParams {
 // 配置类型
 export interface AiMemoryConfig {
   database_path?: string;
-  max_contexts_per_session?: number;
   quality_threshold?: number;
   embedding_model?: string;
   auto_save_interval?: number;

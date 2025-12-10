@@ -1,6 +1,5 @@
 {
   "database_path": "C:\\Users\\Administrator\\.devmind\\memory.db",
-  "max_contexts_per_session": 1000,
   "quality_threshold": 0.3,
   "ignored_patterns": [
     "node_modules/**",
