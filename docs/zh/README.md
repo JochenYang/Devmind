@@ -154,17 +154,6 @@ devmind-mcp/
 │   │   ├── IgnoreProcessor.ts       # .gitignore 和 .augmentignore 规则
 │   │   └── types.ts                 # 类型定义
 │   │
-│   ├── utils/
-│   │   ├── file-path-detector.ts    # 智能文件检测
-│   │   ├── git-diff-parser.ts       # Git diff解析
-│   │   ├── path-normalizer.ts       # 跨平台路径处理
-│   │   ├── project-root-finder.ts   # 项目根目录查找 (v2.1.11+)
-│   │   ├── language-detector.ts     # 编程语言检测
-│   │   ├── query-enhancer.ts        # 搜索查询增强 (v2.2.0+)
-│   │   ├── auto-memory-classifier.ts # 自动记忆分类 (v2.2.0+)
-│   │   ├── context-enricher.ts      # 上下文增强 (v2.2.0+)
-│   │   ├── batch-processor.ts       # 批处理器 (v2.2.0+)
-│   │   └── performance-optimizer.ts # 性能优化 (v2.2.0+)
 │
 ├── dist/                            # 编译输出
 ├── scripts/                         # 维护脚本
@@ -334,7 +323,90 @@ DevMind为您的AI助手提供 **15个强大工具**:
 
 **v1.19 新功能**：记忆图谱采用清晰的垂直时间轴布局，固定节点位置，性能优化。
 
+### ContextEngine (v2.4.9 新功能)
 
+ContextEngine 是一个强大的代码库索引系统，能够自动扫描和索引整个项目，为智能搜索和代码发现提供支持。
+
+#### 核心特性
+
+- **全面文件扫描** - 递归扫描所有项目文件，支持 20+ 种编程语言
+- **智能过滤** - 内置支持 `.gitignore` 和 `.augmentignore` 排除模式
+- **增量索引** - 基于 SHA-256 哈希仅重新索引变更文件，提高效率
+- **独立存储** - 使用独立的 `file_index` 表，避免污染开发记忆
+- **二进制文件检测** - 自动跳过二进制文件（图像、可执行文件等）
+- **语言检测** - 自动检测并分类编程语言
+
+#### 工作原理
+
+```text
+项目目录
+    │
+    ▼
+┌─────────────────────┐
+│   文件扫描器        │  1. 递归扫描所有文件
+│                     │  2. 应用忽略规则
+│   - 递归扫描        │  3. 检测文件类型
+│   - 文件过滤        │  4. 跳过二进制文件
+└─────────────────────┘
+    │
+    ▼
+┌─────────────────────┐
+│  忽略处理器         │  1. 加载 .gitignore 规则
+│                     │  2. 加载 .augmentignore 规则
+│   - .gitignore      │  3. 应用内置默认规则
+│   - .augmentignore  │  4. 过滤文件
+│   - 内置规则        │
+└─────────────────────┘
+    │
+    ▼
+┌─────────────────────┐
+│  数据库存储         │  1. 存储到 file_index 表
+│                     │  2. 生成文件哈希
+│   - file_index      │  3. 索引以便搜索
+│   - SHA-256 哈希    │
+└─────────────────────┘
+```
+
+#### 默认排除项
+
+ContextEngine 自动排除以下常见目录和文件：
+
+- **版本控制**: `.git/`, `.svn/`, `.hg/`
+- **依赖包**: `node_modules/`, `vendor/`, `.composer/`
+- **构建输出**: `dist/`, `build/`, `out/`, `.next/`, `.vite/`, `target/`
+- **日志和临时文件**: `*.log`, `*.tmp`, `*.temp`, `.DS_Store`, `Thumbs.db`
+- **IDE 文件**: `.vscode/`, `.idea/`, `*.swp`
+- **覆盖率报告**: `coverage/`, `.nyc_output/`, `.pytest_cache/`
+
+#### 使用示例
+
+```typescript
+// 索引整个代码库
+await codebase({
+  project_path: "/path/to/my-project"
+});
+
+// 强制重新索引所有文件
+await codebase({
+  project_path: "/path/to/my-project",
+  force_reindex: true
+});
+
+// 索引后，使用 semantic_search 进行查询
+const results = await semantic_search({
+  query: "身份验证是如何实现的？",
+  project_path: "/path/to/my-project"
+});
+```
+
+#### 与语义搜索的集成
+
+索引完成后，ContextEngine 的文件会自动包含在 `semantic_search` 结果中，与开发记忆上下文一起。这使 AI 助手能够：
+
+- 在代码库中找到特定实现
+- 理解项目不同部分如何协同工作
+- 从实际文件中检索代码模式和示例
+- 回答关于项目架构的问题
 
 ### 使用示例
 
@@ -381,63 +453,6 @@ const results = await semantic_search({
 
 ---
 
-## 专业文档生成
-
-### 概述
-
-DevMind 的**项目分析工程师**使用AI自动分析您的代码库并生成全面、专业的文档。这种强大的基于提示的方法提供了比传统静态分析更深入的洞察。
-
-### 主要特性
-
-- **AI驱动分析** - 深入理解代码模式、架构和业务逻辑
-- **多语言支持** - 自动检测并生成中文或英文文档
-- **专业品质** - 生成具有技术深度的DEVMIND.md格式文档
-- **自动保存到记忆** - 文档自动保存到您项目的记忆中以便未来参考
-- **可自定义焦点** - 针对架构、API、业务逻辑或安全等特定领域
-- **多种格式** - 支持DEVMIND.md、技术规格和README格式
-
-### 工作原理
-
-```text
-项目扫描 → 代码分析 → AI处理 → 专业文档 → 记忆存储
-       │            │         │          │             │
-   智能文件     提取技术  生成深入  创建 DEVMIND.md  自动保存到
-   选择         洞察        分析        文档           可搜索数据库
-```
-
-### 使用方法
-
-#### 自然语言生成
-
-**中文:**
-- "为这个项目生成专业的DevMind文档"
-- "创建全面的技术分析，使用DEVMIND.md格式"
-- "分析这个代码库并生成专业文档"
-
-**英文:**
-- "Generate professional DevMind documentation for this project"
-- "Create comprehensive technical analysis with DEVMIND.md format"
-- "Analyze this codebase and generate professional documentation"
-
-#### 直接提示使用
-
-```typescript
-// 中文文档
-const analysis = await project_analysis_engineer({
-  project_path: "./my-project",
-  doc_style: "devmind",
-  language: "zh"
-});
-
-// 英文文档(自动检测)
-const analysis = await project_analysis_engineer({
-  project_path: "./english-project",
-  doc_style: "devmind",
-  language: "en"
-});
-```
-
----
 
 ## 配置设置
 
@@ -554,44 +569,6 @@ const id = await record_context({
 
 ---
 
-#### `project_analysis_engineer(options: AnalysisOptions): Promise<AnalysisPrompt>`
-
-**新功能!** 使用AI驱动的分析生成专业项目文档。
-
-**参数:**
-
-- `project_path` (string) - 项目目录路径
-- `analysis_focus` (string) - 关注领域: `architecture,entities,apis,business_logic` 
-- `doc_style` (string) - 文档风格: `devmind`、`claude`、`technical`、`readme`
-- `language` (string) - 文档语言: `en`、`zh`、`auto` (默认: 自动检测)
-- `auto_save` (boolean) - 自动保存分析结果到内存 (默认: true)
-
-**返回:** 用于AI生成全面文档的分析提示
-
-**示例:**
-
-```typescript
-// 英文文档
-const analysis = await project_analysis_engineer({
-  project_path: "./my-project",
-  doc_style: "devmind",
-  language: "en"
-});
-
-// 中文文档(自动检测或明确指定)
-const analysis = await project_analysis_engineer({
-  project_path: "./my-chinese-project",
-  doc_style: "devmind",
-  language: "zh"
-});
-```
-
-**自然语言示例:**
-- "为这个项目生成专业的DevMind文档"
-- "Generate professional DevMind documentation for this project" (英文)
-- "创建全面的技术分析，使用DEVMIND.md格式"
-
----
 
 #### `semantic_search(query: SearchQuery): Promise<Context[]>`
 
@@ -619,11 +596,6 @@ const results = await semantic_search({
 
 ---
 
-#### `retrieve(id: string): Promise<Context | null>`
-
-通过ID获取特定上下文。
-
----
 
 #### `update_context(id: string, updates: Partial<ContextData>): Promise<boolean>`
 
@@ -740,32 +712,6 @@ npm run type-check
 
 # 代码检查
 npm run lint
-```
-
-### 测试
-
-```bash
-# 运行所有测试
-npm test
-
-# 带覆盖率运行
-npm run test:coverage
-
-# 运行特定测试套件
-npm test -- --grep "搜索功能"
-```
-
-### 构建
-
-```bash
-# 生产构建
-npm run build
-
-# 开发构建(带监听)
-npm run build:dev
-
-# 清理构建产物
-npm run clean
 ```
 
 

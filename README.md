@@ -326,7 +326,90 @@ DevMind provides **15 powerful tools** for your AI assistant:
 
 **New in v1.19**: Memory graph features a clean vertical timeline layout with fixed node positioning and optimized performance.
 
+### ContextEngine (New in v2.4.9)
 
+ContextEngine is a powerful codebase indexing system that automatically scans and indexes your entire project for intelligent search and code discovery.
+
+#### Key Features
+
+- **Comprehensive File Scanning** - Recursively scans all project files with support for 20+ programming languages
+- **Smart Filtering** - Built-in support for `.gitignore` and `.augmentignore` exclusion patterns
+- **Incremental Indexing** - Only re-indexes changed files based on SHA-256 hashes for efficiency
+- **Independent Storage** - Uses separate `file_index` table to avoid polluting development memory
+- **Binary File Detection** - Automatically skips binary files (images, executables, etc.)
+- **Language Detection** - Automatically detects and categorizes programming languages
+
+#### How It Works
+
+```text
+Project Directory
+    │
+    ▼
+┌─────────────────────┐
+│   FileScanner       │  1. Recursively scan all files
+│                     │  2. Apply ignore rules
+│   - Recursive scan  │  3. Detect file types
+│   - File filtering  │  4. Skip binaries
+└─────────────────────┘
+    │
+    ▼
+┌─────────────────────┐
+│  IgnoreProcessor    │  1. Load .gitignore rules
+│                     │  2. Load .augmentignore rules
+│   - .gitignore      │  3. Apply built-in defaults
+│   - .augmentignore  │  4. Filter files
+│   - Built-in rules  │
+└─────────────────────┘
+    │
+    ▼
+┌─────────────────────┐
+│  Database Storage   │  1. Store in file_index table
+│                     │  2. Generate file hashes
+│   - file_index      │  3. Index for search
+│   - SHA-256 hashes  │
+└─────────────────────┘
+```
+
+#### Default Exclusions
+
+ContextEngine automatically excludes common directories and files:
+
+- **Version Control**: `.git/`, `.svn/`, `.hg/`
+- **Dependencies**: `node_modules/`, `vendor/`, `.composer/`
+- **Build Outputs**: `dist/`, `build/`, `out/`, `.next/`, `.vite/`, `target/`
+- **Logs & Temp**: `*.log`, `*.tmp`, `*.temp`, `.DS_Store`, `Thumbs.db`
+- **IDE Files**: `.vscode/`, `.idea/`, `*.swp`
+- **Coverage**: `coverage/`, `.nyc_output/`, `.pytest_cache/`
+
+#### Usage Example
+
+```typescript
+// Index your entire codebase
+await codebase({
+  project_path: "/path/to/my-project"
+});
+
+// Force re-index all files
+await codebase({
+  project_path: "/path/to/my-project",
+  force_reindex: true
+});
+
+// After indexing, use semantic_search to query
+const results = await semantic_search({
+  query: "How is authentication implemented?",
+  project_path: "/path/to/my-project"
+});
+```
+
+#### Integration with Semantic Search
+
+Once indexed, ContextEngine files are automatically included in `semantic_search` results alongside development memory contexts. This enables AI assistants to:
+
+- Find specific implementations across your codebase
+- Understand how different parts of your project work together
+- Retrieve code patterns and examples from your actual files
+- Answer questions about your project's architecture
 
 ### Usage Examples
 
@@ -562,11 +645,6 @@ const results = await semantic_search({
 
 ---
 
-#### `retrieve(id: string): Promise<Context | null>`
-
-Retrieve specific context by ID.
-
----
 
 #### `update_context(id: string, updates: Partial<ContextData>): Promise<boolean>`
 
@@ -676,32 +754,6 @@ npm run type-check
 
 # Linting
 npm run lint
-```
-
-### Testing
-
-```bash
-# Run all tests
-npm test
-
-# Run with coverage
-npm run test:coverage
-
-# Run specific test suite
-npm test -- --grep "search functionality"
-```
-
-### Building
-
-```bash
-# Production build
-npm run build
-
-# Development build with watch
-npm run build:dev
-
-# Clean build artifacts
-npm run clean
 ```
 
 
