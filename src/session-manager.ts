@@ -212,7 +212,7 @@ export class SessionManager {
    * @returns 检测到的项目路径或undefined
    */
   private autoDetectProjectPath(): string | undefined {
-    // 优先级顺序（参考v2.1.15实现）
+    // 优先级顺序（改进版 v2.5.0）
     const potentialPaths = [
       process.env.INIT_CWD,      // npm/npx初始目录
       process.env.PWD,            // Unix工作目录
@@ -220,11 +220,44 @@ export class SessionManager {
       process.cwd(),              // Node.js当前目录
     ].filter(Boolean) as string[];
 
-    // 找到第一个存在的目录
+    // 多项目检测：尝试找到最匹配的项目
+    let bestMatch: string | undefined;
+    let maxScore = 0;
+
     for (const dir of potentialPaths) {
       try {
-        if (existsSync(dir)) {
-          return normalizeProjectPath(dir);
+        if (!existsSync(dir)) continue;
+
+        const projectRoot = findProjectRoot(dir);
+        const normalizedPath = normalizeProjectPath(projectRoot);
+
+        // 计算匹配分数
+        let score = 0;
+        const project = this.db.getProjectByPath(normalizedPath);
+
+        // 如果项目已存在，加分
+        if (project) {
+          score += 10;
+          // 如果是最近访问的项目，额外加分
+          if (this.lastAccessedProject === normalizedPath) {
+            score += 20;
+          }
+        }
+
+        // 如果目录有 .git，加分
+        try {
+          if (existsSync(`${projectRoot}/.git`)) {
+            score += 5;
+          }
+        } catch (e) {
+          // 忽略错误
+        }
+
+        console.log(`[SessionManager] Project detection score for ${normalizedPath}: ${score}`);
+
+        if (score > maxScore) {
+          maxScore = score;
+          bestMatch = normalizedPath;
         }
       } catch (error) {
         // 跳过无法访问的目录
@@ -232,7 +265,15 @@ export class SessionManager {
       }
     }
 
-    return undefined;
+    if (bestMatch) {
+      console.log(`[SessionManager] Auto-detected project path (score: ${maxScore}): ${bestMatch}`);
+      return bestMatch;
+    }
+
+    // 兜底：返回规范化后的当前目录
+    const fallbackDir = normalizeProjectPath(process.cwd());
+    console.warn(`[SessionManager] No suitable project found, using fallback: ${fallbackDir}`);
+    return fallbackDir;
   }
 
   /**

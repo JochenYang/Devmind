@@ -1535,6 +1535,48 @@ Note: This only deletes the file index, not your development memory contexts.`,
         }
       }
 
+      // === 多项目场景验证 (v2.5.0) ===
+      if (inferredProjectPath) {
+        try {
+          // 获取所有项目进行对比
+          const allProjects = this.db.getAllProjects();
+          if (allProjects.length > 1) {
+            const currentProject = allProjects.find(
+              (p: any) => p.path === inferredProjectPath
+            );
+            if (currentProject) {
+              // 检查是否有多个最近活跃的项目
+              const recentProjects = allProjects
+                .filter((p: any) => {
+                  const lastAccess = new Date(p.last_accessed || 0);
+                  const daysSince = (Date.now() - lastAccess.getTime()) / (1000 * 60 * 60 * 24);
+                  return daysSince < 7; // 最近7天访问过的项目
+                })
+                .sort((a: any, b: any) => {
+                  const aTime = new Date(a.last_accessed || 0).getTime();
+                  const bTime = new Date(b.last_accessed || 0).getTime();
+                  return bTime - aTime; // 按访问时间倒序
+                });
+
+              if (recentProjects.length > 1 && currentProject.id !== recentProjects[0].id) {
+                console.warn(
+                  `[DevMind] ⚠️ 多项目检测: 检测到 ${recentProjects.length} 个最近活跃项目，当前操作将记录到: ${currentProject.name}`
+                );
+                console.warn(
+                  `[DevMind] 💡 建议: 在多项目开发时，请在 record_context 中明确指定 project_path 参数以避免混淆`
+                );
+                autoSessionMeta.multi_project_warning = true;
+                autoSessionMeta.current_project = currentProject.name;
+                autoSessionMeta.recent_projects = recentProjects.map((p: any) => p.name);
+              }
+            }
+          }
+        } catch (error) {
+          // 静默失败，不影响正常流程
+          console.warn("[DevMind] Multi-project validation failed:", error);
+        }
+      }
+
       if (!sessionId && inferredProjectPath) {
         // 尝试获取活跃会话
         const currentSessionId = await this.sessionManager.getCurrentSession(
@@ -2932,24 +2974,51 @@ Note: This only deletes the file index, not your development memory contexts.`,
         console.error("[AI Enhancement] Query enhancement failed:", error);
       }
 
-      // 获取用于搜索的contexts
+      // 获取用于搜索的contexts（开发记忆）
       const allContexts = this.db.getContextsForVectorSearch(
         projectId,
         args.session_id
       );
 
-      if (allContexts.length === 0) {
+      // 获取代码库索引文件
+      const allFileIndex = this.db.getFileIndexForVectorSearch(
+        projectId,
+        args.session_id
+      );
+
+      // 转换 file_index 为兼容格式以便搜索
+      const fileIndexAsContexts = allFileIndex.map((file) => ({
+        id: file.id,
+        session_id: file.session_id,
+        project_id: file.project_id,
+        content: file.content,
+        type: "code" as ContextType, // 使用 ContextType.CODE 表示代码文件
+        tags: file.tags,
+        file_path: file.file_path,
+        created_at: file.indexed_at,
+        updated_at: file.modified_time,
+        quality_score: 0.95, // 提升代码文件优先级，确保"如何实现"类查询优先返回代码
+        embedding_text: undefined, // 文件没有预生成的embedding
+        metadata: file.metadata,
+      }));
+
+      // 合并开发记忆和代码库索引
+      const allSearchData = [...allContexts, ...fileIndexAsContexts];
+
+      if (allSearchData.length === 0) {
         return {
           content: [
             {
               type: "text",
-              text: "No contexts with embeddings found. Try running generate_embeddings first.",
+              text: "No contexts or codebase files found. Try running generate_embeddings first or index your codebase.",
             },
           ],
           isError: false,
           _meta: {
             query: args.query,
             results: [],
+            contexts_count: 0,
+            files_count: 0,
           },
         };
       }
@@ -2958,7 +3027,7 @@ Note: This only deletes the file index, not your development memory contexts.`,
       const searchParams = {
         query: args.query,
         use_semantic_search: true,
-        limit: args.limit || 10,
+        limit: args.limit || 20, // 增加默认限制以包含更多结果
         similarity_threshold:
           args.similarity_threshold ||
           this.config.vector_search?.similarity_threshold ||
@@ -2967,18 +3036,18 @@ Note: This only deletes the file index, not your development memory contexts.`,
           args.hybrid_weight || this.config.vector_search?.hybrid_weight || 0.7,
       };
 
-      // 获取关键词搜索结果作为基线
+      // 获取关键词搜索结果作为基线（仅针对开发记忆）
       const keywordResults = this.db.searchContexts(
         enhancedQuery,
         projectId,
         searchParams.limit
       );
 
-      // 执行混合搜索
+      // 执行混合搜索（搜索所有数据：记忆 + 代码库）
       let results = await this.vectorSearch.hybridSearch(
         enhancedQuery,
         keywordResults,
-        allContexts,
+        allSearchData,
         searchParams
       );
 
@@ -3197,10 +3266,13 @@ Note: This only deletes the file index, not your development memory contexts.`,
           query: args.query,
           enhanced_query: enhancedQuery,
           total_contexts_searched: allContexts.length,
+          total_files_searched: allFileIndex.length,
           results_count: formattedResults.length,
           results: formattedResults,
           search_params: searchParams,
           query_enhancement: queryEnhancementMeta,
+          contexts_count: allContexts.length,
+          files_count: allFileIndex.length,
         },
       };
     } catch (error) {

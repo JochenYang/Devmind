@@ -990,6 +990,69 @@ export class DatabaseManager {
     return stmt.all(...params) as Context[];
   }
 
+  /**
+   * 获取用于向量搜索的代码库索引文件
+   */
+  getFileIndexForVectorSearch(
+    projectId?: string,
+    sessionId?: string
+  ): Array<{
+    id: string;
+    project_id: string;
+    session_id: string;
+    file_path: string;
+    relative_path: string;
+    content: string;
+    language?: string;
+    file_type?: string;
+    size: number;
+    modified_time: string;
+    indexed_at: string;
+    hash: string;
+    tags: string;
+    metadata: string;
+  }> {
+    let sql = `
+      SELECT fi.* FROM file_index fi
+    `;
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (projectId) {
+      conditions.push("fi.project_id = ?");
+      params.push(projectId);
+    }
+
+    if (sessionId) {
+      conditions.push("fi.session_id = ?");
+      params.push(sessionId);
+    }
+
+    if (conditions.length > 0) {
+      sql += " WHERE " + conditions.join(" AND ");
+    }
+
+    sql += ` ORDER BY fi.modified_time DESC`;
+
+    const stmt = this.db.prepare(sql);
+    return stmt.all(...params) as Array<{
+      id: string;
+      project_id: string;
+      session_id: string;
+      file_path: string;
+      relative_path: string;
+      content: string;
+      language?: string;
+      file_type?: string;
+      size: number;
+      modified_time: string;
+      indexed_at: string;
+      hash: string;
+      tags: string;
+      metadata: string;
+    }>;
+  }
+
   getEmbeddingStats(): {
     total: number;
     withEmbedding: number;

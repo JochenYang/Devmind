@@ -5,6 +5,52 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0] - 2025-12-16
+
+### Fixed
+
+- **Critical: semantic_search Core Defect Fixed**: Previously, semantic_search only searched development memory (contexts table) while completely ignoring ContextEngine-indexed code files (file_index table), causing the "full project understanding" feature to fail
+  - **Database Layer**: Added `getFileIndexForVectorSearch()` method to query file_index table
+  - **Search Logic**: Modified `handleSemanticSearch()` to query both contexts and file_index
+  - **Data Conversion**: Convert file_index records to Context-compatible format
+  - **Priority Optimization**: Code file quality score increased from 0.8 to 0.95
+  - **Project Detection**: Improved path detection logic for multi-project scenarios
+  - **Smart Warnings**: Detect multiple active projects and warn users to explicitly specify project_path
+
+### Added
+
+- **Enhanced Project Detection**: Multi-factor scoring system for project path detection
+  - Existing projects get +10 points
+  - Recently accessed projects get additional +20 points
+  - Projects with .git directory get +5 points
+  - Detailed logging for troubleshooting
+
+- **Multi-Project Warnings**: Smart detection and user guidance
+  - Detects multiple recently active projects (within 7 days)
+  - Warns when operations might be recorded to non-most-recent project
+  - Provides clear usage recommendations
+
+### Changed
+
+- **Search Result Ranking**: Code files now prioritized for "how to implement" queries
+  - Code files: quality_score 0.95 (was 0.8)
+  - Development memory: quality_score 0.9
+  - Combined with QueryEnhancer file type weights for optimal results
+
+### Impact
+
+- **For Users**: Can now perform true "full project understanding" queries in natural language
+- **For Developers**: Code discovery and project understanding significantly improved
+- **Multi-Project Support**: Better isolation and warnings for multi-project development scenarios
+- **Performance**: Unified search across memory and codebase without performance degradation
+
+### Testing
+
+- Created comprehensive test script `test-semantic-search.js` validating the fix
+- Verified development memory + codebase index simultaneous search
+- Confirmed code file priority for "implementation" queries
+- TypeScript compilation passes with no errors
+
 ## [2.4.9] - 2025-12-16
 
 ### Added
