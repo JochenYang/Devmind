@@ -333,7 +333,7 @@ ContextEngine is a powerful codebase indexing system that automatically scans an
 #### Key Features
 
 - **Comprehensive File Scanning** - Recursively scans all project files with support for 20+ programming languages
-- **Smart Filtering** - Built-in support for `.gitignore` and `.augmentignore` exclusion patterns
+- **Smart Filtering** - Automatically applies ignore rules to exclude irrelevant files and directories
 - **Incremental Indexing** - Only re-indexes changed files based on SHA-256 hashes for efficiency
 - **Independent Storage** - Uses separate `file_index` table to avoid polluting development memory
 - **Binary File Detection** - Automatically skips binary files (images, executables, etc.)
@@ -354,11 +354,9 @@ Project Directory
     │
     ▼
 ┌─────────────────────┐
-│  IgnoreProcessor    │  1. Load .gitignore rules
-│                     │  2. Load .augmentignore rules
-│   - .gitignore      │  3. Apply built-in defaults
-│   - .augmentignore  │  4. Filter files
-│   - Built-in rules  │
+│  IgnoreProcessor    │  1. Apply ignore rules
+│                     │  2. Filter files
+│   - Smart filtering │
 └─────────────────────┘
     │
     ▼
