@@ -1,6 +1,6 @@
 {
   "name": "devmind-mcp",
-  "version": "2.4.8",
+  "version": "2.4.9",
   "description": "DevMind MCP - AI Assistant Memory System - Pure MCP Tool",
   "main": "dist/index.js",
   "type": "module",
@@ -28,7 +28,7 @@
   "author": "Jochen",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.24.0",
+    "@modelcontextprotocol/sdk": "^1.25.0",
     "@xenova/transformers": "^2.17.2",
     "better-sqlite3": "^12.4.1",
     "chokidar": "^3.5.3",

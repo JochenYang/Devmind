@@ -20,7 +20,7 @@
 - **纯 MCP 工具** - 通过模型上下文协议与 AI 助手无缝集成
 - **混合搜索** - 语义 40% + 关键词 30% + 质量 20% + 新鲜度 10%
 - **100% 私密** - 所有数据本地存储在 SQLite，零云端传输
-- **15 个 MCP 工具** - 完整的记忆管理和项目分析工具集
+- **15 个 MCP 工具** - 完整的记忆管理和代码库索引工具集
 - **跨平台支持** - 兼容 Claude Code、Cursor 及所有 MCP 客户端
 
 ---
@@ -51,12 +51,11 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 
 - **智能记忆** - AI 助手在每次代码编辑后自动调用 record_context 工具记录变更
 - **语义搜索** - AI驱动的向量嵌入搜索,查找相关上下文
+- **代码库索引** - 索引项目文件用于语义搜索和代码发现
 - **持久存储** - 基于SQLite的本地存储,完全私密
 - **混合搜索** - 结合关键词和语义搜索,获得最佳结果
 - **实时响应** - 开发过程中记录,即时检索
-- **跨工具支持** - 兼容多个MCP客户端和开发环境  
-- **专业文档生成** - AI驱动的项目分析和DEVMIND.md生成
-- **多语言支持** - 自动检测生成中文/英文文档
+- **跨工具支持** - 兼容多个MCP客户端和开发环境
 - **统一会话** - 每个项目一个主会话,保持上下文一致
 
 #### 技术特性
@@ -86,8 +85,8 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 │  │ • Session (4)   │  │                 │  │ • Semantic   │  │
 │  │ • Context (6)   │  │                 │  │ • Keyword    │  │
 │  │ • Project (3)   │  │ • 3 Tiers       │  │ • Quality    │  │
-│  │ • Visualize (1) │  │ • Smart Types   │  │ • Freshness  │  │
-│  │ • Status (1)    │  │ • Lazy Scoring  │  │              │  │
+│  │ • Codebase (2)  │  │ • Smart Types   │  │ • Freshness  │  │
+│  │ • Visualize (1) │  │ • Lazy Scoring  │  │              │  │
 │  └─────────────────┘  └─────────────────┘  └──────────────┘  │
 └────────────────────────┬─────────────────────────────────────┘
                          │
@@ -101,7 +100,7 @@ DevMind MCP 通过模型上下文协议(MCP)为AI助手提供**持久性记忆�
 
 **核心组件:**
 
-- **15 个 MCP 工具** - 会话管理 (4)、上下文操作 (6)、项目功能 (3)、可视化 (1)、状态 (1)
+- **15 个 MCP 工具** - 会话管理 (4)、上下文操作 (6)、项目功能 (3)、代码库索引 (2)、可视化 (1)
 - **类型驱动自动记忆** - 基于上下文类型的简化3层策略
 - **混合搜索** - 多维度评分：语义 40% + 关键词 30% + 质量 20% + 新鲜度 10%
 - **本地存储** - SQLite 数据库，包含向量嵌入和全文搜索索引
@@ -149,19 +148,23 @@ devmind-mcp/
 │   │   ├── batch-processor.ts       # 批处理器 (v2.2.0+)
 │   │   └── performance-optimizer.ts # 性能优化 (v2.2.0+)
 │   │
-│   └── project-indexer/
-│       ├── index.ts                 # 项目分析器入口
-│       ├── core/
-│       │   └── ProjectMemoryOptimizer.ts
-│       ├── strategies/
-│       │   ├── SmartIndexingStrategy.ts
-│       │   └── SecurityStrategy.ts
-│       ├── tools/
-│       │   ├── FileScanner.ts
-│       │   ├── ContentExtractor.ts
-│       │   └── ProjectAnalyzer.ts
-│       └── types/
-│           └── IndexingTypes.ts
+│   ├── context-engine/              # 代码库索引引擎
+│   │   ├── index.ts                 # ContextEngine 主入口
+│   │   ├── FileScanner.ts           # 文件扫描与过滤
+│   │   ├── IgnoreProcessor.ts       # .gitignore 和 .augmentignore 规则
+│   │   └── types.ts                 # 类型定义
+│   │
+│   ├── utils/
+│   │   ├── file-path-detector.ts    # 智能文件检测
+│   │   ├── git-diff-parser.ts       # Git diff解析
+│   │   ├── path-normalizer.ts       # 跨平台路径处理
+│   │   ├── project-root-finder.ts   # 项目根目录查找 (v2.1.11+)
+│   │   ├── language-detector.ts     # 编程语言检测
+│   │   ├── query-enhancer.ts        # 搜索查询增强 (v2.2.0+)
+│   │   ├── auto-memory-classifier.ts # 自动记忆分类 (v2.2.0+)
+│   │   ├── context-enricher.ts      # 上下文增强 (v2.2.0+)
+│   │   ├── batch-processor.ts       # 批处理器 (v2.2.0+)
+│   │   └── performance-optimizer.ts # 性能优化 (v2.2.0+)
 │
 ├── dist/                            # 编译输出
 ├── scripts/                         # 维护脚本
@@ -276,15 +279,16 @@ claude add mcp npx -y devmind-mcp@2.4.1
 
 ### MCP工具速查
 
-DevMind为您的AI助手提供 **15个强大工具** 和 **1个专业提示**:
+DevMind为您的AI助手提供 **15个强大工具**:
 
-#### 项目分析
+#### 代码库索引
 
-| 工具                        | 用途                   | 使用示例           |
-|-----------------------------|------------------------|--------------------|
-| `project_analysis_engineer` | [PRIMARY] 全面项目分析 | 生成DEVMIND.md文档 |
+| 工具                     | 用途                               | 使用示例         |
+|--------------------------|------------------------------------|------------------|
+| `codebase`               | 索引项目文件用于语义搜索           | 索引整个代码库   |
+| `delete_codebase_index`  | 删除项目的代码库索引               | 清理已索引文件   |
 
-*注意: 此工具也可作为Prompt手动触发。*
+**注意**: `codebase` 工具支持 `.gitignore` 和 `.augmentignore` 排除模式。同时还包含内置默认规则，自动排除常见目录如 `node_modules/`、`dist/`、`build/`、`.git/` 等。
 
 #### 项目管理
 

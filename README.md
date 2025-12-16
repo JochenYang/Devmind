@@ -20,7 +20,7 @@
 - **Pure MCP Tool** - Seamless integration with AI assistants through Model Context Protocol
 - **Hybrid Search** - Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **100% Private** - All data stored locally in SQLite, zero cloud transmission
-- **15 MCP Tools** - Complete toolkit for memory management and project analysis
+- **15 MCP Tools** - Complete toolkit for memory management and codebase indexing
 - **Cross-Platform** - Works with Claude Code, Cursor, and all MCP-compatible clients
 
 ---
@@ -55,12 +55,11 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
   - Tier 3: No auto-record (conversation, error) - unless force_remember=true
 - **Intelligent Memory** - AI-driven context recording through MCP protocol
 - **Semantic Search** - AI-powered vector embedding search for finding related contexts
+- **Codebase Indexing** - Index project files for semantic search and code discovery
 - **Persistent Storage** - SQLite-based local storage with complete privacy
 - **Hybrid Search** - Combines keyword and semantic search for best results
 - **Real-time Response** - Records during development, retrieves instantly
 - **Cross-tool Support** - Compatible with multiple MCP clients and development environments
-- **Professional Documentation** - AI-powered project analysis and DEVMIND.md generation
-- **Multi-language Support** - Automatic language detection for Chinese/English documentation
 - **Unified Sessions** - One main session per project for consistent context
 
 #### Technical Features
@@ -90,8 +89,8 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 │  │ • Session (4)   │  │                 │  │ • Semantic   │  │
 │  │ • Context (6)   │  │                 │  │ • Keyword    │  │
 │  │ • Project (3)   │  │ • 3 Tiers       │  │ • Quality    │  │
-│  │ • Visualize (1) │  │ • Smart Types   │  │ • Freshness  │  │
-│  │ • Status (1)    │  │ • Lazy Scoring  │  │              │  │
+│  │ • Codebase (2)  │  │ • Smart Types   │  │ • Freshness  │  │
+│  │ • Visualize (1) │  │ • Lazy Scoring  │  │              │  │
 │  └─────────────────┘  └─────────────────┘  └──────────────┘  │
 └────────────────────────┬─────────────────────────────────────┘
                          │
@@ -105,7 +104,7 @@ DevMind MCP provides **persistent memory capabilities** for AI assistants throug
 
 **Key Components:**
 
-- **15 MCP Tools** - Session management (4), context operations (6), project features (3), visualization (1), status (1)
+- **15 MCP Tools** - Session management (4), context operations (6), project features (3), codebase indexing (2), visualization (1)
 - **Type-Based Auto-Memory** - Simplified 3-tier strategy based on context type
 - **Hybrid Search** - Multi-dimensional scoring: Semantic 40% + Keyword 30% + Quality 20% + Freshness 10%
 - **Local Storage** - SQLite database with vector embeddings and full-text search indexes
@@ -142,6 +141,12 @@ devmind-mcp/
 │   │       ├── HTMLGenerator.ts       # HTML visualization generator
 │   │       └── HTMLGeneratorCytoscape.ts  # Cytoscape graph generator
 │   │
+│   ├── context-engine/              # Codebase indexing engine
+│   │   ├── index.ts                 # ContextEngine main entry
+│   │   ├── FileScanner.ts           # File scanning and filtering
+│   │   ├── IgnoreProcessor.ts       # .gitignore and .augmentignore rules
+│   │   └── types.ts                 # Type definitions
+│   │
 │   ├── utils/
 │   │   ├── file-path-detector.ts    # Intelligent file detection
 │   │   ├── git-diff-parser.ts       # Git diff parsing
@@ -153,20 +158,6 @@ devmind-mcp/
 │   │   ├── context-enricher.ts      # Context enrichment (v2.2.0+)
 │   │   ├── batch-processor.ts       # Batch processor (v2.2.0+)
 │   │   └── performance-optimizer.ts # Performance optimization (v2.2.0+)
-│   │
-│   └── project-indexer/
-│       ├── index.ts                 # Project analyzer entry
-│       ├── core/
-│       │   └── ProjectMemoryOptimizer.ts
-│       ├── strategies/
-│       │   ├── SmartIndexingStrategy.ts
-│       │   └── SecurityStrategy.ts
-│       ├── tools/
-│       │   ├── FileScanner.ts
-│       │   ├── ContentExtractor.ts
-│       │   └── ProjectAnalyzer.ts
-│       └── types/
-│           └── IndexingTypes.ts
 │
 ├── dist/                            # Compiled output
 ├── scripts/                         # Maintenance scripts
@@ -280,15 +271,16 @@ Follow these steps for each development session:
 
 ### MCP Tools Quick Reference
 
-DevMind provides **15 powerful tools** and **1 professional prompt** for your AI assistant:
+DevMind provides **15 powerful tools** for your AI assistant:
 
-#### Project Analysis
+#### Codebase Indexing
 
-| Tool                        | Purpose                                  | Example Use              |
-|-----------------------------|------------------------------------------|--------------------------|
-| `project_analysis_engineer` | [PRIMARY] Comprehensive project analysis | Generate DEVMIND.md docs |
+| Tool                     | Purpose                                    | Example Use                   |
+|--------------------------|--------------------------------------------|-------------------------------|
+| `codebase`               | Index project files for semantic search    | Index entire codebase         |
+| `delete_codebase_index`  | Remove codebase index for a project        | Clean up indexed files        |
 
-*Note: This tool is also available as a Prompt for manual triggering.*
+**Note**: The `codebase` tool supports `.gitignore` and `.augmentignore` exclusion patterns. It also includes built-in defaults that automatically exclude common directories like `node_modules/`, `dist/`, `build/`, `.git/`, and many more.
 
 #### Project Management
 
@@ -380,64 +372,6 @@ const results = await semantic_search({
 ```
 
 
-
----
-
-## Professional Documentation Generation
-
-### Overview
-
-DevMind's **Project Analysis Engineer** uses AI to automatically analyze your codebase and generate comprehensive, professional documentation. This powerful prompt-based approach provides deeper insights than traditional static analysis.
-
-### Key Features
-
-- **AI-Powered Analysis** - Deep understanding of code patterns, architecture, and business logic
-- **Multi-Language Support** - Automatically detects and generates Chinese or English documentation
-- **Professional Quality** - Generates DEVMIND.md format documentation with technical depth
-- **Auto-Save to Memory** - Documentation is automatically saved to your project's memory for future reference
-- **Customizable Focus** - Target specific areas like architecture, APIs, business logic, or security
-- **Multiple Formats** - Supports DEVMIND.md, technical specs, and README formats
-
-### How It Works
-
-```text
-Project Scanning → Code Analysis → AI Processing → Professional Docs → Memory Storage
-       │                │             │              │                │
-   Smart file       Extract tech    Generate deep    Create DEVMIND.md   Auto-save to
-   selection        insights        analysis         documentation       searchable DB
-```
-
-### Usage
-
-#### Natural Language Generation
-
-**English:**
-- "Generate professional DevMind documentation for this project"
-- "Create comprehensive technical analysis with DEVMIND.md format"
-- "Analyze this codebase and generate professional documentation"
-
-**Chinese:**
-- "为这个项目生成专业的DevMind文档"
-- "创建全面的技术分析，使用DEVMIND.md格式"
-- "分析这个代码库并生成专业文档"
-
-#### Direct Prompt Usage
-
-```typescript
-// English documentation
-const analysis = await project_analysis_engineer({
-  project_path: "./my-project",
-  doc_style: "devmind",
-  language: "en"
-});
-
-// Chinese documentation (auto-detected)
-const analysis = await project_analysis_engineer({
-  project_path: "./chinese-project",
-  doc_style: "devmind",
-  language: "zh"
-});
-```
 
 ---
 
@@ -558,42 +492,47 @@ const id = await record_context({
 
 ---
 
-#### `project_analysis_engineer(options: AnalysisOptions): Promise<AnalysisPrompt>`
+#### `codebase(options: CodebaseOptions): Promise<IndexResult>`
 
-**NEW!** Generate professional project documentation with AI-powered analysis.
+Index project files into memory for semantic search.
 
 **Parameters:**
 
-- `project_path` (string) - Path to project directory
-- `analysis_focus` (string) - Focus areas: `architecture,entities,apis,business_logic` 
-- `doc_style` (string) - Documentation style: `devmind`, `claude`, `technical`, `readme`
-- `language` (string) - Documentation language: `en`, `zh`, `auto` (default: auto-detect)
-- `auto_save` (boolean) - Auto-save analysis to memory (default: true)
+- `project_path` (string) - Path to the project directory to index
+- `force_reindex` (boolean) - Force reindex all files (default: false)
 
-**Returns:** Analysis prompt for AI to generate comprehensive documentation
+**Returns:** Index result with statistics
 
 **Example:**
 
 ```typescript
-// English documentation
-const analysis = await project_analysis_engineer({
+// Index a project
+const result = await codebase({
   project_path: "./my-project",
-  doc_style: "devmind",
-  language: "en"
-});
-
-// Chinese documentation (auto-detected or explicit)
-const analysis = await project_analysis_engineer({
-  project_path: "./my-chinese-project",
-  doc_style: "devmind",
-  language: "zh"
+  force_reindex: true
 });
 ```
 
-**Natural Language Examples:**
-- "Generate professional DevMind documentation for this project"
-- "为这个项目生成专业的DevMind文档" (Chinese)
-- "Create comprehensive technical analysis with DEVMIND.md format"
+---
+
+#### `delete_codebase_index(options: DeleteIndexOptions): Promise<DeleteResult>`
+
+Delete codebase index for a project.
+
+**Parameters:**
+
+- `project_path` (string) - Path to the project directory to delete index for
+
+**Returns:** Delete result with statistics
+
+**Example:**
+
+```typescript
+// Delete project index
+const result = await delete_codebase_index({
+  project_path: "./my-project"
+});
+```
 
 ---
 

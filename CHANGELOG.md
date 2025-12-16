@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.9] - 2025-12-16
+
+### Added
+
+- **ContextEngine - Codebase Indexing System**: Complete implementation of project file indexing
+  - New `codebase` tool: Index project files for semantic search
+  - New `delete_codebase_index` tool: Remove codebase index for a project
+  - Intelligent file scanning with `.gitignore` and `.augmentignore` support
+  - Built-in exclusion patterns for common directories (node_modules/, dist/, build/, .git/, etc.)
+  - Supports 20+ programming languages
+  - Independent storage in `file_index` table to avoid polluting development memory
+  - Incremental indexing based on file hashes
+  - Binary file detection and automatic skipping
+
+### Fixed
+
+- **Ignore Library Usage**: Fixed incorrect `ignore` library usage in IgnoreProcessor
+  - Changed from `(ignore as any)({ ignorecase: true })` to `ignore().add(content)`
+  - Updated import statement from `import * as ignore` to `import ignore`
+  - Enables proper file filtering and directory exclusion
+
+### Changed
+
+- **Documentation Updates**: Comprehensive README updates for 15 MCP tools
+  - Removed references to deleted tools (project_analysis_engineer, verify_work_recorded)
+  - Added ContextEngine section with .gitignore and .augmentignore documentation
+  - Updated tool count from 15 to 16 then back to 15 (corrected error)
+  - Updated project structure to reflect new context-engine directory
+
+### Impact
+
+- **For Users**: Can now index entire codebases and search through code files
+- **For AI**: Enhanced semantic search across both development memory and codebase
+- **Performance**: Efficient file scanning with intelligent filtering
+
 ## [2.4.8] - 2025-12-10
 
 ### Fixed

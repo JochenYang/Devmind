@@ -529,6 +529,17 @@ export class AiMemoryMcpServer {
           name: "record_context",
           description: `Record development context to memory. Call IMMEDIATELY after file changes.
 
+WHEN TO USE:
+- After making code changes (edits, additions, deletions)
+- When solving bugs or implementing features
+- Documenting design decisions or learning
+- Capturing important development work
+
+WHEN NOT TO USE:
+- Do NOT record query processes or search operations
+- Do NOT record information retrieval (use semantic_search instead)
+- Do NOT record when just looking up existing information
+
 WORKFLOW: Edit files → semantic_search → record_context (or update_context if similar exists) → Respond
 
 Auto-detects: Git changes, context type, quality scores. Smart update for duplicates (v2.4.9).`,
@@ -799,13 +810,17 @@ Returns complete context data: id, content, type, files, metadata, tags, timesta
         },
         {
           name: "semantic_search",
-          description: `Search memory using hybrid semantic+keyword algorithm to find relevant past work.
+          description: `Search through both development memory AND indexed codebase files using hybrid semantic+keyword algorithm.
 
 WHEN TO USE:
 - Finding how similar bugs were fixed
 - Searching for code examples or patterns
 - Discovering related work in project history
 - Learning from past solutions
+- Querying project files for implementation details
+- Finding code patterns across the entire codebase
+
+IMPORTANT: This is a READ-ONLY operation for finding information. Do NOT use this to record new contexts - use semantic_search to FIND answers, then respond directly to users.
 
 KEY PARAMETERS:
 - query: What you're looking for (required)
@@ -1051,6 +1066,69 @@ YOU SHOULD:
             },
           },
         },
+        {
+          name: "codebase",
+          description: `Index codebase files into memory. Scans all files in the project directory and stores them for semantic search.
+
+FEATURES:
+- Recursive directory scanning with multi-language support
+- Supports .gitignore and .augmentignore exclusion patterns
+- Automatic binary file detection and skipping
+- Incremental indexing based on file hashes (only changed files)
+- Stores index in separate file_index table (doesn't pollute development memory)
+
+EXAMPLES:
+- First time setup: codebase({project_path: "/path/to/project"})
+- Force reindex all files: codebase({project_path: "/path/to/project", force_reindex: true})
+- After code changes: Run again to update index for semantic_search
+
+EXCLUDED BY DEFAULT:
+- node_modules/, .git/, dist/, build/, *.log, *.tmp
+- Binary files (images, executables, etc.)
+- Files matching .gitignore and .augmentignore patterns
+
+Use semantic_search to query indexed files after indexing.`,
+          inputSchema: {
+            type: "object",
+            properties: {
+              project_path: {
+                type: "string",
+                description: "Path to the project directory to index",
+              },
+              force_reindex: {
+                type: "boolean",
+                description:
+                  "Force reindex all files (default: false)",
+              },
+            },
+            required: ["project_path"],
+          },
+        },
+        {
+          name: "delete_codebase_index",
+          description: `Delete codebase index for a project. Removes all indexed files and related indexing sessions.
+
+WHEN TO USE:
+- Cleaning up after project deletion or move
+- Resetting index to rebuild from scratch
+- Freeing up disk space
+- Removing outdated or corrupted index
+
+EXAMPLE:
+delete_codebase_index({project_path: "/path/to/project"})
+
+Note: This only deletes the file index, not your development memory contexts.`,
+          inputSchema: {
+            type: "object",
+            properties: {
+              project_path: {
+                type: "string",
+                description: "Path to the project directory to delete index for",
+              },
+            },
+            required: ["project_path"],
+          },
+        },
       ],
     }));
 
@@ -1141,6 +1219,14 @@ YOU SHOULD:
           return this.handleCleanupEmptyProjects(
             safeArgs as { dry_run?: boolean; project_ids?: string[] }
           );
+        case "codebase":
+          return this.handleCodebase(
+            safeArgs as { project_path: string; force_reindex?: boolean }
+          );
+        case "delete_codebase_index":
+          return this.handleDeleteCodebaseIndex(
+            safeArgs as { project_path: string }
+          );
         default:
           throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
       }
@@ -1148,44 +1234,7 @@ YOU SHOULD:
 
     // Prompts handlers
     this.server.setRequestHandler(ListPromptsRequestSchema, async () => ({
-      prompts: [
-        {
-          name: "project_analysis_engineer",
-          description:
-            "Professional project analysis engineer prompt that analyzes project structure, identifies core functionality, and generates comprehensive development documentation",
-          arguments: [
-            {
-              name: "project_path",
-              description: "Path to the project directory to analyze",
-              required: true,
-            },
-            {
-              name: "analysis_focus",
-              description:
-                "Focus areas: architecture, entities, apis, business_logic, security, performance (comma-separated)",
-              required: false,
-            },
-            {
-              name: "doc_style",
-              description:
-                "Documentation style: devmind (DEVMIND.md format), claude (CLAUDE.md format), technical (technical spec), readme (README format)",
-              required: false,
-            },
-            {
-              name: "auto_save",
-              description:
-                "Automatically save generated analysis to memory (default: true)",
-              required: false,
-            },
-            {
-              name: "language",
-              description:
-                "Documentation language: en (English), zh (Chinese), auto (detect from README)",
-              required: false,
-            },
-          ],
-        },
-      ],
+      prompts: [],
     }));
 
     this.server.setRequestHandler(GetPromptRequestSchema, async (request) => {
@@ -1194,15 +1243,10 @@ YOU SHOULD:
       // Ensure args is at least an empty object to prevent destructuring errors
       const safeArgs = args || {};
 
-      switch (name) {
-        case "project_analysis_engineer":
-          return await this.handleProjectAnalysisEngineer(safeArgs);
-        default:
-          throw new McpError(
-            ErrorCode.MethodNotFound,
-            `Unknown prompt: ${name}`
-          );
-      }
+      throw new McpError(
+        ErrorCode.MethodNotFound,
+        `Unknown prompt: ${name}`
+      );
     });
   }
 
@@ -4150,6 +4194,140 @@ ${
   }
 
   /**
+   * 处理 codebase 工具：索引代码库文件
+   */
+  private async handleCodebase(args: {
+    project_path: string;
+    force_reindex?: boolean;
+  }) {
+    try {
+      const { project_path, force_reindex = false } = args;
+
+      if (!project_path || typeof project_path !== "string") {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "project_path is required and must be a string"
+        );
+      }
+
+      console.log(`[ContextEngine] Starting to index codebase: ${project_path}`);
+
+      // 导入 ContextEngine
+      const { ContextEngine } = await import("./context-engine/index.js");
+      const contextEngine = new ContextEngine(this.db, this.sessionManager);
+
+      // 索引代码库
+      const result = await contextEngine.indexCodebase(project_path, {
+        forceReindex: force_reindex
+      });
+
+      // 返回结果
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `# 📚 Codebase Index Complete\n\n` +
+              `**Project:** ${project_path}\n\n` +
+              `## 📊 Index Statistics\n` +
+              `- Total files found: ${result.totalFiles}\n` +
+              `- Successfully indexed: ${result.successFiles}\n` +
+              `- Failed to index: ${result.failedFiles}\n` +
+              `- Skipped files: ${result.skippedFiles}\n` +
+              `- Duration: ${result.duration}ms\n\n` +
+              `## 🔍 Next Steps\n` +
+              `You can now search the codebase using semantic_search:\n\n` +
+              `\`\`\`\n` +
+              `semantic_search({ query: "your search query" })\n` +
+              `\`\`\`\n\n` +
+              `This will search both your development memory and the indexed codebase files.`,
+          },
+        ],
+        isError: false,
+        _meta: {
+          project_path,
+          force_reindex,
+          total_files: result.totalFiles,
+          success_files: result.successFiles,
+          failed_files: result.failedFiles,
+          duration: result.duration,
+          errors: result.errors,
+        },
+      };
+    } catch (error) {
+      console.error("[ContextEngine] Indexing failed:", error);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Failed to index codebase: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  private async handleDeleteCodebaseIndex(args: { project_path: string }) {
+    try {
+      const { project_path } = args;
+
+      if (!project_path || typeof project_path !== "string") {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          "project_path is required and must be a string"
+        );
+      }
+
+      console.log(`[ContextEngine] Starting to delete codebase index: ${project_path}`);
+
+      // 导入 ContextEngine
+      const { ContextEngine } = await import("./context-engine/index.js");
+      const contextEngine = new ContextEngine(this.db, this.sessionManager);
+
+      // 删除索引
+      const result = await contextEngine.deleteCodebaseIndex(project_path);
+
+      // 返回结果
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `# 🗑️ Codebase Index Deleted\n\n` +
+              `**Project:** ${project_path}\n\n` +
+              `## 📊 Deletion Summary\n` +
+              `- Files deleted: ${result.deleted_files}\n` +
+              `- Sessions deleted: ${result.deleted_sessions}\n\n` +
+              `The codebase index has been successfully removed. You can re-index the project using the 'codebase' tool if needed.`,
+          },
+        ],
+        isError: false,
+        _meta: {
+          project_path,
+          deleted_files: result.deleted_files,
+          deleted_sessions: result.deleted_sessions,
+        },
+      };
+    } catch (error) {
+      console.error("[ContextEngine] Deletion failed:", error);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Failed to delete codebase index: ${
+              error instanceof Error ? error.message : "Unknown error"
+            }`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+
+  /**
    * 🔄 懒加载检查：在后台触发质量分更新
    */
   private async checkAndUpdateQualityScoresInBackground(): Promise<void> {
@@ -4325,931 +4503,26 @@ ${
     }
   }
 
-  private async handleOptimizeProjectMemory(args: {
-    project_id: string;
-    strategies?: string[];
-    dry_run?: boolean;
-  }) {
-    try {
-      // 导入优化器
-      const { ProjectMemoryOptimizer, OptimizationStrategy } = await import(
-        "./project-indexer/core/ProjectMemoryOptimizer.js"
-      );
-
-      // 创建优化器实例
-      const optimizer = new ProjectMemoryOptimizer(this.db, this.vectorSearch!);
-
-      // 确定要使用的策略
-      const strategies = args.strategies?.map((s) => s as any) || [
-        OptimizationStrategy.DEDUPLICATION,
-        OptimizationStrategy.CLUSTERING,
-        OptimizationStrategy.COMPRESSION,
-        OptimizationStrategy.SUMMARIZATION,
-      ];
-
-      if (args.dry_run) {
-        // 预览模式 - 只获取优化建议
-        const insights = await optimizer.getOptimizationInsights(
-          args.project_id
-        );
-
-        let output = `# Optimization Preview for Project ${args.project_id}\n\n`;
-
-        output += `## Storage Analysis\n`;
-        output += `- Total Size: ${(
-          insights.storageAnalysis.totalSize / 1024
-        ).toFixed(2)} KB\n`;
-        output += `- Average Context Size: ${(
-          insights.storageAnalysis.avgContextSize / 1024
-        ).toFixed(2)} KB\n`;
-        output += `- Largest Contexts: ${insights.storageAnalysis.largestContexts
-          .slice(0, 3)
-          .map(
-            (c) => `${c.id.substring(0, 8)} (${(c.size / 1024).toFixed(2)} KB)`
-          )
-          .join(", ")}\n\n`;
-
-        output += `## Redundancy Analysis\n`;
-        output += `- Estimated Duplicates: ${insights.redundancyAnalysis.estimatedDuplicates}\n`;
-        output += `- Potential Savings: ${(
-          insights.redundancyAnalysis.potentialSavings / 1024
-        ).toFixed(2)} KB\n\n`;
-
-        output += `## Recommendations\n`;
-        insights.recommendations.forEach((r) => {
-          output += `- **${r.priority.toUpperCase()}**: ${r.action}\n`;
-          output += `  Impact: ${r.impact}, Effort: ${r.effort}\n`;
-        });
-
-        return {
-          content: [{ type: "text", text: output }],
-          isError: false,
-          _meta: { insights, dry_run: true },
-        };
-      } else {
-        // 执行优化
-        const report = await optimizer.optimizeProject(
-          args.project_id,
-          strategies
-        );
-
-        let output = `# Optimization Report\n\n`;
-        output += `Project: ${report.projectId}\n`;
-        output += `Strategies Applied: ${report.strategies.join(", ")}\n`;
-        output += `Processing Time: ${report.performance.timeTaken}ms\n\n`;
-
-        if (report.results.deduplication) {
-          const dedup = report.results.deduplication;
-          output += `## Deduplication\n`;
-          output += `- Scanned: ${dedup.totalScanned} contexts\n`;
-          output += `- Duplicates Found: ${dedup.duplicatesFound}\n`;
-          output += `- Duplicates Removed: ${dedup.duplicatesRemoved}\n`;
-          output += `- Space Reclaimed: ${(dedup.spaceReclaimed / 1024).toFixed(
-            2
-          )} KB\n\n`;
-        }
-
-        if (report.results.clustering) {
-          const cluster = report.results.clustering;
-          output += `## Clustering\n`;
-          output += `- Clusters Created: ${cluster.clustersCreated}\n`;
-          output += `- Average Cluster Size: ${cluster.averageClusterSize.toFixed(
-            1
-          )}\n`;
-          output += `- Outliers: ${cluster.outliers}\n\n`;
-        }
-
-        if (report.results.compression) {
-          const comp = report.results.compression;
-          output += `## Compression\n`;
-          output += `- Original Size: ${(comp.original.size / 1024).toFixed(
-            2
-          )} KB\n`;
-          output += `- Compressed Size: ${(comp.compressed.size / 1024).toFixed(
-            2
-          )} KB\n`;
-          output += `- Compression Ratio: ${(comp.ratio * 100).toFixed(1)}%\n`;
-          output += `- Space Saved: ${(comp.savedBytes / 1024).toFixed(
-            2
-          )} KB\n\n`;
-        }
-
-        if (report.recommendations.length > 0) {
-          output += `## Recommendations\n`;
-          report.recommendations.forEach((r) => {
-            output += `- ${r}\n`;
-          });
-        }
-
-        return {
-          content: [{ type: "text", text: output }],
-          isError: false,
-          _meta: { report },
-        };
-      }
-    } catch (error) {
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Failed to optimize project memory: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
 
   /**
    * 处理项目分析工程师 Tool（直接调用，返回分析文档）
    */
-  private async handleProjectAnalysisEngineerTool(args: any) {
-    // Debug logging to help diagnose parameter issues
-    console.log("[DEBUG] project_analysis_engineer Tool called");
-    console.log("[DEBUG] Raw args type:", typeof args);
-    console.log("[DEBUG] Raw args value:", JSON.stringify(args));
-
-    try {
-      // Handle case where args might be undefined or empty
-      if (!args || typeof args !== "object") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          'Arguments object is required. Please provide project_path parameter. Example: {"project_path": "/path/to/project"}'
-        );
-      }
-
-      const {
-        project_path,
-        analysis_focus = "architecture,entities,apis,business_logic",
-        doc_style = "devmind",
-        auto_save = true,
-        language,
-      } = args;
-
-      if (
-        !project_path ||
-        typeof project_path !== "string" ||
-        project_path.trim() === ""
-      ) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `project_path is required and must be a non-empty string. Received: ${JSON.stringify(
-            args
-          )}`
-        );
-      }
-
-      console.log(`🔍 Starting project analysis for: ${project_path}`);
-      console.log(`🎯 Focus areas: ${analysis_focus}`);
-      console.log(`📝 Documentation style: ${doc_style}`);
-      if (language) console.log(`🌐 Language: ${language}`);
-
-      // 扫描和分析项目
-      const projectData = await this.analyzeProjectForPrompt(
-        project_path,
-        analysis_focus.split(",")
-      );
-
-      // 生成专业分析提示
-      const analysisPrompt = await this.generateAnalysisPrompt(
-        projectData,
-        doc_style,
-        analysis_focus,
-        language
-      );
-
-      // 准备会话信息
-      let sessionId: string | undefined;
-      if (auto_save) {
-        const project = await this.sessionManager.getOrCreateProject(
-          project_path
-        );
-        try {
-          sessionId = await this.sessionManager.createSession({
-            project_path: project_path,
-            tool_used: "project_analysis_engineer",
-            name: `Professional Analysis - ${projectData.projectName}`,
-          });
-        } catch (error) {
-          console.warn("Could not create session for auto-save:", error);
-        }
-      }
-
-      console.log(`✅ Generated analysis prompt ready for AI processing`);
-
-      // 返回分析提示，AI 将处理并生成文档
-      return {
-        content: [
-          {
-            type: "text",
-            text:
-              analysisPrompt +
-              (sessionId
-                ? `\n\n---\n\n📝 **Auto-save enabled**: Generated documentation will be automatically saved to session ${sessionId}`
-                : ""),
-          },
-        ],
-        isError: false,
-        _meta: {
-          project_path: project_path,
-          project_name: projectData.projectName,
-          analysis_focus: analysis_focus,
-          doc_style: doc_style,
-          auto_save: auto_save,
-          session_id: sessionId,
-          files_analyzed: projectData.keyFiles.length,
-          project_type: projectData.projectType,
-          prompt_ready: true,
-        },
-      };
-    } catch (error) {
-      console.error("Project analysis engineer tool failed:", error);
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Failed to analyze project: ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
-          },
-        ],
-        isError: true,
-      };
-    }
-  }
-
-  /**
-   * 处理项目分析工程师Prompt
-   */
-  private async handleProjectAnalysisEngineer(args: any) {
-    // Debug logging to help diagnose parameter issues
-    console.log("[DEBUG] project_analysis_engineer Prompt called");
-    console.log("[DEBUG] Raw args type:", typeof args);
-    console.log("[DEBUG] Raw args value:", JSON.stringify(args));
-
-    try {
-      // Handle case where args might be undefined or empty
-      if (!args || typeof args !== "object") {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          'Arguments object is required for Prompt. Please provide project_path parameter. Example: {"project_path": "/path/to/project"}'
-        );
-      }
-
-      const {
-        project_path,
-        analysis_focus = "architecture,entities,apis,business_logic",
-        doc_style = "devmind",
-        auto_save = true,
-        language, // 新增语言参数
-      } = args;
-
-      if (
-        !project_path ||
-        typeof project_path !== "string" ||
-        project_path.trim() === ""
-      ) {
-        throw new McpError(
-          ErrorCode.InvalidParams,
-          `project_path is required and must be a non-empty string for Prompt. Received: ${JSON.stringify(
-            args
-          )}`
-        );
-      }
-
-      console.log(`🔍 Starting project analysis for: ${project_path}`);
-      console.log(`🎯 Focus areas: ${analysis_focus}`);
-      console.log(`📝 Documentation style: ${doc_style}`);
-      if (language) console.log(`🌐 Language: ${language}`);
-
-      // 扫描和分析项目
-      const projectData = await this.analyzeProjectForPrompt(
-        project_path,
-        analysis_focus.split(",")
-      );
-
-      // 生成专业分析提示（传入语言参数）
-      const analysisPrompt = await this.generateAnalysisPrompt(
-        projectData,
-        doc_style,
-        analysis_focus,
-        language
-      );
-
-      // 如果启用auto_save，准备保存函数
-      let saveInstructions = "";
-      if (auto_save) {
-        // 获取或创建项目会话
-        const project = await this.sessionManager.getOrCreateProject(
-          project_path
-        );
-        let sessionId;
-        try {
-          sessionId = await this.sessionManager.createSession({
-            project_path: project_path,
-            tool_used: "project_analysis_engineer",
-            name: `Professional Analysis - ${projectData.projectName}`,
-          });
-        } catch (error) {
-          console.warn("Could not create session for auto-save:", error);
-        }
-
-        if (sessionId) {
-          saveInstructions = `\n\n---\n\n**IMPORTANT: After you complete your analysis, automatically save it to memory using:**\n\n\`\`\`\nrecord_context\nsession_id: ${sessionId}\ntype: documentation\ncontent: [Your complete analysis report]\ntags: project_analysis,professional_documentation,${doc_style}_style\n\`\`\`\n\nThis will ensure the analysis is preserved in the project's memory for future reference.`;
-        }
-      }
-
-      console.log(
-        `✅ Generated analysis prompt: ${
-          analysisPrompt.length + saveInstructions.length
-        } characters`
-      );
-
-      return {
-        description: `Professional Project Analysis Engineer - Deep analysis of "${projectData.projectName}" project`,
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: analysisPrompt + saveInstructions,
-            },
-          },
-        ],
-        _meta: {
-          project_path: project_path,
-          project_name: projectData.projectName,
-          analysis_focus: analysis_focus,
-          doc_style: doc_style,
-          auto_save: auto_save,
-          files_analyzed: projectData.keyFiles.length,
-          project_type: projectData.projectType,
-        },
-      };
-    } catch (error) {
-      console.error("Project analysis engineer failed:", error);
-      return {
-        description: "Project Analysis Failed",
-        messages: [
-          {
-            role: "user",
-            content: {
-              type: "text",
-              text: `Failed to analyze project: ${
-                error instanceof Error ? error.message : "Unknown error"
-              }`,
-            },
-          },
-        ],
-        _meta: { error: true },
-      };
-    }
-  }
 
   /**
    * 分析项目用于生成提示
    */
-  private async analyzeProjectForPrompt(
-    projectPath: string,
-    focusAreas: string[]
-  ) {
-    const path = await import("path");
-    const fs = await import("fs/promises");
-
-    const projectName = path.basename(projectPath);
-
-    // 读取关键项目文件
-    let packageJson: any = null;
-    let readmeContent = "";
-    let mainFiles: string[] = [];
-
-    try {
-      const packagePath = path.join(projectPath, "package.json");
-      const packageContent = await fs.readFile(packagePath, "utf-8");
-      packageJson = JSON.parse(packageContent);
-    } catch {
-      // 如果不是Node.js项目，继续其他分析
-    }
-
-    try {
-      const readmePath = path.join(projectPath, "README.md");
-      readmeContent = await fs.readFile(readmePath, "utf-8");
-    } catch {
-      // README可选
-    }
-
-    // 使用现有的项目分析器获取结构信息
-    const { FileScanner } = await import(
-      "./project-indexer/tools/FileScanner.js"
-    );
-    const { ProjectAnalyzer } = await import(
-      "./project-indexer/tools/ProjectAnalyzer.js"
-    );
-
-    const scanner = new FileScanner();
-    const analyzer = new ProjectAnalyzer();
-
-    const files = await scanner.scan(projectPath);
-    const { structure, features } = await analyzer.analyzeProject(
-      projectPath,
-      files
-    );
-
-    // 选择关键文件进行内容分析
-    const keyFiles = await this.selectKeyFiles(files, focusAreas);
-    const fileContents = await this.extractFileContents(keyFiles);
-
-    return {
-      projectName,
-      projectPath,
-      packageJson,
-      readmeContent,
-      structure,
-      features,
-      files,
-      keyFiles,
-      fileContents,
-      projectType: features.projectType,
-      mainLanguage: features.technicalStack.language,
-    };
-  }
 
   /**
    * 选择关键文件
    */
-  private async selectKeyFiles(files: any[], focusAreas: string[]) {
-    const path = await import("path");
-    const keyFiles: any[] = [];
-
-    // 配置文件
-    const configFiles = files.filter((f) =>
-      [
-        "package.json",
-        "tsconfig.json",
-        "webpack.config.js",
-        "vite.config.ts",
-        "tailwind.config.js",
-        "next.config.js",
-        ".env",
-        "docker-compose.yml",
-      ].includes(path.basename(f.path))
-    );
-    keyFiles.push(...configFiles);
-
-    // 主入口文件
-    const entryFiles = files.filter((f) =>
-      [
-        "index.ts",
-        "index.js",
-        "main.ts",
-        "main.js",
-        "app.ts",
-        "app.js",
-        "server.ts",
-        "server.js",
-      ].includes(path.basename(f.path))
-    );
-    keyFiles.push(...entryFiles);
-
-    // 根据关注领域选择特定文件
-    if (focusAreas.includes("entities") || focusAreas.includes("apis")) {
-      const modelFiles = files
-        .filter(
-          (f) =>
-            f.path.includes("model") ||
-            f.path.includes("entity") ||
-            f.path.includes("type") ||
-            f.path.includes("schema") ||
-            f.path.includes("api") ||
-            f.path.includes("route")
-        )
-        .slice(0, 8);
-      keyFiles.push(...modelFiles);
-    }
-
-    // 最大的几个文件
-    const largestFiles = files
-      .filter((f) => !keyFiles.some((kf) => kf.path === f.path))
-      .sort((a, b) => (b.size || 0) - (a.size || 0))
-      .slice(0, 5);
-    keyFiles.push(...largestFiles);
-
-    return keyFiles.slice(0, 20); // 限制文件数量
-  }
 
   /**
    * 提取文件内容
    */
-  private async extractFileContents(keyFiles: any[]) {
-    const fs = await import("fs/promises");
-    const contents = [];
-
-    for (const file of keyFiles) {
-      try {
-        const content = await fs.readFile(file.path, "utf-8");
-        const lines = content.split("\n");
-
-        contents.push({
-          file: file.path,
-          size: file.size,
-          lines: lines.length,
-          content:
-            lines.length > 150
-              ? lines.slice(0, 75).join("\n") +
-                "\n\n[... truncated ...]\n\n" +
-                lines.slice(-25).join("\n")
-              : content,
-        });
-      } catch (error) {
-        console.warn(`Failed to read file ${file.path}:`, error);
-      }
-    }
-
-    return contents;
-  }
-
-  /**
-   * 检测文档语言
-   */
-  private detectDocumentationLanguage(
-    readmeContent?: string,
-    userLanguage?: string
-  ): string {
-    // 如果用户明确指定语言
-    if (userLanguage) {
-      return userLanguage.toLowerCase().startsWith("zh") ? "zh" : "en";
-    }
-
-    // 基于README内容检测
-    if (readmeContent) {
-      const chineseChars = (readmeContent.match(/[\u4e00-\u9fff]/g) || [])
-        .length;
-      const totalChars = readmeContent.length;
-
-      // 如果中文字符占比超过10%，判定为中文项目
-      if (chineseChars / totalChars > 0.1) {
-        return "zh";
-      }
-    }
-
-    // 默认英文
-    return "en";
-  }
 
   /**
    * 生成专业分析提示
    */
-  private async generateAnalysisPrompt(
-    projectData: any,
-    docStyle: string,
-    analysisFocus: string,
-    language?: string
-  ): Promise<string> {
-    const {
-      projectName,
-      packageJson,
-      readmeContent,
-      structure,
-      features,
-      fileContents,
-    } = projectData;
-
-    // 自动检测语言（基于用户输入或README内容）
-    const detectedLanguage = this.detectDocumentationLanguage(
-      readmeContent,
-      language
-    );
-    const isChineseDoc = detectedLanguage === "zh";
-
-    const prompt = [];
-
-    // 根据语言生成不同的标题和角色设定
-    if (isChineseDoc) {
-      prompt.push("# 🏗️ 专业项目分析工程师");
-      prompt.push("");
-      prompt.push(
-        "你是一名资深软件架构师和项目分析专家。你的任务是对这个项目进行全面分析，并生成专业的开发文档。"
-      );
-      prompt.push("");
-      prompt.push(
-        "**重要**: 请使用中文生成所有文档内容，包括技术术语的中文解释。"
-      );
-      prompt.push("");
-    } else {
-      prompt.push("# 🏗️ Professional Project Analysis Engineer");
-      prompt.push("");
-      prompt.push(
-        "You are a senior software architect and project analysis expert. Your task is to conduct a comprehensive analysis of this project and generate professional development documentation."
-      );
-      prompt.push("");
-      prompt.push(
-        "**Important**: Please generate all documentation content in English."
-      );
-      prompt.push("");
-    }
-
-    // 项目基本信息
-    const projectInfoTitle = isChineseDoc
-      ? "## 📋 项目信息"
-      : "## 📋 Project Information";
-    prompt.push(projectInfoTitle);
-    prompt.push(`- **Project Name**: ${projectName}`);
-    prompt.push(`- **Project Type**: ${features.projectType}`);
-    prompt.push(`- **Main Language**: ${features.technicalStack.language}`);
-    if (features.technicalStack.framework) {
-      prompt.push(`- **Framework**: ${features.technicalStack.framework}`);
-    }
-    prompt.push(`- **Total Files**: ${structure.totalFiles}`);
-    prompt.push(`- **Analysis Focus**: ${analysisFocus}`);
-    prompt.push("");
-
-    // 项目描述（如果有）
-    if (packageJson?.description) {
-      const descTitle = isChineseDoc
-        ? "## 📝 项目描述"
-        : "## 📝 Project Description";
-      prompt.push(descTitle);
-      prompt.push(packageJson.description);
-      prompt.push("");
-    }
-
-    // README摘要（如果有）
-    if (readmeContent) {
-      const readmeTitle = isChineseDoc
-        ? "## 📖 README 概览"
-        : "## 📖 README Overview";
-      prompt.push(readmeTitle);
-      const readmeLines = readmeContent.split("\n").slice(0, 20).join("\n");
-      prompt.push(readmeLines);
-      if (readmeContent.split("\n").length > 20) {
-        prompt.push("[... README continues ...]");
-      }
-      prompt.push("");
-    }
-
-    // 技术栈信息
-    if (packageJson?.dependencies || packageJson?.devDependencies) {
-      const techStackTitle = isChineseDoc
-        ? "## 🛠️ 技术栈"
-        : "## 🛠️ Technology Stack";
-      prompt.push(techStackTitle);
-      if (packageJson.dependencies) {
-        prompt.push("**Dependencies:**");
-        Object.entries(packageJson.dependencies)
-          .slice(0, 10)
-          .forEach(([dep, version]) => {
-            prompt.push(`- ${dep}: ${version}`);
-          });
-        if (Object.keys(packageJson.dependencies).length > 10) {
-          prompt.push(
-            `- ... and ${
-              Object.keys(packageJson.dependencies).length - 10
-            } more dependencies`
-          );
-        }
-      }
-      if (packageJson.scripts) {
-        prompt.push("");
-        prompt.push("**Scripts:**");
-        Object.entries(packageJson.scripts).forEach(([script, command]) => {
-          prompt.push(`- \`${script}\`: ${command}`);
-        });
-      }
-      prompt.push("");
-    }
-
-    // 项目结构
-    prompt.push("## 📁 Project Structure");
-    if (structure.directories && structure.directories.length > 0) {
-      prompt.push("**Key Directories:**");
-      structure.directories.slice(0, 15).forEach((dir: any) => {
-        prompt.push(`- ${dir.path || dir}`);
-      });
-    }
-    prompt.push("");
-
-    // 关键文件内容
-    prompt.push("## 🔍 Key File Analysis");
-    prompt.push(
-      "Below are the contents of the most important files in the project:"
-    );
-    prompt.push("");
-
-    for (const file of fileContents.slice(0, 8)) {
-      const path = await import("path");
-      const fileName = path.basename(file.file);
-      const ext = path.extname(file.file).substring(1);
-      prompt.push(`### ${fileName}`);
-      prompt.push(`\`\`\`${ext}`);
-      prompt.push(file.content);
-      prompt.push("```");
-      prompt.push("");
-    }
-
-    // 分析任务
-    const analysisTitle = isChineseDoc
-      ? "## 🎯 分析要求"
-      : "## 🎯 Analysis Requirements";
-    prompt.push(analysisTitle);
-    prompt.push("");
-
-    if (docStyle === "devmind") {
-      if (isChineseDoc) {
-        prompt.push(
-          "生成或更新项目根目录的 **DEVMIND.md** 文件，包含以下内容："
-        );
-        prompt.push("");
-        prompt.push("**重要说明**：");
-        prompt.push(
-          "- 文件名必须是 `DEVMIND.md`（固定名称，不要添加版本号或其他后缀）"
-        );
-        prompt.push(
-          "- 如果文件已存在，请在现有内容基础上进行增量更新，而不是完全重写"
-        );
-        prompt.push("- 保留有价值的现有内容，只更新过时或需要补充的部分");
-        prompt.push("");
-        prompt.push("**文档结构**：");
-        prompt.push("1. **项目概述** - 项目的核心功能和价值主张");
-        prompt.push(
-          "2. **主要功能** - 详细列出项目提供的核心功能特性，每个功能包含简短说明"
-        );
-        prompt.push("3. **开发命令** - 构建、测试和运行的基本命令");
-        prompt.push("4. **架构概览** - 高级系统设计和组件关系");
-        prompt.push("5. **核心组件** - 主要模块、类及其职责");
-        prompt.push("6. **重要实现细节** - 关键技术决策和模式");
-        prompt.push("7. **配置** - 如何配置和自定义系统");
-        prompt.push("8. **开发笔记** - 开发者的重要注意事项");
-        prompt.push("9. **常见开发任务** - 典型的工作流程和过程");
-      } else {
-        prompt.push(
-          "Generate or update the **DEVMIND.md** file in the project root with the following content:"
-        );
-        prompt.push("");
-        prompt.push("**Important Instructions**:");
-        prompt.push(
-          "- File name MUST be `DEVMIND.md` (fixed name, do not add version numbers or suffixes)"
-        );
-        prompt.push(
-          "- If the file already exists, perform incremental updates based on existing content instead of complete rewrite"
-        );
-        prompt.push(
-          "- Preserve valuable existing content, only update outdated or missing sections"
-        );
-        prompt.push("");
-        prompt.push("**Document Structure**:");
-        prompt.push(
-          "1. **Project Overview** - What this project does and its core value proposition"
-        );
-        prompt.push(
-          "2. **Key Features** - Detailed list of core features/capabilities provided by this project, with brief explanation for each"
-        );
-        prompt.push(
-          "3. **Development Commands** - Essential commands for building, testing, and running"
-        );
-        prompt.push(
-          "4. **Architecture Overview** - High-level system design and component relationships"
-        );
-        prompt.push(
-          "5. **Core Components** - Main modules, classes, and their responsibilities"
-        );
-        prompt.push(
-          "6. **Important Implementation Details** - Key technical decisions and patterns"
-        );
-        prompt.push(
-          "7. **Configuration** - How to configure and customize the system"
-        );
-        prompt.push(
-          "8. **Development Notes** - Important considerations for developers"
-        );
-        prompt.push(
-          "9. **Common Development Tasks** - Typical workflows and procedures"
-        );
-      }
-    } else if (docStyle === "claude") {
-      if (isChineseDoc) {
-        prompt.push(
-          "生成或更新项目根目录的 **CLAUDE.md** 文件，包含以下内容："
-        );
-        prompt.push("");
-        prompt.push("**重要说明**：");
-        prompt.push(
-          "- 文件名必须是 `CLAUDE.md`（固定名称，不要添加版本号或其他后缀）"
-        );
-        prompt.push(
-          "- 如果文件已存在，请在现有内容基础上进行增量更新，而不是完全重写"
-        );
-        prompt.push("- 保留有价值的现有内容，只更新过时或需要补充的部分");
-        prompt.push("");
-        prompt.push("**文档结构**：");
-      } else {
-        prompt.push(
-          "Generate or update the **CLAUDE.md** file in the project root with the following content:"
-        );
-        prompt.push("");
-        prompt.push("**Important Instructions**:");
-        prompt.push(
-          "- File name MUST be `CLAUDE.md` (fixed name, do not add version numbers or suffixes)"
-        );
-        prompt.push(
-          "- If the file already exists, perform incremental updates based on existing content instead of complete rewrite"
-        );
-        prompt.push(
-          "- Preserve valuable existing content, only update outdated or missing sections"
-        );
-        prompt.push("");
-        prompt.push("**Document Structure**:");
-      }
-      prompt.push(
-        "1. **Project Overview** - What this project does and its core value proposition"
-      );
-      prompt.push(
-        "2. **Development Commands** - Essential commands for building, testing, and running"
-      );
-      prompt.push(
-        "3. **Architecture Overview** - High-level system design and component relationships"
-      );
-      prompt.push(
-        "4. **Core Components** - Main modules, classes, and their responsibilities"
-      );
-      prompt.push(
-        "5. **Important Implementation Details** - Key technical decisions and patterns"
-      );
-      prompt.push(
-        "6. **Configuration** - How to configure and customize the system"
-      );
-      prompt.push(
-        "7. **Development Notes** - Important considerations for developers"
-      );
-      prompt.push(
-        "8. **Common Development Tasks** - Typical workflows and procedures"
-      );
-    } else if (docStyle === "technical") {
-      prompt.push(
-        "Generate a detailed **Technical Specification** that includes:"
-      );
-      prompt.push("");
-      prompt.push(
-        "1. **System Architecture** - Detailed component design and interactions"
-      );
-      prompt.push(
-        "2. **API Documentation** - Endpoints, methods, and data structures"
-      );
-      prompt.push("3. **Database Schema** - Data models and relationships");
-      prompt.push(
-        "4. **Security Considerations** - Authentication, authorization, and data protection"
-      );
-      prompt.push(
-        "5. **Performance Characteristics** - Scalability and optimization details"
-      );
-      prompt.push(
-        "6. **Deployment Guide** - Infrastructure and deployment procedures"
-      );
-    } else {
-      prompt.push("Generate a comprehensive **README.md** that includes:");
-      prompt.push("");
-      prompt.push(
-        "1. **Project Description** - Clear explanation of what the project does"
-      );
-      prompt.push(
-        "2. **Installation Instructions** - Step-by-step setup guide"
-      );
-      prompt.push("3. **Usage Examples** - Common use cases and code examples");
-      prompt.push(
-        "4. **API Reference** - Available methods and their parameters"
-      );
-      prompt.push(
-        "5. **Contributing Guidelines** - How to contribute to the project"
-      );
-      prompt.push(
-        "6. **License and Credits** - Legal information and acknowledgments"
-      );
-    }
-
-    prompt.push("");
-    prompt.push("## 📋 Analysis Guidelines");
-    prompt.push("");
-    prompt.push("- **Be Professional**: Use clear, precise technical language");
-    prompt.push(
-      "- **Be Comprehensive**: Cover all important aspects of the project"
-    );
-    prompt.push(
-      "- **Be Practical**: Focus on information developers actually need"
-    );
-    prompt.push(
-      "- **Be Accurate**: Base your analysis on the actual code and configuration"
-    );
-    prompt.push(
-      "- **Be Structured**: Organize information in a logical, easy-to-follow format"
-    );
-    prompt.push("");
-    prompt.push(
-      "**Important**: This documentation will be used by developers to understand and work with this project. Make it as helpful and accurate as possible!"
-    );
-
-    return prompt.join("\n");
-  }
 
   // === Git Detection Methods (v2.3.0) ===
 

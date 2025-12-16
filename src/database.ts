@@ -111,6 +111,29 @@ export class DatabaseManager {
       )
     `);
 
+    // File Index table (Codebase indexing)
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS file_index (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        file_path TEXT NOT NULL,
+        relative_path TEXT NOT NULL,
+        content TEXT NOT NULL,
+        language TEXT,
+        file_type TEXT,
+        size INTEGER NOT NULL,
+        modified_time TEXT NOT NULL,
+        indexed_at TEXT NOT NULL,
+        hash TEXT NOT NULL,
+        tags TEXT DEFAULT '',
+        metadata TEXT DEFAULT '{}',
+        FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE,
+        FOREIGN KEY (session_id) REFERENCES sessions (id) ON DELETE CASCADE,
+        UNIQUE(project_id, relative_path)
+      )
+    `);
+
     // Context Files table (多文件关联)
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS context_files (
@@ -227,6 +250,23 @@ export class DatabaseManager {
     );
     this.db.exec(
       `CREATE INDEX IF NOT EXISTS idx_context_files_path ON context_files (file_path)`
+    );
+
+    // File Index indexes
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_file_index_project ON file_index (project_id)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_file_index_session ON file_index (session_id)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_file_index_path ON file_index (relative_path)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_file_index_language ON file_index (language)`
+    );
+    this.db.exec(
+      `CREATE INDEX IF NOT EXISTS idx_file_index_modified ON file_index (modified_time)`
     );
 
     // 智能记忆相关索引
@@ -1141,6 +1181,95 @@ export class DatabaseManager {
     });
 
     return transaction(ids);
+  }
+
+  // === File Index Operations ===
+
+  /**
+   * 添加文件到索引
+   */
+  addFileToIndex(params: {
+    id: string;
+    project_id: string;
+    session_id: string;
+    file_path: string;
+    relative_path: string;
+    content: string;
+    language?: string;
+    file_type?: string;
+    size: number;
+    modified_time: string;
+    hash: string;
+    tags?: string;
+    metadata?: string;
+  }): void {
+    const stmt = this.db.prepare(`
+      INSERT INTO file_index (
+        id, project_id, session_id, file_path, relative_path, content,
+        language, file_type, size, modified_time, indexed_at, hash,
+        tags, metadata
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      params.id,
+      params.project_id,
+      params.session_id,
+      params.file_path,
+      params.relative_path,
+      params.content,
+      params.language,
+      params.file_type,
+      params.size,
+      params.modified_time,
+      new Date().toISOString(),
+      params.hash,
+      params.tags || '',
+      params.metadata || '{}'
+    );
+  }
+
+  /**
+   * 获取项目的索引文件
+   */
+  getProjectIndexFiles(projectId: string): Array<{
+    id: string;
+    file_path: string;
+    relative_path: string;
+    language: string;
+    file_type: string;
+    size: number;
+    indexed_at: string;
+  }> {
+    const stmt = this.db.prepare(`
+      SELECT id, file_path, relative_path, language, file_type, size, indexed_at
+      FROM file_index
+      WHERE project_id = ?
+      ORDER BY relative_path
+    `);
+    return stmt.all(projectId) as any[];
+  }
+
+  /**
+   * 删除项目的索引
+   */
+  deleteProjectIndex(projectId: string): { deleted_files: number; deleted_sessions: number } {
+    // 删除相关的索引文件
+    const deleteFilesStmt = this.db.prepare("DELETE FROM file_index WHERE project_id = ?");
+    const fileResult = deleteFilesStmt.run(projectId);
+
+    // 删除相关的索引会话
+    const deleteSessionsStmt = this.db.prepare(`
+      DELETE FROM sessions
+      WHERE project_id = ?
+        AND tool_used = 'codebase-indexer'
+    `);
+    const sessionResult = deleteSessionsStmt.run(projectId);
+
+    return {
+      deleted_files: fileResult.changes,
+      deleted_sessions: sessionResult.changes
+    };
   }
 
   // Backup and restore methods
