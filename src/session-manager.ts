@@ -36,15 +36,17 @@ export class SessionManager {
         const activeSessions = this.db.getActiveSessions(project.id);
         // 🔧 修复：使用规范化后的路径作为缓存键
         const normalizedPath = normalizeProjectPath(project.path);
-        activeSessions.forEach(session => {
+        activeSessions.forEach((session) => {
           this.activeSessions.set(normalizedPath, session.id);
           this.sessionCache.set(session.id, session);
           this.lastAccessedProject = normalizedPath;
         });
       });
-      console.error(`[SessionManager] Preloaded ${this.activeSessions.size} active sessions`);
+      console.error(
+        `[SessionManager] Preloaded ${this.activeSessions.size} active sessions`
+      );
     } catch (error) {
-      console.error('[SessionManager] Failed to preload sessions:', error);
+      console.error("[SessionManager] Failed to preload sessions:", error);
     }
   }
 
@@ -55,9 +57,11 @@ export class SessionManager {
     // 1. 查找真实的项目根目录（向上查找 .git、package.json 等标识）
     const projectRoot = findProjectRoot(projectPath);
     const normalizedPath = normalizeProjectPath(projectRoot);
-    
-    console.error(`[SessionManager] Project path resolution: ${projectPath} -> ${normalizedPath}`);
-    
+
+    console.error(
+      `[SessionManager] Project path resolution: ${projectPath} -> ${normalizedPath}`
+    );
+
     let project = this.db.getProjectByPath(normalizedPath);
 
     if (!project) {
@@ -92,7 +96,9 @@ export class SessionManager {
     let projectPath = params.project_path;
     if (!projectPath) {
       projectPath = this.autoDetectProjectPath() || process.cwd();
-      console.error(`[SessionManager] Auto-detected project path: ${projectPath}`);
+      console.error(
+        `[SessionManager] Auto-detected project path: ${projectPath}`
+      );
     }
 
     const project = await this.getOrCreateProject(projectPath);
@@ -104,21 +110,43 @@ export class SessionManager {
       console.error(`[SessionManager] Auto-detected tool: ${toolUsed}`);
     }
 
-      // 检查是否已有活跃会话（确保项目隔离）
-      const activeSessions = this.db.getActiveSessions(project.id);
+    // 检查是否已有活跃会话
+    const activeSessions = this.db.getActiveSessions(project.id);
 
-      // 重要：移除智能会话复用逻辑
-      // 每个项目应该有独立的主会话，不能跨项目复用
-      // 只有在force=true时才允许复用（用于特殊场景）
-      if (!params.force && activeSessions.length > 0) {
-        console.error(`[DevMind] Project isolation: Found ${activeSessions.length} existing sessions for project ${project.id}, creating new session to maintain independence`);
-        
-        // 可选：结束所有旧会话，确保彻底的项目隔离
-        console.error(`[DevMind] Ending ${activeSessions.length} old sessions to ensure clean project state`);
-        activeSessions.forEach(session => {
-          this.db.endSession(session.id);
+    // 如果不是强制创建，且存在活跃会话，则复用现有会话
+    if (!params.force && activeSessions.length > 0) {
+      const existingSession = activeSessions[0];
+      this.activeSessions.set(project.path, existingSession.id);
+      this.sessionCache.set(existingSession.id, existingSession);
+
+      console.error(
+        `[DevMind] Reusing existing active session: ${existingSession.id} (${existingSession.tool_used} -> ${toolUsed})`
+      );
+
+      // 可选：更新会话的tool_used记录（记录跨工具使用）
+      const currentMetadata = existingSession.metadata
+        ? JSON.parse(existingSession.metadata)
+        : {};
+      if (!currentMetadata.tools_used) {
+        currentMetadata.tools_used = [existingSession.tool_used];
+      }
+      if (!currentMetadata.tools_used.includes(toolUsed)) {
+        currentMetadata.tools_used.push(toolUsed);
+        currentMetadata.last_tool = toolUsed;
+        currentMetadata.last_access = new Date().toISOString();
+
+        // 更新元数据和缓存
+        this.db.updateSession(existingSession.id, {
+          metadata: JSON.stringify(currentMetadata),
+        });
+        this.sessionCache.set(existingSession.id, {
+          ...existingSession,
+          metadata: JSON.stringify(currentMetadata),
         });
       }
+
+      return existingSession.id;
+    }
 
     // 只有在强制创建或没有活跃会话时，才结束旧会话并创建新会话
     if (params.force && activeSessions.length > 0) {
@@ -148,7 +176,7 @@ export class SessionManager {
       metadata: JSON.stringify(initialMetadata),
     });
 
-    this.activeSessions.set(normalizeProjectPath(project.path), sessionId);
+    this.activeSessions.set(project.path, sessionId);
     console.error(
       `[DevMind] Created new session: ${sessionId} (${params.tool_used})`
     );
@@ -165,11 +193,15 @@ export class SessionManager {
     // 如果没有提供projectPath，尝试自动推断
     if (!projectPath) {
       projectPath = this.autoDetectProjectPath();
-      console.error(`[SessionManager] Auto-detected project path: ${projectPath}`);
+      console.error(
+        `[SessionManager] Auto-detected project path: ${projectPath}`
+      );
     }
 
     if (!projectPath) {
-      console.error('[SessionManager] No project path available and auto-detection failed');
+      console.error(
+        "[SessionManager] No project path available and auto-detection failed"
+      );
       return null;
     }
 
@@ -183,7 +215,8 @@ export class SessionManager {
     // 先检查内存中的活跃会话
     if (this.activeSessions.has(normalizedPath)) {
       const sessionId = this.activeSessions.get(normalizedPath)!;
-      const session = this.sessionCache.get(sessionId) || this.db.getSession(sessionId);
+      const session =
+        this.sessionCache.get(sessionId) || this.db.getSession(sessionId);
       if (session && session.status === "active") {
         return sessionId;
       } else {
@@ -212,52 +245,19 @@ export class SessionManager {
    * @returns 检测到的项目路径或undefined
    */
   private autoDetectProjectPath(): string | undefined {
-    // 优先级顺序（改进版 v2.5.0）
+    // 优先级顺序（参考v2.1.15实现）
     const potentialPaths = [
-      process.env.INIT_CWD,      // npm/npx初始目录
-      process.env.PWD,            // Unix工作目录
-      process.env.CD,             // Windows当前目录
-      process.cwd(),              // Node.js当前目录
+      process.env.INIT_CWD, // npm/npx初始目录
+      process.env.PWD, // Unix工作目录
+      process.env.CD, // Windows当前目录
+      process.cwd(), // Node.js当前目录
     ].filter(Boolean) as string[];
 
-    // 多项目检测：尝试找到最匹配的项目
-    let bestMatch: string | undefined;
-    let maxScore = 0;
-
+    // 找到第一个存在的目录
     for (const dir of potentialPaths) {
       try {
-        if (!existsSync(dir)) continue;
-
-        const projectRoot = findProjectRoot(dir);
-        const normalizedPath = normalizeProjectPath(projectRoot);
-
-        // 计算匹配分数
-        let score = 0;
-        const project = this.db.getProjectByPath(normalizedPath);
-
-        // 如果项目已存在，加分
-        if (project) {
-          score += 10;
-          // 如果是最近访问的项目，额外加分
-          if (this.lastAccessedProject === normalizedPath) {
-            score += 20;
-          }
-        }
-
-        // 如果目录有 .git，加分
-        try {
-          if (existsSync(`${projectRoot}/.git`)) {
-            score += 5;
-          }
-        } catch (e) {
-          // 忽略错误
-        }
-
-        console.log(`[SessionManager] Project detection score for ${normalizedPath}: ${score}`);
-
-        if (score > maxScore) {
-          maxScore = score;
-          bestMatch = normalizedPath;
+        if (existsSync(dir)) {
+          return normalizeProjectPath(dir);
         }
       } catch (error) {
         // 跳过无法访问的目录
@@ -265,15 +265,7 @@ export class SessionManager {
       }
     }
 
-    if (bestMatch) {
-      console.log(`[SessionManager] Auto-detected project path (score: ${maxScore}): ${bestMatch}`);
-      return bestMatch;
-    }
-
-    // 兜底：返回规范化后的当前目录
-    const fallbackDir = normalizeProjectPath(process.cwd());
-    console.warn(`[SessionManager] No suitable project found, using fallback: ${fallbackDir}`);
-    return fallbackDir;
+    return undefined;
   }
 
   /**
@@ -282,32 +274,39 @@ export class SessionManager {
    */
   private detectCurrentTool(): string {
     // 尝试从环境变量检测
-    const toolFromEnv = process.env.DEVMIND_TOOL_TYPE ||
-                       process.env.VSCODE_INJECTION_PATH ||
-                       process.env.CURSOR_PATH ||
-                       process.env.CLIENT_NAME;
+    const toolFromEnv =
+      process.env.DEVMIND_TOOL_TYPE ||
+      process.env.VSCODE_INJECTION_PATH ||
+      process.env.CURSOR_PATH ||
+      process.env.CLIENT_NAME;
 
     if (toolFromEnv) {
       // 转换为标准工具名称
-      if (toolFromEnv.includes('vscode') || toolFromEnv.includes('VSCode')) {
-        return 'vscode';
-      } else if (toolFromEnv.includes('cursor') || toolFromEnv.includes('Cursor')) {
-        return 'cursor';
-      } else if (toolFromEnv.includes('claude') || toolFromEnv.includes('Claude')) {
-        return 'claude-desktop';
+      if (toolFromEnv.includes("vscode") || toolFromEnv.includes("VSCode")) {
+        return "vscode";
+      } else if (
+        toolFromEnv.includes("cursor") ||
+        toolFromEnv.includes("Cursor")
+      ) {
+        return "cursor";
+      } else if (
+        toolFromEnv.includes("claude") ||
+        toolFromEnv.includes("Claude")
+      ) {
+        return "claude-desktop";
       }
     }
 
     // 检测运行方式
-    const execPath = process.execPath || '';
-    if (execPath.includes('code') || execPath.includes('Code')) {
-      return 'vscode';
-    } else if (execPath.includes('cursor') || execPath.includes('Cursor')) {
-      return 'cursor';
+    const execPath = process.execPath || "";
+    if (execPath.includes("code") || execPath.includes("Code")) {
+      return "vscode";
+    } else if (execPath.includes("cursor") || execPath.includes("Cursor")) {
+      return "cursor";
     }
 
     // 默认返回通用工具
-    return 'cli';
+    return "cli";
   }
 
   /**
@@ -354,7 +353,9 @@ export class SessionManager {
       }
     }
 
-    console.error(`[SessionManager] Cache cleanup completed. Active sessions: ${this.sessionCache.size}`);
+    console.error(
+      `[SessionManager] Cache cleanup completed. Active sessions: ${this.sessionCache.size}`
+    );
   }
 
   /**

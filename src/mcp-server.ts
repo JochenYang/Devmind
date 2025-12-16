@@ -580,7 +580,7 @@ Auto-detects: Git changes, context type, quality scores. Smart update for duplic
               project_path: {
                 type: "string",
                 description:
-                  "Project path to auto-detect/create session (optional if session_id is provided)",
+                  "Project path (optional). If not provided, automatically detects current project. Only specify when working in multiple projects to ensure memory is recorded to the correct project.",
               },
               session_id: {
                 type: "string",
@@ -729,7 +729,8 @@ Auto-detects: Git changes, context type, quality scores. Smart update for duplic
             properties: {
               project_path: {
                 type: "string",
-                description: "Path to the project directory",
+                description:
+                  "Project path (required). If not provided, automatically detects current project.",
               },
             },
             required: ["project_path"],
@@ -1040,7 +1041,11 @@ YOU SHOULD:
           inputSchema: {
             type: "object",
             properties: {
-              project_path: { type: "string", description: "Project path" },
+              project_path: {
+                type: "string",
+                description:
+                  "Project path (optional). If not provided, shows status for auto-detected project.",
+              },
             },
             required: [],
           },
@@ -1093,7 +1098,8 @@ Use semantic_search to query indexed files after indexing.`,
             properties: {
               project_path: {
                 type: "string",
-                description: "Path to the project directory to index",
+                description:
+                  "Project path (required). Path to the project directory to index.",
               },
               force_reindex: {
                 type: "boolean",
@@ -1123,7 +1129,8 @@ Note: This only deletes the file index, not your development memory contexts.`,
             properties: {
               project_path: {
                 type: "string",
-                description: "Path to the project directory to delete index for",
+                description:
+                  "Project path (required). Path to the project directory to delete index for.",
               },
             },
             required: ["project_path"],

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1] - 2025-12-16
+
+### Fixed
+
+- **Tool Descriptions**: Improved clarity of optional/required parameters to prevent AI misuse in multi-project scenarios
+- **Session Management**: Fixed session creation to reuse existing sessions, ensuring stable main session IDs
+- **Codebase Indexing**: Now uses temporary sessions to avoid interfering with user sessions
+
+### Changed
+
+- **record_context**: Updated project_path description to clarify auto-detection behavior
+- **semantic_search**: Verified correct search of both memory and codebase files
+- **All tools**: Standardized project_path parameter descriptions
+
 ## [2.5.0] - 2025-12-16
 
 ### Fixed
