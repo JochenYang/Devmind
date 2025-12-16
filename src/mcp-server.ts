@@ -98,6 +98,192 @@ export class AiMemoryMcpServer {
     return targetDate.toISOString().split("T")[0]; // YYYY-MM-DD 格式
   }
 
+  // === 智能记忆合并方法 (v2.4.9) ===
+  private mergeMemoryContent(
+    existingContent: string,
+    newContent: string
+  ): string {
+    // 边界情况处理：空内容防护
+    const safeExisting = (existingContent || "").trim();
+    const safeNew = (newContent || "").trim();
+
+    // 如果新内容为空，返回已有内容
+    if (!safeNew) {
+      console.log("[DevMind] New content is empty, keeping existing content");
+      return safeExisting || "";
+    }
+
+    // 如果已有内容为空，直接返回新内容
+    if (!safeExisting) {
+      console.log(
+        "[DevMind] Existing content is empty, using new content directly"
+      );
+      return safeNew;
+    }
+
+    try {
+      // 如果是相同问题，保留历史演进过程
+      if (this.isSameProblem(safeExisting, safeNew)) {
+        console.log(
+          "[DevMind] Detected same problem, preserving history and adding evolution"
+        );
+        return this.preserveEvolution(safeExisting, safeNew);
+      }
+
+      // 如果是相关问题的扩展，记录扩展过程
+      if (this.isRelatedProblem(safeExisting, safeNew)) {
+        console.log("[DevMind] Detected related problem, recording extension");
+        return safeExisting + "\n\n---\n相关扩展：\n" + safeNew;
+      }
+
+      // 即使内容不完全相关，也要记录演进过程（防止遗漏重要信息）
+      console.log("[DevMind] Recording evolution regardless of similarity");
+      return safeExisting + "\n\n---\n演进记录：\n" + safeNew;
+    } catch (error) {
+      // 异常情况：返回合并后的内容，确保不丢失数据
+      console.error("[DevMind] Error in mergeMemoryContent:", error);
+      return safeExisting + "\n\n---\n[合并异常] 新增内容：\n" + safeNew;
+    }
+  }
+
+  // === 保留历史演进过程的方法 ===
+  private preserveEvolution(
+    existingContent: string,
+    newContent: string
+  ): string {
+    const timestamp = new Date().toLocaleString("zh-CN", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    return (
+      existingContent +
+      "\n\n---\n🚀 演进记录 (" +
+      timestamp +
+      ")：\n" +
+      newContent
+    );
+  }
+
+  private isSameProblem(content1: string, content2: string): boolean {
+    const keywords1 = this.extractKeywords(content1);
+    const keywords2 = this.extractKeywords(content2);
+
+    // 防护：避免除以零
+    const maxLen = Math.max(keywords1.length, keywords2.length);
+    if (maxLen === 0) {
+      return false;
+    }
+
+    const commonKeywords = keywords1.filter((k) => keywords2.includes(k));
+    const similarity = commonKeywords.length / maxLen;
+
+    return similarity > 0.6; // 60%关键词重叠认为相同问题
+  }
+
+  private isRelatedProblem(content1: string, content2: string): boolean {
+    const keywords1 = this.extractKeywords(content1);
+    const keywords2 = this.extractKeywords(content2);
+
+    // 防护：避免除以零
+    const maxLen = Math.max(keywords1.length, keywords2.length);
+    if (maxLen === 0) {
+      return false;
+    }
+
+    const commonKeywords = keywords1.filter((k) => keywords2.includes(k));
+    const similarity = commonKeywords.length / maxLen;
+
+    return similarity > 0.3 && similarity <= 0.6; // 30-60%重叠认为相关问题
+  }
+
+  // 注：mergeSolutions 方法在 v2.4.9 中已移除（未使用的死代码）
+
+  private extractKeywords(content: string): string[] {
+    // 简单的关键词提取，实际实现中可以使用更复杂的NLP
+    const words = content
+      .toLowerCase()
+      .replace(/[^\w\s]/g, " ")
+      .split(/\s+/)
+      .filter((word) => word.length > 3)
+      .filter((word) => !this.isStopWord(word));
+
+    return [...new Set(words)];
+  }
+
+  private isStopWord(word: string): boolean {
+    const stopWords = [
+      "this",
+      "that",
+      "with",
+      "from",
+      "they",
+      "have",
+      "been",
+      "were",
+      "said",
+      "each",
+      "which",
+      "their",
+      "time",
+      "will",
+      "about",
+      "would",
+      "there",
+      "could",
+      "other",
+    ];
+    return stopWords.includes(word);
+  }
+
+  // === 解析文本格式的语义搜索结果 (v2.4.9) ===
+  private parseTextSearchResults(text: string): any[] {
+    const results = [];
+
+    try {
+      // 匹配格式: "1. **ID**: 12345"
+      const lines = text.split("\n");
+      for (const line of lines) {
+        const idMatch = line.match(/\d+\.\s*\*\*ID\*\*:\s*([a-f0-9\-]+)/i);
+        if (idMatch) {
+          const contextId = idMatch[1];
+          // 提取相似度信息，如果找不到则使用默认值
+          const similarityMatch =
+            line.match(/similarity[:\s]+([\d.]+)/i) ||
+            line.match(/([\d.]+)\s*%/);
+          const similarity = similarityMatch
+            ? parseFloat(similarityMatch[1]) /
+              (similarityMatch[1].includes("%") ? 100 : 1)
+            : 0.85; // 默认0.85相似度
+
+          results.push({
+            id: contextId,
+            similarity_score: similarity,
+            content: "", // 文本格式不包含内容
+            created_at: new Date().toISOString(),
+          });
+          console.log(
+            `[DevMind] Parsed context ${contextId} with similarity ${similarity}`
+          );
+        }
+      }
+
+      console.log(
+        "[DevMind] Total parsed text results:",
+        results.length,
+        "contexts"
+      );
+    } catch (error) {
+      console.error("[DevMind] Failed to parse text search results:", error);
+    }
+
+    return results;
+  }
+
   constructor(config: AiMemoryConfig = {}) {
     this.config = {
       database_path: join(homedir(), ".devmind", "memory.db"),
@@ -341,30 +527,11 @@ export class AiMemoryMcpServer {
         },
         {
           name: "record_context",
-          description: `Record development context to memory for future reference and learning.
+          description: `Record development context to memory. Call IMMEDIATELY after file changes.
 
-⚠️ CRITICAL: Call IMMEDIATELY after ANY file changes, BEFORE responding to user.
+WORKFLOW: Edit files → semantic_search → record_context (or update_context if similar exists) → Respond
 
-WHEN TO USE:
-- After ANY file changes (create, write, update, modify, edit, delete)
-- After fixing bugs or adding features
-- When user asks to remember/save work
-
-BEFORE RECORDING:
-- Consider searching for similar existing contexts (use semantic_search)
-- If found duplicate/related memory, use update_context instead
-- This keeps memory clean and avoids duplicate records
-
-YOU MUST:
-1. Call IMMEDIATELY after ANY file changes (create/write/update/modify/edit/delete)
-2. Call BEFORE responding to user
-3. Include meaningful content (what changed and why)
-4. Use appropriate type (bug_fix, feature_add, code_modify, etc.)
-5. Never skip - it's as critical as the edit itself
-
-WORKFLOW: Make file changes → Call record_context → Respond to user
-
-Auto-detects: Git changes, context type, project metadata, quality scores.`,
+Auto-detects: Git changes, context type, quality scores. Smart update for duplicates (v2.4.9).`,
           inputSchema: {
             type: "object",
             properties: {
@@ -521,14 +688,26 @@ Auto-detects: Git changes, context type, project metadata, quality scores.`,
           },
         },
         {
-          name: "end_session",
-          description: "End a development session",
+          name: "manage_session",
+          description:
+            "Manage development sessions: end, delete, or end and delete.",
           inputSchema: {
             type: "object",
             properties: {
-              session_id: { type: "string", description: "Session ID to end" },
+              action: {
+                type: "string",
+                enum: ["end", "delete", "end_and_delete"],
+                description:
+                  "Action: 'end' (mark complete), 'delete' (remove permanently), 'end_and_delete' (both)",
+              },
+              session_id: { type: "string", description: "Session ID" },
+              project_id: {
+                type: "string",
+                description:
+                  "Delete all sessions of project (only for delete action)",
+              },
             },
-            required: ["session_id"],
+            required: ["action"],
           },
         },
         {
@@ -802,55 +981,8 @@ YOU SHOULD:
             required: ["context_id"],
           },
         },
-        {
-          name: "delete_session",
-          description:
-            "Delete session(s) and contexts by session_id or project_id.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              session_id: { type: "string", description: "Session ID" },
-              project_id: {
-                type: "string",
-                description: "Delete all sessions of project",
-              },
-            },
-          },
-        },
-        {
-          name: "project_analysis_engineer",
-          description:
-            "Generate project documentation (DEVMIND.md, README.md, Technical.md). Analyzes codebase structure, APIs, and business logic.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              project_path: {
-                type: "string",
-                description: "Project directory path",
-              },
-              analysis_focus: {
-                type: "string",
-                description:
-                  "Focus: architecture, entities, apis, business_logic, security, performance",
-              },
-              doc_style: {
-                type: "string",
-                enum: ["devmind", "technical", "readme"],
-                description: "Doc style (default: devmind)",
-              },
-              auto_save: {
-                type: "boolean",
-                description: "Save to memory (default: true)",
-              },
-              language: {
-                type: "string",
-                enum: ["en", "zh", "auto"],
-                description: "Language (default: auto)",
-              },
-            },
-            required: ["project_path"],
-          },
-        },
+        // delete_session 已合并到 manage_session (v2.4.9)
+        // project_analysis_engineer 工具已移除，请使用 Prompt 版本 (v2.4.9)
         {
           name: "export_memory_graph",
           description:
@@ -937,8 +1069,14 @@ YOU SHOULD:
           return this.handleRecordContext(
             safeArgs as unknown as RecordContextParams
           );
-        case "end_session":
-          return this.handleEndSession(safeArgs as { session_id: string });
+        case "manage_session":
+          return this.handleManageSession(
+            safeArgs as {
+              action: "end" | "delete" | "end_and_delete";
+              session_id?: string;
+              project_id?: string;
+            }
+          );
         case "get_current_session":
           return this.handleGetCurrentSession(
             safeArgs as { project_path: string }
@@ -985,20 +1123,7 @@ YOU SHOULD:
               metadata?: object;
             }
           );
-        case "delete_session":
-          return this.handleDeleteSession(
-            safeArgs as { session_id?: string; project_id?: string }
-          );
-        case "project_analysis_engineer":
-          return this.handleProjectAnalysisEngineerTool(
-            safeArgs as {
-              project_path: string;
-              analysis_focus?: string;
-              doc_style?: string;
-              auto_save?: boolean;
-              language?: string;
-            }
-          );
+        // delete_session 和 project_analysis_engineer 已移除 (v2.4.9)
         case "export_memory_graph":
           return this.handleExportMemoryGraph(
             safeArgs as {
@@ -1244,27 +1369,81 @@ YOU SHOULD:
       // === 智能去重检测 (v2.4.7) ===
       // 检测是否有相似的最近记忆，避免重复记录
       let duplicateWarning: string | null = null;
-      if (args.content && args.content.length > 50) {
+      let topMatch: any = null; // 保存最佳匹配结果供后续智能更新使用
+      let hoursSince = 0; // 保存时间差供后续使用
+
+      if (args.content && args.content.length > 10) {
+        // 降低阈值确保短内容也能触发
         try {
-          // 搜索最近 24 小时内的相似记忆
+          // 搜索最近 24 小时内的相似记忆 - 优化参数
           const recentContexts = await this.handleSemanticSearch({
-            query: args.content.substring(0, 200), // 使用前 200 字符搜索
-            limit: 3,
-            similarity_threshold: 0.85, // 高相似度阈值
+            query: args.content.substring(0, 150), // 减少查询长度，提高匹配精度
+            limit: 5, // 增加搜索结果数量，避免遗漏
+            similarity_threshold: 0.75, // 从0.85降低到0.75，提高召回率
             project_path: args.project_path,
           });
 
+          console.log(
+            "[DevMind] Duplicate detection - Content length:",
+            args.content.length
+          );
+          console.log(
+            "[DevMind] Semantic search result:",
+            recentContexts.isError ? "ERROR" : "SUCCESS"
+          );
+
           if (!recentContexts.isError && recentContexts.content) {
-            const results = JSON.parse(recentContexts.content[0].text).results;
+            let results = [];
+            try {
+              // 安全解析语义搜索结果
+              const text = recentContexts.content[0]?.text;
+              if (text && text.startsWith("{") && text.endsWith("}")) {
+                const parsed = JSON.parse(text);
+                results = parsed.results || [];
+                console.log(
+                  "[DevMind] Successfully parsed semantic search results:",
+                  results.length
+                );
+              } else if (
+                text &&
+                text.includes("Found") &&
+                text.includes("semantically relevant contexts")
+              ) {
+                // 解析文本格式的响应
+                results = this.parseTextSearchResults(text);
+                console.log(
+                  "[DevMind] Successfully parsed text search results:",
+                  results.length
+                );
+              } else {
+                console.warn(
+                  "[DevMind] Semantic search returned non-JSON response:",
+                  text?.substring(0, 100)
+                );
+                results = [];
+              }
+            } catch (parseError) {
+              console.error(
+                "[DevMind] Failed to parse semantic search results:",
+                parseError
+              );
+              console.error(
+                "[DevMind] Raw response:",
+                recentContexts.content?.[0]?.text
+              );
+              results = [];
+            }
 
             if (results && results.length > 0) {
-              const topMatch = results[0];
+              topMatch = results[0]; // 保存最佳匹配结果
               // 检查是否是最近 24 小时内的高度相似记忆
               const createdAt = new Date(topMatch.created_at);
-              const hoursSince =
+              hoursSince =
                 (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
 
-              if (hoursSince < 24 && topMatch.similarity_score > 0.85) {
+              // 降低智能更新的相似度阈值到0.7，确保能触发更新
+              if (hoursSince < 24 && topMatch.similarity_score > 0.7) {
+                // 从0.75降低到0.7
                 duplicateWarning = `⚠️ Potential duplicate detected: Similar context exists (ID: ${
                   topMatch.id
                 }, similarity: ${(topMatch.similarity_score * 100).toFixed(
@@ -1272,7 +1451,7 @@ YOU SHOULD:
                 )}%, ${hoursSince.toFixed(
                   1
                 )}h ago). Consider using update_context instead.`;
-                console.error(`[DevMind] ${duplicateWarning}`);
+                console.log(`[DevMind] ${duplicateWarning}`);
               }
             }
           }
@@ -1741,18 +1920,163 @@ YOU SHOULD:
         ai_enhanced: true, // Mark as AI enhanced
       };
 
-      const contextId = this.db.createContext({
-        session_id: sessionId,
-        type: finalType,
-        content: args.content,
-        file_path: undefined, // 不再使用单一 file_path，改用 context_files 表
-        line_start: finalLineStart,
-        line_end: finalLineEnd,
-        language: detectedLanguage || extractedContext.language,
-        tags: (args.tags || extractedContext.tags).join(","),
-        quality_score: extractedContext.quality_score,
-        metadata: JSON.stringify(mergedMetadata),
-      });
+      let contextId: string;
+      let shouldUpdateExisting = false;
+      let existingContextInfo: any = null;
+
+      // === 智能记忆更新逻辑 (v2.4.9) ===
+      // 如果检测到高相似度记忆，优先更新而非创建新记录
+      if (duplicateWarning && topMatch && topMatch.similarity_score > 0.7) {
+        // 从0.8降低到0.7
+        console.log(
+          "[DevMind] High similarity detected, attempting to update existing memory"
+        );
+
+        try {
+          // 如果文本搜索结果没有完整内容，主动获取
+          if (!topMatch.content || topMatch.content.trim() === "") {
+            console.log(
+              "[DevMind] Fetching full context content for update..."
+            );
+            const fullContextResult = await this.handleGetContext({
+              context_ids: topMatch.id,
+            });
+
+            if (
+              fullContextResult &&
+              fullContextResult.content &&
+              fullContextResult.content.length > 0
+            ) {
+              // 安全解析get_context的响应
+              const text = fullContextResult.content[0]?.text;
+              if (text && text.startsWith("{") && text.endsWith("}")) {
+                try {
+                  const fullContext = JSON.parse(text);
+                  if (fullContext.results && fullContext.results.length > 0) {
+                    topMatch.content = fullContext.results[0].content;
+                    topMatch.tags = fullContext.results[0].tags;
+                    topMatch.metadata = fullContext.results[0].metadata;
+                    console.log(
+                      "[DevMind] Successfully fetched full context content"
+                    );
+                  }
+                } catch (parseError) {
+                  console.error(
+                    "[DevMind] Failed to parse get_context response:",
+                    parseError
+                  );
+                  // 如果解析失败，使用备用方案：直接合并当前内容
+                  console.log(
+                    "[DevMind] Using fallback: recording evolution with current content only"
+                  );
+                  topMatch.content = args.content; // 使用当前内容作为基础
+                }
+              } else if (text && text.includes("Retrieved context")) {
+                // 文本格式的响应，尝试解析内容
+                console.log(
+                  "[DevMind] Detected text format response from get_context"
+                );
+                // 这里可以添加文本解析逻辑
+                topMatch.content = args.content; // 备用方案
+              } else {
+                console.log(
+                  "[DevMind] Unexpected response format, using fallback"
+                );
+                topMatch.content = args.content; // 备用方案
+              }
+            }
+          }
+
+          // 智能内容合并 - 现在应该有完整内容了
+          const mergedContent = this.mergeMemoryContent(
+            topMatch.content || "",
+            args.content
+          );
+
+          // 合并标签
+          const existingTags = topMatch.tags ? topMatch.tags.split(",") : [];
+          const newTags = args.tags || [];
+          const mergedTags = [...new Set([...existingTags, ...newTags])];
+
+          // 执行更新
+          const updateResult = await this.handleUpdateContext({
+            context_id: topMatch.id,
+            content: mergedContent,
+            tags: mergedTags,
+            metadata: {
+              ...JSON.parse(topMatch.metadata || "{}"),
+              last_updated: new Date().toISOString(),
+              update_count:
+                (JSON.parse(topMatch.metadata || "{}").update_count || 0) + 1,
+              original_similarity: topMatch.similarity_score,
+              auto_updated: true,
+            },
+          });
+
+          if (updateResult && !updateResult.isError) {
+            contextId = topMatch.id;
+            shouldUpdateExisting = true;
+            existingContextInfo = {
+              action: "updated_existing",
+              original_similarity: topMatch.similarity_score,
+              hours_ago: hoursSince,
+            };
+            console.log(
+              "[DevMind] Successfully updated existing memory:",
+              topMatch.id
+            );
+          } else {
+            console.warn(
+              "[DevMind] Failed to update existing memory, creating new one"
+            );
+            // 更新失败，创建新记录
+            contextId = this.db.createContext({
+              session_id: sessionId,
+              type: finalType,
+              content: args.content,
+              file_path: undefined,
+              line_start: finalLineStart,
+              line_end: finalLineEnd,
+              language: detectedLanguage || extractedContext.language,
+              tags: (args.tags || extractedContext.tags).join(","),
+              quality_score: extractedContext.quality_score,
+              metadata: JSON.stringify(mergedMetadata),
+            });
+          }
+        } catch (updateError) {
+          console.error(
+            "[DevMind] Error updating existing memory:",
+            updateError
+          );
+          // 更新失败，创建新记录
+          contextId = this.db.createContext({
+            session_id: sessionId,
+            type: finalType,
+            content: args.content,
+            file_path: undefined,
+            line_start: finalLineStart,
+            line_end: finalLineEnd,
+            language: detectedLanguage || extractedContext.language,
+            tags: (args.tags || extractedContext.tags).join(","),
+            quality_score: extractedContext.quality_score,
+            metadata: JSON.stringify(mergedMetadata),
+          });
+        }
+      } else {
+        // 没有高相似度记忆，创建新记录
+        contextId = this.db.createContext({
+          session_id: sessionId,
+          type: finalType,
+          content: args.content,
+          file_path: undefined,
+          line_start: finalLineStart,
+          line_end: finalLineEnd,
+          language: detectedLanguage || extractedContext.language,
+          tags: (args.tags || extractedContext.tags).join(","),
+          quality_score: extractedContext.quality_score,
+          metadata: JSON.stringify(mergedMetadata),
+        });
+      }
 
       // 添加文件关联到 context_files 表
       if (args.files_changed && args.files_changed.length > 0) {
@@ -1806,7 +2130,24 @@ YOU SHOULD:
         return name ? (language === "zh" ? name.zh : name.en) : type;
       };
 
-      if (recordTier === "silent") {
+      if (shouldUpdateExisting) {
+        // 智能更新已有记忆
+        const shortId = contextId.slice(0, 8);
+        responseText =
+          language === "zh"
+            ? `🔄 已智能更新已有记忆 (ID: ${shortId}...)\n   相似度: ${(
+                existingContextInfo.original_similarity * 100
+              ).toFixed(1)}%\n   ${existingContextInfo.hours_ago.toFixed(
+                1
+              )}小时前创建`
+            : `🔄 Smart updated existing memory (ID: ${shortId}...)\n   Similarity: ${(
+                existingContextInfo.original_similarity * 100
+              ).toFixed(
+                1
+              )}%\n   Created ${existingContextInfo.hours_ago.toFixed(
+                1
+              )} hours ago`;
+      } else if (recordTier === "silent") {
         // 第一层：静默自动记忆（执行类工作）
         responseText =
           language === "zh"
@@ -1884,6 +2225,15 @@ YOU SHOULD:
           record_tier: recordTier,
           memory_source: memorySource,
           type: args.type,
+          // === 智能记忆更新元数据 (v2.4.9) ===
+          ...(shouldUpdateExisting
+            ? {
+                smart_update: true,
+                updated_existing_memory: true,
+                original_similarity: existingContextInfo?.original_similarity,
+                action_taken: existingContextInfo?.action,
+              }
+            : {}),
           ...pathDetectionMeta,
           ...autoSessionMeta,
         },
@@ -1974,25 +2324,82 @@ YOU SHOULD:
     }
   }
 
-  private async handleEndSession(args: { session_id: string }) {
+  // === 统一的会话管理方法 (v2.4.9) ===
+  private async handleManageSession(args: {
+    action: "end" | "delete" | "end_and_delete";
+    session_id?: string;
+    project_id?: string;
+  }) {
     try {
-      this.sessionManager.endSession(args.session_id);
+      const { action, session_id, project_id } = args;
 
-      return {
-        content: [
-          {
-            type: "text",
-            text: `Ended session: ${args.session_id}`,
-          },
-        ],
-        isError: false,
-      };
+      // 验证参数
+      if (action === "end" && !session_id) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Error: session_id is required for 'end' action",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      if (
+        (action === "delete" || action === "end_and_delete") &&
+        !session_id &&
+        !project_id
+      ) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: "Error: session_id or project_id is required for delete actions",
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      // 执行操作
+      switch (action) {
+        case "end": {
+          this.sessionManager.endSession(session_id!);
+          return {
+            content: [
+              { type: "text", text: `✅ Session ended: ${session_id}` },
+            ],
+            isError: false,
+            _meta: { action: "end", session_id },
+          };
+        }
+
+        case "delete": {
+          return await this.performDeleteSession(session_id, project_id);
+        }
+
+        case "end_and_delete": {
+          if (session_id) {
+            this.sessionManager.endSession(session_id);
+          }
+          return await this.performDeleteSession(session_id, project_id);
+        }
+
+        default:
+          return {
+            content: [
+              { type: "text", text: `Error: Unknown action '${action}'` },
+            ],
+            isError: true,
+          };
+      }
     } catch (error) {
       return {
         content: [
           {
             type: "text",
-            text: `Failed to end session: ${
+            text: `Failed to manage session: ${
               error instanceof Error ? error.message : "Unknown error"
             }`,
           },
@@ -2000,6 +2407,80 @@ YOU SHOULD:
         isError: true,
       };
     }
+  }
+
+  // 内部方法：执行删除会话
+  private async performDeleteSession(session_id?: string, project_id?: string) {
+    if (project_id) {
+      const sessions = this.db.getSessionsByProject(project_id);
+      if (sessions.length === 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No sessions found for project ${project_id}`,
+            },
+          ],
+          isError: false,
+        };
+      }
+
+      let totalContexts = 0;
+      for (const session of sessions) {
+        const contexts = this.db.getContextsBySession(session.id);
+        totalContexts += contexts.length;
+        this.db.deleteSession(session.id);
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `✅ Deleted project: ${project_id}\nSessions: ${sessions.length}\nContexts: ${totalContexts}\n⚠️ Cannot be undone!`,
+          },
+        ],
+        isError: false,
+        _meta: {
+          deleted_project_id: project_id,
+          deleted_sessions_count: sessions.length,
+          deleted_contexts_count: totalContexts,
+        },
+      };
+    }
+
+    // 删除单个会话
+    const session = this.db.getSession(session_id!);
+    if (!session) {
+      return {
+        content: [{ type: "text", text: `Session not found: ${session_id}` }],
+        isError: false,
+      };
+    }
+
+    const contexts = this.db.getContextsBySession(session_id!);
+    this.db.deleteSession(session_id!);
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: `✅ Deleted session: ${session_id}\nName: ${session.name}\nContexts: ${contexts.length}\n⚠️ Cannot be undone!`,
+        },
+      ],
+      isError: false,
+      _meta: {
+        deleted_session_id: session_id,
+        deleted_contexts_count: contexts.length,
+      },
+    };
+  }
+
+  // 保留原方法作为内部调用（向后兼容）
+  private async handleEndSession(args: { session_id: string }) {
+    return this.handleManageSession({
+      action: "end",
+      session_id: args.session_id,
+    });
   }
 
   private async handleGetCurrentSession(args: { project_path: string }) {

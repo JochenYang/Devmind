@@ -104,43 +104,21 @@ export class SessionManager {
       console.error(`[SessionManager] Auto-detected tool: ${toolUsed}`);
     }
 
-    // 检查是否已有活跃会话
-    const activeSessions = this.db.getActiveSessions(project.id);
+      // 检查是否已有活跃会话（确保项目隔离）
+      const activeSessions = this.db.getActiveSessions(project.id);
 
-    // 如果不是强制创建，且存在活跃会话，则复用现有会话
-    if (!params.force && activeSessions.length > 0) {
-      const existingSession = activeSessions[0];
-      this.activeSessions.set(project.path, existingSession.id);
-      this.sessionCache.set(existingSession.id, existingSession);
-
-      console.error(
-        `[DevMind] Reusing existing active session: ${existingSession.id} (${existingSession.tool_used} -> ${toolUsed})`
-      );
-
-      // 可选：更新会话的tool_used记录（记录跨工具使用）
-      const currentMetadata = existingSession.metadata
-        ? JSON.parse(existingSession.metadata)
-        : {};
-      if (!currentMetadata.tools_used) {
-        currentMetadata.tools_used = [existingSession.tool_used];
-      }
-      if (!currentMetadata.tools_used.includes(toolUsed)) {
-        currentMetadata.tools_used.push(toolUsed);
-        currentMetadata.last_tool = toolUsed;
-        currentMetadata.last_access = new Date().toISOString();
-
-        // 更新元数据和缓存
-        this.db.updateSession(existingSession.id, {
-          metadata: JSON.stringify(currentMetadata),
-        });
-        this.sessionCache.set(existingSession.id, {
-          ...existingSession,
-          metadata: JSON.stringify(currentMetadata),
+      // 重要：移除智能会话复用逻辑
+      // 每个项目应该有独立的主会话，不能跨项目复用
+      // 只有在force=true时才允许复用（用于特殊场景）
+      if (!params.force && activeSessions.length > 0) {
+        console.error(`[DevMind] Project isolation: Found ${activeSessions.length} existing sessions for project ${project.id}, creating new session to maintain independence`);
+        
+        // 可选：结束所有旧会话，确保彻底的项目隔离
+        console.error(`[DevMind] Ending ${activeSessions.length} old sessions to ensure clean project state`);
+        activeSessions.forEach(session => {
+          this.db.endSession(session.id);
         });
       }
-
-      return existingSession.id;
-    }
 
     // 只有在强制创建或没有活跃会话时，才结束旧会话并创建新会话
     if (params.force && activeSessions.length > 0) {
@@ -170,7 +148,7 @@ export class SessionManager {
       metadata: JSON.stringify(initialMetadata),
     });
 
-    this.activeSessions.set(project.path, sessionId);
+    this.activeSessions.set(normalizeProjectPath(project.path), sessionId);
     console.error(
       `[DevMind] Created new session: ${sessionId} (${params.tool_used})`
     );
