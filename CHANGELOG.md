@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.2] - 2025-12-17
+
+### Fixed
+
+- **Critical: Multi-Project Memory Contamination**: Fixed cross-project memory pollution in multi-project scenarios
+  - Enhanced project path detection with strict validation
+  - Now throws explicit error when multiple active projects detected and path is ambiguous
+  - Requires explicit `project_path` parameter in multi-project environments
+  - Prevents memories from being recorded to wrong project sessions
+  - **Impact**: Ensures memory isolation between projects in multi-project development
+
+- **Codebase Indexing Session Management**: Fixed indexing session proliferation issue
+  - Each project now maintains only one persistent indexing session
+  - Subsequent indexing operations reuse existing session
+  - Session name: `Codebase Index (Auto-managed)`
+  - Prevents session list pollution from repeated indexing
+  - **Impact**: Cleaner session management, truly implements v2.5.1's "temporary sessions" intent
+
+### Changed
+
+- **Multi-Project Error Handling**: More explicit error messages for multi-project conflicts
+  - Shows detected projects and their paths
+  - Provides clear usage examples
+  - Guides users to specify `project_path` explicitly
+
+### Technical Details
+
+- **handleRecordContext**: Enhanced multi-project validation logic
+  - Throws error instead of warning when project path is ambiguous
+  - Compares inferred project with most recently accessed project
+  - Only allows auto-detection when unambiguous
+
+- **ContextEngine.indexCodebase**: Added session reuse logic
+  - New `findIndexingSession()` method to locate existing indexing session
+  - Reuses active `codebase-indexer` session if exists
+  - Creates new session only when none exists
+
 ## [2.5.1] - 2025-12-16
 
 ### Fixed

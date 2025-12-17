@@ -1103,8 +1103,7 @@ Use semantic_search to query indexed files after indexing.`,
               },
               force_reindex: {
                 type: "boolean",
-                description:
-                  "Force reindex all files (default: false)",
+                description: "Force reindex all files (default: false)",
               },
             },
             required: ["project_path"],
@@ -1250,10 +1249,7 @@ Note: This only deletes the file index, not your development memory contexts.`,
       // Ensure args is at least an empty object to prevent destructuring errors
       const safeArgs = args || {};
 
-      throw new McpError(
-        ErrorCode.MethodNotFound,
-        `Unknown prompt: ${name}`
-      );
+      throw new McpError(ErrorCode.MethodNotFound, `Unknown prompt: ${name}`);
     });
   }
 
@@ -1542,7 +1538,7 @@ Note: This only deletes the file index, not your development memory contexts.`,
         }
       }
 
-      // === 多项目场景验证 (v2.5.0) ===
+      // === 多项目场景验证 (v2.5.0 增强版) ===
       if (inferredProjectPath) {
         try {
           // 获取所有项目进行对比
@@ -1551,35 +1547,64 @@ Note: This only deletes the file index, not your development memory contexts.`,
             const currentProject = allProjects.find(
               (p: any) => p.path === inferredProjectPath
             );
-            if (currentProject) {
-              // 检查是否有多个最近活跃的项目
-              const recentProjects = allProjects
-                .filter((p: any) => {
-                  const lastAccess = new Date(p.last_accessed || 0);
-                  const daysSince = (Date.now() - lastAccess.getTime()) / (1000 * 60 * 60 * 24);
-                  return daysSince < 7; // 最近7天访问过的项目
-                })
-                .sort((a: any, b: any) => {
-                  const aTime = new Date(a.last_accessed || 0).getTime();
-                  const bTime = new Date(b.last_accessed || 0).getTime();
-                  return bTime - aTime; // 按访问时间倒序
-                });
 
-              if (recentProjects.length > 1 && currentProject.id !== recentProjects[0].id) {
-                console.warn(
-                  `[DevMind] ⚠️ 多项目检测: 检测到 ${recentProjects.length} 个最近活跃项目，当前操作将记录到: ${currentProject.name}`
-                );
-                console.warn(
-                  `[DevMind] 💡 建议: 在多项目开发时，请在 record_context 中明确指定 project_path 参数以避免混淆`
-                );
-                autoSessionMeta.multi_project_warning = true;
-                autoSessionMeta.current_project = currentProject.name;
-                autoSessionMeta.recent_projects = recentProjects.map((p: any) => p.name);
-              }
+            // 检查是否有多个最近活跃的项目
+            const recentProjects = allProjects
+              .filter((p: any) => {
+                const lastAccess = new Date(p.last_accessed || 0);
+                const daysSince =
+                  (Date.now() - lastAccess.getTime()) / (1000 * 60 * 60 * 24);
+                return daysSince < 7; // 最近7天访问过的项目
+              })
+              .sort((a: any, b: any) => {
+                const aTime = new Date(a.last_accessed || 0).getTime();
+                const bTime = new Date(b.last_accessed || 0).getTime();
+                return bTime - aTime; // 按访问时间倒序
+              });
+
+            // 如果有多个活跃项目且当前项目不是最近访问的，要求明确指定
+            if (
+              recentProjects.length > 1 &&
+              currentProject &&
+              currentProject.id !== recentProjects[0].id
+            ) {
+              const errorMsg =
+                `⚠️ 多项目冲突检测: 检测到 ${recentProjects.length} 个最近活跃项目，但自动推断的项目路径可能不准确。\n\n` +
+                `推断的项目: ${currentProject.name} (${currentProject.path})\n` +
+                `最近访问: ${recentProjects[0].name} (${recentProjects[0].path})\n\n` +
+                `为避免记忆被记录到错误的项目，请在 record_context 中明确指定 project_path 参数。\n\n` +
+                `示例: record_context({ content: "...", project_path: "${recentProjects[0].path}" })`;
+
+              console.error(`[DevMind] ${errorMsg}`);
+
+              throw new Error(
+                `Multi-project conflict: Please explicitly specify project_path parameter. ` +
+                  `Detected ${recentProjects.length} active projects. ` +
+                  `Inferred: ${currentProject.name}, Most recent: ${recentProjects[0].name}`
+              );
+            }
+
+            // 记录多项目警告元数据
+            if (recentProjects.length > 1) {
+              autoSessionMeta.multi_project_warning = true;
+              autoSessionMeta.current_project = currentProject?.name;
+              autoSessionMeta.recent_projects = recentProjects.map(
+                (p: any) => p.name
+              );
+              console.warn(
+                `[DevMind] 💡 多项目环境: 检测到 ${recentProjects.length} 个活跃项目，当前记录到: ${currentProject?.name}`
+              );
             }
           }
         } catch (error) {
-          // 静默失败，不影响正常流程
+          // 如果是我们抛出的多项目冲突错误，继续抛出
+          if (
+            error instanceof Error &&
+            error.message.includes("Multi-project conflict")
+          ) {
+            throw error;
+          }
+          // 其他错误静默失败
           console.warn("[DevMind] Multi-project validation failed:", error);
         }
       }
@@ -4289,7 +4314,9 @@ ${
         );
       }
 
-      console.log(`[ContextEngine] Starting to index codebase: ${project_path}`);
+      console.log(
+        `[ContextEngine] Starting to index codebase: ${project_path}`
+      );
 
       // 导入 ContextEngine
       const { ContextEngine } = await import("./context-engine/index.js");
@@ -4297,7 +4324,7 @@ ${
 
       // 索引代码库
       const result = await contextEngine.indexCodebase(project_path, {
-        forceReindex: force_reindex
+        forceReindex: force_reindex,
       });
 
       // 返回结果
@@ -4360,7 +4387,9 @@ ${
         );
       }
 
-      console.log(`[ContextEngine] Starting to delete codebase index: ${project_path}`);
+      console.log(
+        `[ContextEngine] Starting to delete codebase index: ${project_path}`
+      );
 
       // 导入 ContextEngine
       const { ContextEngine } = await import("./context-engine/index.js");
@@ -4581,7 +4610,6 @@ ${
       };
     }
   }
-
 
   /**
    * 处理项目分析工程师 Tool（直接调用，返回分析文档）

@@ -2,14 +2,14 @@
  * ContextEngine - 上下文引擎主入口
  */
 
-import { FileScanner } from './FileScanner.js';
-import { IgnoreProcessor } from './IgnoreProcessor.js';
-import { ScanOptions, ScanResult, IndexResult } from './types.js';
-import { existsSync } from 'fs';
-import { resolve } from 'path';
-import { DatabaseManager } from '../database.js';
-import { SessionManager } from '../session-manager.js';
-import { createHash } from 'crypto';
+import { FileScanner } from "./FileScanner.js";
+import { IgnoreProcessor } from "./IgnoreProcessor.js";
+import { ScanOptions, ScanResult, IndexResult } from "./types.js";
+import { existsSync } from "fs";
+import { resolve } from "path";
+import { DatabaseManager } from "../database.js";
+import { SessionManager } from "../session-manager.js";
+import { createHash } from "crypto";
 
 export class ContextEngine {
   private fileScanner: FileScanner;
@@ -34,7 +34,9 @@ export class ContextEngine {
     const startTime = Date.now();
     const normalizedPath = this.normalizeProjectPath(projectPath);
 
-    console.log(`[ContextEngine] Starting to index codebase: ${normalizedPath}`);
+    console.log(
+      `[ContextEngine] Starting to index codebase: ${normalizedPath}`
+    );
 
     const results: IndexResult = {
       totalFiles: 0,
@@ -42,25 +44,49 @@ export class ContextEngine {
       failedFiles: 0,
       skippedFiles: 0,
       duration: 0,
-      errors: []
+      errors: [],
     };
 
     try {
       // 1. 扫描文件
-      const scannedFiles = await this.fileScanner.scanDirectory(normalizedPath, options);
+      const scannedFiles = await this.fileScanner.scanDirectory(
+        normalizedPath,
+        options
+      );
       results.totalFiles = scannedFiles.length;
 
-      console.log(`[ContextEngine] Found ${scannedFiles.length} files to index`);
+      console.log(
+        `[ContextEngine] Found ${scannedFiles.length} files to index`
+      );
 
-      // 2. 获取或创建项目和会话
-      const project = await this.sessionManager.getOrCreateProject(normalizedPath);
-      const sessionId = await this.sessionManager.createSession({
-        project_path: normalizedPath,
-        tool_used: "codebase-indexer",
-        name: `Codebase Index - ${project.name}`,
-      });
+      // 2. 获取或创建项目
+      const project = await this.sessionManager.getOrCreateProject(
+        normalizedPath
+      );
 
-      console.log(`[ContextEngine] Created indexing session: ${sessionId}`);
+      // 3. 查找或创建索引会话 (每个项目只有一个持久索引会话)
+      let sessionId = this.findIndexingSession(project.id);
+
+      if (sessionId) {
+        console.log(
+          `[ContextEngine] Reusing existing indexing session: ${sessionId}`
+        );
+      } else {
+        // 创建新的索引会话
+        sessionId = await this.sessionManager.createSession({
+          project_path: normalizedPath,
+          tool_used: "codebase-indexer",
+          name: `Codebase Index (Auto-managed)`,
+          metadata: {
+            auto_managed: true,
+            indexing_session: true,
+            created_at: new Date().toISOString(),
+          },
+        });
+        console.log(
+          `[ContextEngine] Created new indexing session: ${sessionId}`
+        );
+      }
 
       // 3. 处理每个文件
       for (const file of scannedFiles) {
@@ -69,9 +95,13 @@ export class ContextEngine {
           results.successFiles++;
         } catch (error) {
           results.failedFiles++;
-          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorMessage =
+            error instanceof Error ? error.message : String(error);
           results.errors?.push(`${file.relativePath}: ${errorMessage}`);
-          console.error(`[ContextEngine] Failed to index ${file.relativePath}:`, error);
+          console.error(
+            `[ContextEngine] Failed to index ${file.relativePath}:`,
+            error
+          );
         }
       }
 
@@ -85,7 +115,7 @@ export class ContextEngine {
 
       return results;
     } catch (error) {
-      console.error('[ContextEngine] Index failed:', error);
+      console.error("[ContextEngine] Index failed:", error);
       throw error;
     }
   }
@@ -93,10 +123,14 @@ export class ContextEngine {
   /**
    * 索引单个文件
    */
-  private async indexFile(file: ScanResult, sessionId: string, projectId: string): Promise<void> {
+  private async indexFile(
+    file: ScanResult,
+    sessionId: string,
+    projectId: string
+  ): Promise<void> {
     try {
       // 生成文件哈希
-      const hash = createHash('sha256').update(file.content).digest('hex');
+      const hash = createHash("sha256").update(file.content).digest("hex");
 
       // 添加到 file_index 表
       this.db.addFileToIndex({
@@ -107,23 +141,28 @@ export class ContextEngine {
         relative_path: file.relativePath,
         content: file.content,
         language: file.language,
-        file_type: file.language || 'unknown',
+        file_type: file.language || "unknown",
         size: file.size,
         modified_time: file.modifiedTime.toISOString(),
         hash,
-        tags: `indexed,codebase,${file.language || 'unknown'}`,
+        tags: `indexed,codebase,${file.language || "unknown"}`,
         metadata: JSON.stringify({
           indexed_file: true,
-          file_type: 'code',
+          file_type: "code",
           relative_path: file.relativePath,
           size: file.size,
           modified_time: file.modifiedTime.toISOString(),
         }),
       });
 
-      console.log(`[ContextEngine] Indexed: ${file.relativePath} (${file.language})`);
+      console.log(
+        `[ContextEngine] Indexed: ${file.relativePath} (${file.language})`
+      );
     } catch (error) {
-      console.error(`[ContextEngine] Failed to index ${file.relativePath}:`, error);
+      console.error(
+        `[ContextEngine] Failed to index ${file.relativePath}:`,
+        error
+      );
       throw error;
     }
   }
@@ -131,7 +170,10 @@ export class ContextEngine {
   /**
    * 检测文件类型
    */
-  detectFileType(filePath: string): { language: string; fileType: 'code' | 'doc' | 'config' | 'other' } {
+  detectFileType(filePath: string): {
+    language: string;
+    fileType: "code" | "doc" | "config" | "other";
+  } {
     return this.ignoreProcessor.detectFileType(filePath);
   }
 
@@ -147,24 +189,46 @@ export class ContextEngine {
   /**
    * 删除项目索引
    */
-  async deleteCodebaseIndex(projectPath: string): Promise<{ deleted_files: number; deleted_sessions: number }> {
+  async deleteCodebaseIndex(
+    projectPath: string
+  ): Promise<{ deleted_files: number; deleted_sessions: number }> {
     const normalizedPath = this.normalizeProjectPath(projectPath);
 
     console.log(`[ContextEngine] Deleting codebase index: ${normalizedPath}`);
 
     try {
       // 获取或创建项目
-      const project = await this.sessionManager.getOrCreateProject(normalizedPath);
+      const project = await this.sessionManager.getOrCreateProject(
+        normalizedPath
+      );
 
       // 删除索引文件和相关会话
       const result = this.db.deleteProjectIndex(project.id);
 
-      console.log(`[ContextEngine] Deleted ${result.deleted_files} files and ${result.deleted_sessions} sessions`);
+      console.log(
+        `[ContextEngine] Deleted ${result.deleted_files} files and ${result.deleted_sessions} sessions`
+      );
 
       return result;
     } catch (error) {
-      console.error('[ContextEngine] Failed to delete codebase index:', error);
+      console.error("[ContextEngine] Failed to delete codebase index:", error);
       throw error;
+    }
+  }
+
+  /**
+   * 查找项目的索引会话
+   */
+  private findIndexingSession(projectId: string): string | null {
+    try {
+      const sessions = this.db.getProjectSessions(projectId);
+      const indexingSession = sessions.find(
+        (s: any) => s.tool_used === "codebase-indexer" && s.status === "active"
+      );
+      return indexingSession ? indexingSession.id : null;
+    } catch (error) {
+      console.error("[ContextEngine] Failed to find indexing session:", error);
+      return null;
     }
   }
 
@@ -175,7 +239,7 @@ export class ContextEngine {
     let normalized = resolve(projectPath);
 
     // Windows 平台大小写统一
-    if (process.platform === 'win32') {
+    if (process.platform === "win32") {
       normalized = normalized.toLowerCase();
     }
 
