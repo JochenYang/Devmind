@@ -1490,9 +1490,8 @@ Note: This only deletes the file index, not your development memory contexts.`,
               hoursSince =
                 (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
 
-              // 降低智能更新的相似度阈值到0.7，确保能触发更新
-              if (hoursSince < 24 && topMatch.similarity_score > 0.7) {
-                // 从0.75降低到0.7
+              // v2.5.4: 提高去重检测阈值到 0.85，避免误判
+              if (hoursSince < 24 && topMatch.similarity_score > 0.85) {
                 duplicateWarning = `⚠️ Potential duplicate detected: Similar context exists (ID: ${
                   topMatch.id
                 }, similarity: ${(topMatch.similarity_score * 100).toFixed(
@@ -1952,12 +1951,12 @@ Note: This only deletes the file index, not your development memory contexts.`,
 
       let contextId: string;
 
-      // === v2.5.3: 禁用自动更新，改为仅提示 ===
+      // === v2.5.4: 统一警告阈值为 0.85 ===
       // 自动更新容易误判，导致不同工作的记忆被错误合并
       // 现在只提示 AI，由 AI 决定是否使用 update_context
-      if (duplicateWarning && topMatch && topMatch.similarity_score > 0.95) {
+      if (duplicateWarning && topMatch && topMatch.similarity_score > 0.85) {
         console.log(
-          "[DevMind] High similarity detected (>95%), but creating new record. AI can manually update if needed."
+          "[DevMind] High similarity detected (>85%), but creating new record. AI can manually update if needed."
         );
 
         // 更新提示信息，提供更详细的指导

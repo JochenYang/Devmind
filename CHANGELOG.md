@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.4] - 2025-12-17
+
+### Fixed
+
+- **Critical: Duplicate Detection Threshold Too Low**: Fixed duplicate memory detection threshold
+  - **Problem**: Detection threshold was 0.7 (70%) but warning threshold was 0.95 (95%)
+  - **Gray Zone**: Memories with 70%-95% similarity were neither warned nor prevented
+  - **Example**: Three similar v1.2.7 memories (80%-90% similarity) were all created
+  - **Solution**: Raised detection threshold from 0.7 to 0.85 (85%)
+  - **Impact**: More accurate duplicate detection, fewer redundant memories
+
+### Changed
+
+- **Duplicate Detection**: Unified thresholds for consistency
+  - Detection threshold: 0.7 → 0.85 (85%)
+  - Warning threshold: 0.95 → 0.85 (85%)
+  - Now detects and warns at the same threshold
+  - Reduces false negatives while maintaining accuracy
+
+### Technical Details
+
+- **Before**: 
+  - Detection at 70% similarity (too sensitive)
+  - Warning only at 95% similarity (too strict)
+  - 70%-95% range: no action taken (gray zone)
+  
+- **After**:
+  - Detection and warning both at 85% similarity
+  - Balanced threshold: catches real duplicates, avoids false positives
+  - No gray zone: consistent behavior
+
+- **Time Window**: Still 24 hours (unchanged)
+- **Behavior**: Still creates new record + shows warning (safe approach)
+
 ## [2.5.3] - 2025-12-17
 
 ### Fixed
