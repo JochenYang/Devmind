@@ -75,6 +75,8 @@ export class AiMemoryMcpServer {
   > = new Map();
   private projectInfoCache: Map<string, ProjectInfo> = new Map();
 
+  // v2.5.3: Session tracking removed - no longer needed with required project_path
+
   // 真实日期记录函数
   private getCurrentRealDate(): string {
     return new Date().toISOString();
@@ -580,12 +582,12 @@ Auto-detects: Git changes, context type, quality scores. Smart update for duplic
               project_path: {
                 type: "string",
                 description:
-                  "Project path (optional). If not provided, automatically detects current project. Only specify when working in multiple projects to ensure memory is recorded to the correct project.",
+                  "Project path (REQUIRED). Absolute path to the project directory. This ensures memory is recorded to the correct project session. Example: '/path/to/project' or 'C:\\Users\\user\\project'",
               },
               session_id: {
                 type: "string",
                 description:
-                  "Session ID to record context in (optional if project_path is provided)",
+                  "Session ID to record context in (optional, will use project's active session if not provided)",
               },
               file_path: { type: "string", description: "Optional file path" },
               line_ranges: {
@@ -695,7 +697,7 @@ Auto-detects: Git changes, context type, quality scores. Smart update for duplic
                 description: "Force record when user says 'remember/save this'",
               },
             },
-            required: ["content"],
+            required: ["content", "project_path"],
           },
         },
         {
@@ -1508,153 +1510,65 @@ Note: This only deletes the file index, not your development memory contexts.`,
         }
       }
 
-      // 自动获取或创建会话（如果未提供 session_id）
+      // v2.5.3: project_path 现在是必需参数，简化逻辑
       let sessionId = args.session_id;
       let autoSessionMeta: any = {};
-      let inferredProjectPath = args.project_path;
+      const projectPath = args.project_path;
 
-      // v2.1.15: 如果两个参数都没提供，自动推断当前工作目录
-      if (!sessionId && !inferredProjectPath) {
-        const potentialDirs = [
-          process.env.INIT_CWD, // npm/npx初始目录
-          process.env.PWD, // Unix工作目录
-          process.env.CD, // Windows当前目录
-          process.cwd(), // 最后兜底
-        ].filter(Boolean) as string[];
-
-        // 找到第一个有效目录
-        for (const dir of potentialDirs) {
-          if (existsSync(dir)) {
-            // 修复：强制查找父目录（项目根）
-            const parentDir = findProjectRoot(dir);
-            const normalizedPath = normalizeProjectPath(parentDir);
-            inferredProjectPath = normalizedPath;
-            autoSessionMeta.inferred_project_path = true;
-            console.error(
-              `[DevMind] Inferred project path: ${dir} -> ${inferredProjectPath}`
-            );
-            break;
-          }
-        }
+      // 验证 project_path 必须提供
+      if (!projectPath) {
+        throw new Error(
+          "project_path is required. Please provide the absolute path to your project directory.\n" +
+            "Example: record_context({ content: '...', project_path: '/path/to/project' })"
+        );
       }
 
-      // === 多项目场景验证 (v2.5.0 增强版) ===
-      if (inferredProjectPath) {
-        try {
-          // 获取所有项目进行对比
-          const allProjects = this.db.getAllProjects();
-          if (allProjects.length > 1) {
-            const currentProject = allProjects.find(
-              (p: any) => p.path === inferredProjectPath
-            );
+      // 标准化项目路径
+      const projectRoot = findProjectRoot(projectPath);
+      const normalizedProjectPath = normalizeProjectPath(projectRoot);
 
-            // 检查是否有多个最近活跃的项目
-            const recentProjects = allProjects
-              .filter((p: any) => {
-                const lastAccess = new Date(p.last_accessed || 0);
-                const daysSince =
-                  (Date.now() - lastAccess.getTime()) / (1000 * 60 * 60 * 24);
-                return daysSince < 7; // 最近7天访问过的项目
-              })
-              .sort((a: any, b: any) => {
-                const aTime = new Date(a.last_accessed || 0).getTime();
-                const bTime = new Date(b.last_accessed || 0).getTime();
-                return bTime - aTime; // 按访问时间倒序
-              });
+      console.log(
+        `[DevMind] Using project path: ${projectPath} -> ${normalizedProjectPath}`
+      );
 
-            // 如果有多个活跃项目且当前项目不是最近访问的，要求明确指定
-            if (
-              recentProjects.length > 1 &&
-              currentProject &&
-              currentProject.id !== recentProjects[0].id
-            ) {
-              const errorMsg =
-                `⚠️ 多项目冲突检测: 检测到 ${recentProjects.length} 个最近活跃项目，但自动推断的项目路径可能不准确。\n\n` +
-                `推断的项目: ${currentProject.name} (${currentProject.path})\n` +
-                `最近访问: ${recentProjects[0].name} (${recentProjects[0].path})\n\n` +
-                `为避免记忆被记录到错误的项目，请在 record_context 中明确指定 project_path 参数。\n\n` +
-                `示例: record_context({ content: "...", project_path: "${recentProjects[0].path}" })`;
-
-              console.error(`[DevMind] ${errorMsg}`);
-
-              throw new Error(
-                `Multi-project conflict: Please explicitly specify project_path parameter. ` +
-                  `Detected ${recentProjects.length} active projects. ` +
-                  `Inferred: ${currentProject.name}, Most recent: ${recentProjects[0].name}`
-              );
-            }
-
-            // 记录多项目警告元数据
-            if (recentProjects.length > 1) {
-              autoSessionMeta.multi_project_warning = true;
-              autoSessionMeta.current_project = currentProject?.name;
-              autoSessionMeta.recent_projects = recentProjects.map(
-                (p: any) => p.name
-              );
-              console.warn(
-                `[DevMind] 💡 多项目环境: 检测到 ${recentProjects.length} 个活跃项目，当前记录到: ${currentProject?.name}`
-              );
-            }
-          }
-        } catch (error) {
-          // 如果是我们抛出的多项目冲突错误，继续抛出
-          if (
-            error instanceof Error &&
-            error.message.includes("Multi-project conflict")
-          ) {
-            throw error;
-          }
-          // 其他错误静默失败
-          console.warn("[DevMind] Multi-project validation failed:", error);
-        }
-      }
-
-      if (!sessionId && inferredProjectPath) {
-        // 尝试获取活跃会话
+      // 如果没有提供 session_id，获取或创建项目的活跃会话
+      if (!sessionId) {
         const currentSessionId = await this.sessionManager.getCurrentSession(
-          inferredProjectPath
+          normalizedProjectPath
         );
 
         if (currentSessionId) {
           sessionId = currentSessionId;
           autoSessionMeta = {
-            ...autoSessionMeta,
             auto_session: true,
             session_source: "existing_active",
             session_id: sessionId,
           };
+          console.log(`[DevMind] Using existing active session: ${sessionId}`);
         } else {
           // 创建新会话
           sessionId = await this.sessionManager.createSession({
-            project_path: inferredProjectPath,
+            project_path: normalizedProjectPath,
             tool_used: "auto",
             name: "Auto-created session",
           });
           autoSessionMeta = {
-            ...autoSessionMeta,
             auto_session: true,
             session_source: "newly_created",
             session_id: sessionId,
           };
+          console.log(`[DevMind] Created new session: ${sessionId}`);
         }
-      }
-
-      // 验证必须有 session_id
-      if (!sessionId) {
-        throw new Error(
-          "Either session_id or project_path must be provided. " +
-            "Could not infer project path from current working directory."
-        );
       }
 
       // === Git 信息自动检测 (v2.3.0) ===
       let gitInfo: GitInfo | null = null;
       let gitDetectionMeta: any = {};
 
-      // 仅在未提供 files_changed 且有 project_path 时调用
-      if (!args.files_changed && inferredProjectPath) {
+      // 仅在未提供 files_changed 时调用
+      if (!args.files_changed) {
         try {
-          gitInfo = await this.detectGitInfo(inferredProjectPath);
+          gitInfo = await this.detectGitInfo(normalizedProjectPath);
 
           if (gitInfo && gitInfo.changedFiles.length > 0) {
             // 将检测到的变更文件转换为 files_changed 格式
@@ -1676,16 +1590,14 @@ Note: This only deletes the file index, not your development memory contexts.`,
       // === 项目信息自动检测 (v2.3.0) ===
       let projectInfo: ProjectInfo | null = null;
 
-      // 仅在提供 project_path 时调用
-      if (inferredProjectPath) {
-        try {
-          projectInfo = await this.detectProjectInfo(inferredProjectPath);
-        } catch (error) {
-          console.warn(
-            "[Project Detection] Failed in handleRecordContext:",
-            error
-          );
-        }
+      // 自动检测项目信息
+      try {
+        projectInfo = await this.detectProjectInfo(normalizedProjectPath);
+      } catch (error) {
+        console.warn(
+          "[Project Detection] Failed in handleRecordContext:",
+          error
+        );
       }
 
       // 智能检测文件路径（如果未提供）
@@ -2039,162 +1951,41 @@ Note: This only deletes the file index, not your development memory contexts.`,
       };
 
       let contextId: string;
-      let shouldUpdateExisting = false;
-      let existingContextInfo: any = null;
 
-      // === 智能记忆更新逻辑 (v2.4.9) ===
-      // 如果检测到高相似度记忆，优先更新而非创建新记录
-      if (duplicateWarning && topMatch && topMatch.similarity_score > 0.7) {
-        // 从0.8降低到0.7
+      // === v2.5.3: 禁用自动更新，改为仅提示 ===
+      // 自动更新容易误判，导致不同工作的记忆被错误合并
+      // 现在只提示 AI，由 AI 决定是否使用 update_context
+      if (duplicateWarning && topMatch && topMatch.similarity_score > 0.95) {
         console.log(
-          "[DevMind] High similarity detected, attempting to update existing memory"
+          "[DevMind] High similarity detected (>95%), but creating new record. AI can manually update if needed."
         );
 
-        try {
-          // 如果文本搜索结果没有完整内容，主动获取
-          if (!topMatch.content || topMatch.content.trim() === "") {
-            console.log(
-              "[DevMind] Fetching full context content for update..."
-            );
-            const fullContextResult = await this.handleGetContext({
-              context_ids: topMatch.id,
-            });
+        // 更新提示信息，提供更详细的指导
+        duplicateWarning = `⚠️ 检测到相似记忆：
+- ID: ${topMatch.id}
+- 相似度: ${(topMatch.similarity_score * 100).toFixed(1)}%
+- 创建时间: ${hoursSince.toFixed(1)}小时前
+- 类型: ${topMatch.type || "unknown"}
 
-            if (
-              fullContextResult &&
-              fullContextResult.content &&
-              fullContextResult.content.length > 0
-            ) {
-              // 安全解析get_context的响应
-              const text = fullContextResult.content[0]?.text;
-              if (text && text.startsWith("{") && text.endsWith("}")) {
-                try {
-                  const fullContext = JSON.parse(text);
-                  if (fullContext.results && fullContext.results.length > 0) {
-                    topMatch.content = fullContext.results[0].content;
-                    topMatch.tags = fullContext.results[0].tags;
-                    topMatch.metadata = fullContext.results[0].metadata;
-                    console.log(
-                      "[DevMind] Successfully fetched full context content"
-                    );
-                  }
-                } catch (parseError) {
-                  console.error(
-                    "[DevMind] Failed to parse get_context response:",
-                    parseError
-                  );
-                  // 如果解析失败，使用备用方案：直接合并当前内容
-                  console.log(
-                    "[DevMind] Using fallback: recording evolution with current content only"
-                  );
-                  topMatch.content = args.content; // 使用当前内容作为基础
-                }
-              } else if (text && text.includes("Retrieved context")) {
-                // 文本格式的响应，尝试解析内容
-                console.log(
-                  "[DevMind] Detected text format response from get_context"
-                );
-                // 这里可以添加文本解析逻辑
-                topMatch.content = args.content; // 备用方案
-              } else {
-                console.log(
-                  "[DevMind] Unexpected response format, using fallback"
-                );
-                topMatch.content = args.content; // 备用方案
-              }
-            }
-          }
-
-          // 智能内容合并 - 现在应该有完整内容了
-          const mergedContent = this.mergeMemoryContent(
-            topMatch.content || "",
-            args.content
-          );
-
-          // 合并标签
-          const existingTags = topMatch.tags ? topMatch.tags.split(",") : [];
-          const newTags = args.tags || [];
-          const mergedTags = [...new Set([...existingTags, ...newTags])];
-
-          // 执行更新
-          const updateResult = await this.handleUpdateContext({
-            context_id: topMatch.id,
-            content: mergedContent,
-            tags: mergedTags,
-            metadata: {
-              ...JSON.parse(topMatch.metadata || "{}"),
-              last_updated: new Date().toISOString(),
-              update_count:
-                (JSON.parse(topMatch.metadata || "{}").update_count || 0) + 1,
-              original_similarity: topMatch.similarity_score,
-              auto_updated: true,
-            },
-          });
-
-          if (updateResult && !updateResult.isError) {
-            contextId = topMatch.id;
-            shouldUpdateExisting = true;
-            existingContextInfo = {
-              action: "updated_existing",
-              original_similarity: topMatch.similarity_score,
-              hours_ago: hoursSince,
-            };
-            console.log(
-              "[DevMind] Successfully updated existing memory:",
-              topMatch.id
-            );
-          } else {
-            console.warn(
-              "[DevMind] Failed to update existing memory, creating new one"
-            );
-            // 更新失败，创建新记录
-            contextId = this.db.createContext({
-              session_id: sessionId,
-              type: finalType,
-              content: args.content,
-              file_path: undefined,
-              line_start: finalLineStart,
-              line_end: finalLineEnd,
-              language: detectedLanguage || extractedContext.language,
-              tags: (args.tags || extractedContext.tags).join(","),
-              quality_score: extractedContext.quality_score,
-              metadata: JSON.stringify(mergedMetadata),
-            });
-          }
-        } catch (updateError) {
-          console.error(
-            "[DevMind] Error updating existing memory:",
-            updateError
-          );
-          // 更新失败，创建新记录
-          contextId = this.db.createContext({
-            session_id: sessionId,
-            type: finalType,
-            content: args.content,
-            file_path: undefined,
-            line_start: finalLineStart,
-            line_end: finalLineEnd,
-            language: detectedLanguage || extractedContext.language,
-            tags: (args.tags || extractedContext.tags).join(","),
-            quality_score: extractedContext.quality_score,
-            metadata: JSON.stringify(mergedMetadata),
-          });
-        }
-      } else {
-        // 没有高相似度记忆，创建新记录
-        contextId = this.db.createContext({
-          session_id: sessionId,
-          type: finalType,
-          content: args.content,
-          file_path: undefined,
-          line_start: finalLineStart,
-          line_end: finalLineEnd,
-          language: detectedLanguage || extractedContext.language,
-          tags: (args.tags || extractedContext.tags).join(","),
-          quality_score: extractedContext.quality_score,
-          metadata: JSON.stringify(mergedMetadata),
-        });
+如果这是重复工作，建议使用 update_context(context_id: "${
+          topMatch.id
+        }") 更新现有记忆。
+否则已创建新记录（推荐保留独立记忆）。`;
       }
+
+      // 始终创建新记录（简化逻辑）
+      contextId = this.db.createContext({
+        session_id: sessionId,
+        type: finalType,
+        content: args.content,
+        file_path: undefined,
+        line_start: finalLineStart,
+        line_end: finalLineEnd,
+        language: detectedLanguage || extractedContext.language,
+        tags: (args.tags || extractedContext.tags).join(","),
+        quality_score: extractedContext.quality_score,
+        metadata: JSON.stringify(mergedMetadata),
+      });
 
       // 添加文件关联到 context_files 表
       if (args.files_changed && args.files_changed.length > 0) {
@@ -2248,24 +2039,8 @@ Note: This only deletes the file index, not your development memory contexts.`,
         return name ? (language === "zh" ? name.zh : name.en) : type;
       };
 
-      if (shouldUpdateExisting) {
-        // 智能更新已有记忆
-        const shortId = contextId.slice(0, 8);
-        responseText =
-          language === "zh"
-            ? `🔄 已智能更新已有记忆 (ID: ${shortId}...)\n   相似度: ${(
-                existingContextInfo.original_similarity * 100
-              ).toFixed(1)}%\n   ${existingContextInfo.hours_ago.toFixed(
-                1
-              )}小时前创建`
-            : `🔄 Smart updated existing memory (ID: ${shortId}...)\n   Similarity: ${(
-                existingContextInfo.original_similarity * 100
-              ).toFixed(
-                1
-              )}%\n   Created ${existingContextInfo.hours_ago.toFixed(
-                1
-              )} hours ago`;
-      } else if (recordTier === "silent") {
+      // v2.5.3: 移除自动更新的响应分支（已禁用自动更新）
+      if (recordTier === "silent") {
         // 第一层：静默自动记忆（执行类工作）
         responseText =
           language === "zh"
@@ -2308,11 +2083,13 @@ Note: This only deletes the file index, not your development memory contexts.`,
 
       // Session信息
       if (autoSessionMeta.auto_session) {
-        responseText += `\nSession: ${
+        const sourceText =
           autoSessionMeta.session_source === "existing_active"
             ? "Reused active session"
-            : "Created new session"
-        } (${sessionId})`;
+            : autoSessionMeta.session_source === "tracked_session"
+            ? "Used tracked session"
+            : "Created new session";
+        responseText += `\nSession: ${sourceText} (${sessionId})`;
       }
 
       // 路径检测信息（仅单文件场景）
@@ -2323,6 +2100,8 @@ Note: This only deletes the file index, not your development memory contexts.`,
           (pathDetectionMeta.confidence || 0) * 100
         )}%)`;
       }
+
+      // v2.5.4: Session tracking removed - no longer needed
 
       return {
         content: [
@@ -2343,15 +2122,7 @@ Note: This only deletes the file index, not your development memory contexts.`,
           record_tier: recordTier,
           memory_source: memorySource,
           type: args.type,
-          // === 智能记忆更新元数据 (v2.4.9) ===
-          ...(shouldUpdateExisting
-            ? {
-                smart_update: true,
-                updated_existing_memory: true,
-                original_similarity: existingContextInfo?.original_similarity,
-                action_taken: existingContextInfo?.action,
-              }
-            : {}),
+          // v2.5.3: 移除自动更新元数据（已禁用自动更新功能）
           ...pathDetectionMeta,
           ...autoSessionMeta,
         },

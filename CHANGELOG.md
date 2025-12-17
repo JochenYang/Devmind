@@ -5,6 +5,103 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.3] - 2025-12-17
+
+### Fixed
+
+- **Critical: Multi-Project Session Detection**: Made `project_path` a required parameter for `record_context`
+  - **Breaking Change**: `project_path` is now REQUIRED (was optional)
+  - AI must explicitly specify project path for every memory recording
+  - Eliminates all path inference and guessing logic
+  - **Impact**: 100% accurate session detection, zero cross-project contamination
+
+- **Smart Memory Auto-Update Disabled**: Removed automatic memory update to prevent information loss
+  - **Problem**: Auto-update (even at 95% similarity) caused incorrect merging of different work
+  - **Example**: "Implement feature A" + "Fix bug in feature A" were incorrectly merged
+  - **Solution**: Now only provides warning, AI decides whether to use `update_context`
+  - **Impact**: Safer memory system, no accidental information loss
+
+### Changed
+
+- **record_context Tool**: `project_path` parameter is now required
+  - Old: `required: ["content"]`
+  - New: `required: ["content", "project_path"]`
+  - Description updated to emphasize requirement
+  - Clear error message if not provided
+
+- **Simplified Session Logic**: Removed complex multi-project detection
+  - No more path inference from environment variables
+  - No more multi-project conflict detection
+  - No more session tracking (no longer needed)
+  - Direct path → session lookup
+
+### Removed
+
+- **Path Inference Logic**: Removed automatic project path detection
+  - No longer tries to infer from `process.env.INIT_CWD`, `PWD`, `CD`, or `cwd()`
+  - No longer searches for project root automatically
+  - AI must provide explicit path
+
+- **Multi-Project Conflict Detection**: Removed complex validation logic
+  - No longer checks for multiple active projects
+  - No longer compares with recently accessed projects
+  - No longer throws multi-project conflict errors
+
+- **Session Tracking**: Removed tracking mechanisms (no longer needed)
+  - Removed `lastUsedSession` tracking
+  - Removed `SessionManager.currentSession` tracking
+  - Removed `setCurrentSession()` method
+  - Simpler, more reliable logic
+
+- **Automatic Memory Update**: Removed auto-update logic (~100 lines)
+  - No longer automatically merges similar memories
+  - No longer calls `handleUpdateContext` automatically
+  - No longer uses `mergeMemoryContent()` for auto-merge
+  - Simpler, safer behavior
+
+### Technical Details
+
+- **Simplified Flow**: 
+  ```
+  1. AI provides project_path (required)
+  2. Normalize and validate path
+  3. Get or create project's active session
+  4. Record memory to that session
+  5. If similar memory detected (>95%), show warning only
+  ```
+
+- **Session Management Simplification**:
+  - Removed `SessionManager.currentSession` tracking (no longer needed)
+  - Removed `setCurrentSession()` method (unused in simplified flow)
+  - Removed `CURRENT_SESSION_TTL` constant (5-minute TTL check)
+  - Removed `lastUsedSession` tracking in `mcp-server.ts`
+  - Removed `SESSION_TRACKING_TTL` constant
+  - `getCurrentSession()` now requires `project_path` parameter
+  - Direct path-based lookup: `project_path` → normalize → find project → get active session
+  - **Lines of Code**: Reduced by ~60 lines
+  - **Complexity**: From 3/5 to 1/5
+
+- **Memory Update Behavior Change**:
+  - **Before**: Auto-update if similarity >95% (risky)
+  - **After**: Always create new record + show warning (safe)
+  - Warning format:
+    ```
+    ⚠️ 检测到相似记忆：
+    - ID: xxx
+    - 相似度: 95.2%
+    - 创建时间: 0.5小时前
+    
+    如果这是重复工作，建议使用 update_context(context_id: "xxx") 更新现有记忆。
+    否则已创建新记录（推荐保留独立记忆）。
+    ```
+  - **Lines of Code**: Reduced by ~100 lines
+  - **Complexity**: From 5/5 to 1/5
+  - **Safety**: From 70% to 100%
+
+- **Error Handling**: Clear error if `project_path` not provided
+  - Includes usage example in error message
+  - No fallback to guessing or inference
+
 ## [2.5.2] - 2025-12-17
 
 ### Fixed

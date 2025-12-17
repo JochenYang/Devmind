@@ -185,23 +185,13 @@ export class SessionManager {
   }
 
   /**
-   * 获取项目的当前活跃会话（增强版 - 支持自动推断）
-   * @param projectPath 项目路径（可选，如果不提供会自动推断）
+   * 获取项目的当前活跃会话（v2.5.3 简化版）
+   * @param projectPath 项目路径（必需）
    * @returns 会话ID或null
    */
-  async getCurrentSession(projectPath?: string): Promise<string | null> {
-    // 如果没有提供projectPath，尝试自动推断
+  async getCurrentSession(projectPath: string): Promise<string | null> {
     if (!projectPath) {
-      projectPath = this.autoDetectProjectPath();
-      console.error(
-        `[SessionManager] Auto-detected project path: ${projectPath}`
-      );
-    }
-
-    if (!projectPath) {
-      console.error(
-        "[SessionManager] No project path available and auto-detection failed"
-      );
+      console.error("[SessionManager] project_path is required");
       return null;
     }
 
